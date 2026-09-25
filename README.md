@@ -1,6 +1,6 @@
 # WIPE: SURVIVAL
 
-<img width="800" alt="gameplay" src="https://github.com/user-attachments/assets/8a3e7a1c-8f03-45c4-ac1b-1bb5d38f30de" />
+<img width="800" alt="WIPE: SURVIVAL gameplay: the claw ship at the center of a warped blue grid, two kill bursts in lime and magenta, and floating scores" src="docs/screenshot.png" />
 
 A native With + raylib twin-stick survival prototype. Luminous wireframes on
 a blue lattice that warps around the ship, bullets, and explosions; two-tier
