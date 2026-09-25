@@ -1,0 +1,1 @@
+Audio UAT passed: valid assets; 34.9090919494629s loop wrapped to 2.23000001907349s; retry preserved music position.

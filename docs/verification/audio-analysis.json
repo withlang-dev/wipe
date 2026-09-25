@@ -1,0 +1,62 @@
+[
+  {
+    "file": "ambient_house.wav",
+    "duration_s": 34.9091,
+    "channels": 2,
+    "sample_rate": 44100,
+    "peak_dbfs": -2.38,
+    "rms_dbfs": -14.93,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -64.29
+  },
+  {
+    "file": "death.wav",
+    "duration_s": 0.65,
+    "channels": 1,
+    "sample_rate": 22050,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -18.28,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -90.31
+  },
+  {
+    "file": "hit.wav",
+    "duration_s": 0.075,
+    "channels": 1,
+    "sample_rate": 22050,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -19.46,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -90.31
+  },
+  {
+    "file": "hurt.wav",
+    "duration_s": 0.25,
+    "channels": 1,
+    "sample_rate": 22050,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -17.43,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -90.31
+  },
+  {
+    "file": "kill.wav",
+    "duration_s": 0.19,
+    "channels": 1,
+    "sample_rate": 22050,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -18.49,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -90.31
+  },
+  {
+    "file": "shot.wav",
+    "duration_s": 0.085,
+    "channels": 1,
+    "sample_rate": 22050,
+    "peak_dbfs": -2.16,
+    "rms_dbfs": -17.34,
+    "clipped_samples": 0,
+    "loop_seam_delta_dbfs": -90.31
+  }
+]
