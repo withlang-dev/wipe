@@ -50,7 +50,7 @@ Primary target:
 
 * Desktop development build
 * Steam Deck-compatible controls and performance assumptions
-* mandatory Xbox controller and Steam Controller support (Steam Input mappings are acceptable; Steamworks integration is not required)
+* mandatory Xbox controller and direct USB Steam Controller support; controller actions must use native analog/button input, without Steam Input or keyboard/mouse emulation
 
 Preferred demonstration:
 
@@ -96,7 +96,8 @@ Requirements:
 * top-down movement
 * mandatory independent dual-stick movement and aiming
 * full analog stick support on Xbox controllers
-* Steam Controller support through Steam Input: left stick moves; right trackpad supplies the independent aim action (right-stick emulation or mouse mapping)
+* direct USB Steam Controller support: left stick moves; right stick aims independently on models with dual sticks; original models use native right-trackpad coordinates for aim
+* native Steam Controller input through the USB Puck is also required; SDL3 provides controller transport/mapping alongside raylib, without Steam Input translation or an additional bridge board
 * keyboard fallback
 * normalized diagonal movement
 * responsive acceleration
@@ -122,7 +123,7 @@ No dash in this prototype.
 Requirements:
 
 * right stick controls aim direction independently from movement; this is mandatory
-* Xbox controller and Steam Controller/Steam Input mappings must both be validated
+* Xbox controller and native USB Steam Controller input must both be validated
 * mouse controls aim direction on desktop
 * aiming should feel stable at low stick magnitude
 * configurable deadzone if needed
@@ -594,7 +595,7 @@ Keep the background present but subordinate to gameplay cues. Avoid an aggressiv
 
 Original, generated, commissioned, or appropriately licensed audio is acceptable, but the quality bar applies regardless of source. Record provenance and licensing for any outside material. Discuss dependencies beyond raylib before adding them.
 
-Validate the mix during ordinary gameplay, crowded combat, player damage/death, and repeated retries. Verify audible output and smooth looping on desktop/headphones and validate the target controller/platform setup on Xbox controllers and Steam Controller/Steam Input. A subjective listening review is required in addition to technical checks; successful playback alone does not establish professional quality.
+Validate the mix during ordinary gameplay, crowded combat, player damage/death, and repeated retries. Verify audible output and smooth looping on desktop/headphones and validate the target controller/platform setup on Xbox controllers and direct USB Steam Controller input. A subjective listening review is required in addition to technical checks; successful playback alone does not establish professional quality.
 
 ---
 
@@ -849,7 +850,7 @@ The recruiting prototype is done when all of the following are true:
 
 * player moves smoothly
 * player aims independently
-* Xbox controller and Steam Controller/Steam Input dual-stick actions are tested; movement and aim work simultaneously, including deadzones and reconnects
+* Xbox controller and direct USB Steam Controller dual-stick actions are tested; movement and aim work simultaneously, including deadzones and reconnects, without keyboard/mouse emulation
 * auto-fire works
 * one enemy type continuously spawns
 * enemies chase the player
@@ -876,4 +877,3 @@ The recruiting prototype is done when all of the following are true:
 * another developer can clone/build/run it with reasonable instructions
 
 Anything beyond that should be treated skeptically until a partner has joined.
-

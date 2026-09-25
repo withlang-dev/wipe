@@ -39,19 +39,40 @@ pub type Enemy {
     age: f64 = 0.0,
     flash: f64 = 0.0,
     speed: f64 = 95.0,
+    // 0: lime block, 1: magenta spinner, 2: blue dart, 3: cyan weaver
+    kind: i32 = 0,
 }
 pub type Bullet { pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0 }
 pub type Particle {
     pos: V2 = V2 {}, vel: V2 = V2 {},
     life: f64 = 0.0, total: f64 = 1.0,
     size: f64 = 1.0, rotation: f64 = 0.0,
-    // 0: cyan, 1: magenta, 2: gold, 3: player white
+    // 0: cyan, 1: magenta, 2: gold, 3: player white, 4: lime, 5: blue
     tint: i32 = 0,
 }
 pub type Pulse {
     pos: V2 = V2 {}, life: f64 = 0.0,
     total: f64 = 0.35, radius: f64 = 30.0, tint: i32 = 1,
+    // Enemy kind whose silhouette scales out with this pulse; -1 for none.
+    kind: i32 = -1,
 }
+// Floating score text spawned by kills.
+pub type Popup { pos: V2 = V2 {}, life: f64 = 0.0, total: f64 = 0.9, value: i32 = 0 }
+pub const POPUP_CAP: i32 = 48
+// Presentation tint used for an enemy kind's outline and sparks.
+pub fn enemy_tint(kind: i32) -> i32:
+    match kind:
+        0 => 4
+        1 => 1
+        2 => 5
+        _ => 0
+// Speed offset per kind: darts rush, weavers lag.
+fn kind_speed(kind: i32) -> f64:
+    match kind:
+        1 => 12.0
+        2 => 34.0
+        3 => -16.0
+        _ => 0.0
 pub type Controls { motion: V2 = V2 {}, aim: V2 = V2 { x: 1.0, y: 0.0 } }
 
 // Allocate and initialize each pool once. Restart resets active lengths only.
@@ -64,14 +85,15 @@ pub type Game {
     rules: Rules = Rules {},
     player: V2 = V2 { x: 640.0, y: 400.0 },
     aim: V2 = V2 { x: 1.0, y: 0.0 },
-    health: i32 = 3, kills: i32 = 0, elapsed: f64 = 0.0,
+    health: i32 = 3, kills: i32 = 0, score: i32 = 0, elapsed: f64 = 0.0,
     invulnerable: f64 = 0.0, fire_timer: f64 = 0.0,
     spawn_timer: f64 = 0.7, muzzle: f64 = 0.0,
     trauma: f64 = 0.0, flash: f64 = 0.0, freeze: f64 = 0.0,
     kill_energy: f64 = 0.0,
     enemy_count: i32 = 0, bullet_count: i32 = 0, particle_count: i32 = 0,
-    pulse_count: i32 = 0,
+    pulse_count: i32 = 0, popup_count: i32 = 0,
     enemies: Vec[Enemy],
+    popups: Vec[Popup],
     cell_heads: Vec[i32],
     cell_next: Vec[i32],
     bullets: Vec[Bullet],
@@ -92,6 +114,7 @@ pub fn Game.new(rules: Rules = Rules {}) -> Game:
         bullets: storage(Bullet {}, BULLET_CAP),
         particles: storage(Particle {}, PARTICLE_CAP),
         pulses: storage(Pulse {}, 64),
+        popups: storage(Popup {}, POPUP_CAP),
     }
 
 extend Game:
@@ -104,6 +127,7 @@ extend Game:
         self.aim = V2 { x: 1.0, y: 0.0 }
         self.health = self.rules.max_health
         self.kills = 0
+        self.score = 0
         self.elapsed = 0.0
         self.invulnerable = 0.0
         self.fire_timer = 0.0
@@ -117,6 +141,7 @@ extend Game:
         self.bullet_count = 0
         self.particle_count = 0
         self.pulse_count = 0
+        self.popup_count = 0
         self.clear_events()
 
     pub fn clear_events(mut self: Self):
@@ -135,18 +160,32 @@ extend Game:
         for _ in 0..count:
             if self.particle_count >= PARTICLE_CAP: break
             let angle = self.random() * 6.283185307
-            let speed = (35.0 + self.random() * 150.0) * power
-            let life = 0.28 + self.random() * 0.38
-            let size = 1.5 + self.random() * 3.0
+            let speed = (60.0 + self.random() * 260.0) * power
+            let life = 0.4 + self.random() * 0.58
+            let size = 1.0 + self.random() * 1.6
             self.emit(Particle {
                 pos, vel: add(V2 { x: cos(angle) * speed, y: sin(angle) * speed }, scale(impact, 80.0)),
                 life, total: life, size, rotation: angle, tint,
             })
 
-    pub fn pulse(mut self: Self, pos: V2, radius: f64, tint: i32):
+    pub fn pulse(mut self: Self, pos: V2, radius: f64, tint: i32, kind: i32 = -1):
         if self.pulse_count >= 64: return
-        self.pulses[self.pulse_count] = Pulse { pos, life: 0.35, total: 0.35, radius, tint }
+        self.pulses[self.pulse_count] = Pulse { pos, life: 0.35, total: 0.35, radius, tint, kind }
         self.pulse_count += 1
+
+    pub fn popup(mut self: Self, pos: V2, value: i32):
+        if self.popup_count >= POPUP_CAP: return
+        self.popups[self.popup_count] = Popup { pos, life: 0.9, total: 0.9, value }
+        self.popup_count += 1
+
+    // Kind mix shifts from blocks and darts toward spinners and weavers.
+    fn pick_kind(mut self: Self) -> i32:
+        let roll = self.random()
+        let late = limit(self.elapsed / 25.0, 0.0, 1.0)
+        if roll < 0.55 - late * 0.2: 0
+        else if roll < 0.85 - late * 0.15: 2
+        else if roll < 0.95: 1
+        else: 3
 
     pub fn spawn_enemy(mut self: Self):
         if self.enemy_count >= ENEMY_CAP: return
@@ -159,7 +198,8 @@ extend Game:
             2 => V2 { x: 40.0 + along * 1200.0, y: 84.0 }
             _ => V2 { x: 40.0 + along * 1200.0, y: 764.0 }
         if length2(sub(pos, self.player)) < 100.0 * 100.0: return
-        self.enemies[self.enemy_count] = Enemy { pos, speed }
+        let kind = self.pick_kind()
+        self.enemies[self.enemy_count] = Enemy { pos, speed: speed + kind_speed(kind), kind }
         self.enemy_count += 1
 
     pub fn stress(mut self: Self, target: i32 = 350):
@@ -171,7 +211,8 @@ extend Game:
             let pos = V2 { x, y }
             if length2(sub(pos, self.player)) < 180.0 * 180.0: continue
             let speed = self.rules.enemy_speed + self.random() * self.rules.enemy_speed_variation
-            self.enemies[self.enemy_count] = Enemy { pos, age: 0.2, speed }
+            let kind = (self.random() * 3.999) as i32
+            self.enemies[self.enemy_count] = Enemy { pos, age: 0.2, speed: speed + kind_speed(kind), kind }
             self.enemy_count += 1
 
     pub fn effects(mut self: Self, dt: f64):
@@ -188,7 +229,7 @@ extend Game:
                 self.particles[i] = self.particles[self.particle_count]
                 continue
             p.pos = add(p.pos, scale(p.vel, dt))
-            p.vel = scale(p.vel, 1.0 / (1.0 + dt * 4.5))
+            p.vel = scale(p.vel, 1.0 / (1.0 + dt * 2.6))
             p.rotation += dt * 4.0
             self.particles[i] = p
             i += 1
@@ -200,6 +241,15 @@ extend Game:
                 self.pulses[j] = self.pulses[self.pulse_count]
                 continue
             j += 1
+        var k = 0
+        while k < self.popup_count:
+            self.popups[k].life -= dt
+            self.popups[k].pos.y -= dt * 34.0
+            if self.popups[k].life <= 0.0:
+                self.popup_count -= 1
+                self.popups[k] = self.popups[self.popup_count]
+                continue
+            k += 1
 
     pub fn hurt(mut self: Self):
         if self.health <= 0 or self.invulnerable > 0.0: return
@@ -283,10 +333,14 @@ extend Game:
         while b < self.bullet_count:
             var bullet: Bullet = self.bullets[b]
             let previous = bullet.pos
-            self.emit(Particle {
-                pos: previous, vel: scale(bullet.vel, -0.025), life: 0.12, total: 0.12,
-                size: 1.8, tint: 2,
-            })
+            // A sparse wake: one sparkle every third step keeps the muzzle clear.
+            if (bullet.life * 120.0 + 0.5) as i32 % 3 == 0:
+                let side = V2 { x: -bullet.vel.y, y: bullet.vel.x }
+                let scatter = (self.random() - 0.5) * 0.10
+                self.emit(Particle {
+                    pos: previous, vel: add(scale(bullet.vel, -0.03), scale(side, scatter)),
+                    life: 0.3, total: 0.3, size: 1.2, tint: 2,
+                })
             bullet.pos = add(bullet.pos, scale(bullet.vel, dt))
             bullet.life -= dt
             var hit = false
@@ -301,14 +355,19 @@ extend Game:
                     self.burst(bullet.pos, impact, 4, 2, 0.65)
                     self.hit_event = true
                     if self.enemies[e].hp <= 0:
+                        let kind: i32 = self.enemies[e].kind
                         self.enemy_count -= 1
                         self.enemies[e] = self.enemies[self.enemy_count]
                         self.kills += 1
                         self.kill_event = true
+                        // Rapid kills build a multiplier that decays between them.
+                        let multiplier = 1 + limit(self.kill_energy, 0.0, 4.0) as i32
+                        self.score += 100 * multiplier
+                        self.popup(pos, 100 * multiplier)
                         self.kill_energy = limit(self.kill_energy + 1.0, 0.0, 5.0)
-                        self.burst(pos, impact, 14, 1, 1.65 + self.kill_energy * 0.13)
-                        self.burst(pos, impact, 6, 2, 1.9)
-                        self.pulse(pos, 42.0 + self.kill_energy * 4.0, 1)
+                        self.burst(pos, impact, 26, enemy_tint(kind), 1.35 + self.kill_energy * 0.12)
+                        self.burst(pos, impact, 5, 3, 1.1)
+                        self.pulse(pos, 46.0 + self.kill_energy * 5.0, enemy_tint(kind), kind)
                         self.trauma = limit(self.trauma + 0.045, 0.0, 0.3)
                     break
             if hit or bullet.life <= 0.0 or bullet.pos.x < -30.0 or bullet.pos.x > WIDTH + 30.0 or bullet.pos.y < -30.0 or bullet.pos.y > HEIGHT + 30.0:
@@ -327,4 +386,5 @@ impl Copy for Enemy
 impl Copy for Bullet
 impl Copy for Particle
 impl Copy for Pulse
+impl Copy for Popup
 impl Copy for Controls

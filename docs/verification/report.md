@@ -117,16 +117,89 @@ music loops. Confirm bass weight without masking, comfortable high frequencies,
 clear damage/death cues, and an engaging meditative flow. The procedural music
 and effects are the first reviewable candidate, not an approved final master.
 
-## Remaining hands-on acceptance
+## Native controller integration
 
-No controller was connected during the desktop runs (reported count: 0).
+SDL3 3.4.14 is now a pinned Conan dependency (`c.sdl`); the playable game uses
+its gamepad subsystem alongside raylib's existing window, rendering, and audio.
+No Steam Input translation, custom GLFW fork, system driver, or bridge board
+is used. SDL device ownership is scoped, polling is manual with gamepad events
+disabled, and discovery is limited to twice per second while disconnected.
+The selected device remains stable until it disconnects. Gameplay input and
+retry are gated on raylib window focus.
+
+`with build :test` passes all four test files. New coverage exercises signed
+axis endpoints, simultaneous movement/aim, radial deadzones, retained aim,
+mouse takeover, combined-input normalization, and neutral disconnect behavior.
+Process-local SDL virtual devices test the actual mapping and handle lifecycle:
+connecting while A is held does not retry, a fresh press retries exactly once,
+disconnect clears movement/buttons, and a new device can reconnect.
+
+The installed Conan library builds and links successfully. On macOS, `build.w`
+explicitly adds the SDK frameworks listed by SDL's Conan recipe because With's
+dependency metadata omitted those option-guarded framework declarations. A
+single selective SDL import avoids unrelated unsupported C inline helpers and
+With's deduplication of C declarations before subsequent selective imports.
+No compiler modifications or additional third-party dependencies were required.
+
+An earlier isolated SDL3 C probe opened the paired Steam Controller through
+Puck `28DE:1304` and observed native analog updates. The new With runner's
+bounded check reported no active controller: macOS still enumerated the Puck,
+and repeating the earlier C probe also reported zero joysticks. Controller
+sleep is a possible cause, not a confirmed diagnosis. See the
+[initial With detection result](controller-detection.txt). Physical stick/button
+operation, cable PID `1302`, and real unplug/replug recovery remain pending.
+
+Use `with build :controller-uat` and `./out/bin/controller-uat`, with Steam and
+Steam Controller Bridge closed. Wake the paired controller, move both sticks,
+press A, and unplug/replug the Puck. The diagnostic displays observed controls
+and reports steady-state polling time on exit. Then repeat movement, aim, and
+death/retry in the playable game. SDL virtual-device tests are not physical
+controller certification.
+
+Follow-up after the user reported no response: an earlier temporary With
+probe was still running because it had ignored SIGTERM. It was force-closed
+and its exit verified. Steam's persistent `ipcserver` launch agent was also
+stopped for the current login. SDL still reported zero gamepads. A separate
+read-only HID check successfully opened all four vendor-specific Puck slots
+(interfaces 2–5, usage `FF00:0001`); each returned zero input reports and zero
+read errors over five seconds. This narrows the current failure to the active
+controller/Puck input stream, before gamepad mapping. A physical Puck reconnect
+and controller power cycle were requested.
+
+After the user asked to retry, the running With diagnostic reported
+`Controller connected: Steam Controller (vendor 10462, product 4868)`.
+The diagnostic was then closed before launching the playable WIPE executable;
+WIPE independently reported the same connection through Puck `28DE:1304`.
+Native detection is now confirmed in the actual game. The user subsequently
+confirmed that the controller controls WIPE successfully: "it works!" Basic
+native Steam Controller play through the Puck is accepted. This confirmation
+does not separately sign off full stick range, deadzone tuning, A retry,
+focus changes, or repeated reconnects; those detailed checks remain pending.
+
+After integration, the graphics fixture passed capped and uncapped runs with
+native discovery polling enabled. No active controller was detected, so these
+measurements do not establish the cost of receiving live HID reports. The
+capped 150/350/512-enemy means were 16.88/16.90/17.06 ms; p95 was at most
+17.25 ms in every stage. With the diagnostic window closed, the final uncapped
+means were 1.53/1.87/5.83 ms, with p95 bounds of 3.75/3.75/8.00 ms.
+Fresh combat, stress, and death screenshots were
+inspected: the cyan HUD, green wireframes, blue reactive grid, and magenta
+impact effects remain intact. Dense overlapping enemies still merge into
+bright clusters as noted in the earlier visual review.
+
+Raw results: [SDL capped](sdl-capped-performance.txt),
+[SDL uncapped](sdl-uncapped-performance.txt). The new screenshots are under
+`out/uat/`; the earlier checked-in artistic review images remain above.
+
+## Remaining hands-on acceptance
 
 | Check | Procedure | Status |
 | --- | --- | --- |
 | Desktop input | Move with WASD while independently sweeping mouse aim; verify F1, F3, Space retry, Escape | Pending end-to-end UI check |
 | Xbox dual sticks | Move and aim simultaneously; test partial magnitude, diagonals, centered-stick aim retention, A retry | Pending hardware |
 | Xbox reconnect | Disconnect/reconnect during a run; ensure movement resumes without restarting | Pending hardware |
-| Steam Controller | Run via Steam Input with left-stick movement and right-trackpad mouse/right-stick aim; verify simultaneous actions and retry | Pending hardware |
+| Steam Controller + Puck | Wake paired controller; move/aim simultaneously through native SDL input; test A retry, unplug/replug, and focus loss | Basic native play confirmed by user; detailed retry/reconnect/focus checks pending |
+| Steam Controller cable | Repeat the native controls and reconnect checks with PID `1302` directly over USB | Pending hardware |
 | Steam Deck | Check the same controls, readability, 150/350 enemy pacing, and speaker mix | Pending hardware |
 | Audio artistry | Complete the listening review above | Pending listening approval |
 

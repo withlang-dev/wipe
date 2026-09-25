@@ -4,3 +4,4 @@ version = "0.1.0"
 
 [deps]
 c.raylib = "6.0"
+c.sdl = "3.4.14"

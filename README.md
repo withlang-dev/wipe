@@ -2,17 +2,23 @@
 
 <img width="800" alt="gameplay" src="https://github.com/user-attachments/assets/8a3e7a1c-8f03-45c4-ac1b-1bb5d38f30de" />
 
-A native With + raylib twin-stick survival prototype. Luminous wireframes,
-a reactive grid, Gaussian bloom, directional sparks, and a bass-led ambient
-house soundtrack. One arena, one chaser type, one-hit kills, automatic fire,
-and immediate retry.
+A native With + raylib twin-stick survival prototype. Luminous wireframes on
+a blue lattice that warps around the ship, bullets, and explosions; two-tier
+Gaussian bloom; line-spark explosions; floating kill scores; and a bass-led
+ambient house soundtrack. One arena, four chaser silhouettes (lime blocks,
+magenta spinners, blue darts, cyan weavers) that share one behavior, one-hit
+kills, automatic fire, and immediate retry. Kills score 100 times a
+multiplier that rapid kills build and idle time decays.
 
 ## Build and play
 
-Requires the With compiler and its raylib 6.0 dependency (declared in
-`with.toml`). No other game/build dependency has been added.
+Requires the With compiler, raylib 6.0, and SDL3 3.4.14 (the Conan package is
+named `sdl`). Both native dependencies are pinned in `with.toml`. SDL handles
+native controller transport and mapping; raylib handles graphics and audio.
 
 ```sh
+with get c.raylib@6.0
+with get c.sdl@3.4.14
 with build
 ./out/bin/wipe
 ```
@@ -34,12 +40,42 @@ An unavailable audio device permits silent play.
 | Populate 350 enemies | F3 | — |
 | Quit | Escape | — |
 
-Xbox controllers use raylib's standard gamepad mapping. The first connected
-pad is selected on every input sample, including reconnects. For the original
-Steam Controller, use Steam Input with left-stick movement and right-trackpad
-right-stick or mouse aiming; add the executable as a non-Steam game. Physical
-Xbox/Steam Controller and Steam Deck validation remains a required hardware
-acceptance step; software tests are not a substitute for those checks.
+Xbox and Steam controllers use SDL's native gamepad mapping. The first available
+mapped controller stays selected until it disconnects; WIPE then looks for a
+replacement twice per second. Both sticks have a radial deadzone, and centered
+aim retains the last direction. Moving the mouse returns to mouse aiming.
+Gameplay input is ignored while the game window is unfocused.
+
+For the Steam Controller, quit Steam and Steam Controller Bridge, connect the
+Puck over USB, and wake the paired controller. Steam Input, keyboard/mouse
+translation, and an additional bridge board are not required. Direct cable
+operation and Xbox hardware still need separate acceptance checks.
+
+On macOS, Steam's `ipcserver` helper can remain running after Steam quits. If
+the Puck is visible but no native controller is detected, first close the game
+and other controller tools, then stop that helper for the current login:
+
+```sh
+launchctl bootout user/$(id -u)/com.valvesoftware.steam.ipctool
+```
+
+Launching Steam later can register the helper again. Reconnect the Puck and
+wake the paired controller; its light should be solid white for Puck mode.
+This is troubleshooting guidance from the [Steam Controller Bridge guide](https://github.com/tkubicz/steam-controller-bridge/blob/main/docs/USER_GUIDE.md#3-connect-the-steam-controller-2),
+not a permanent system configuration change. A missing launchd service means
+the helper is already stopped.
+
+To inspect native input before playing:
+
+```sh
+with build :controller-uat
+./out/bin/controller-uat
+```
+
+Move both sticks and press A; the screen marks each control when observed.
+Disconnect and reconnect to check recovery. Escape closes the test and prints
+the observed controls and mean/peak polling time. A device being detected alone
+does not establish full hardware acceptance.
 
 ## Acceptance and performance
 
@@ -53,6 +89,10 @@ WIPE_BENCH=1 ./out/bin/uat > out/uat/uncapped-performance.txt
 with build :audio-uat
 ./out/bin/audio-uat
 ```
+
+The controller tests use process-local SDL virtual devices to verify axis
+mapping, simultaneous movement/aim, retry edges, held-button connection,
+disconnect, and reconnect. They do not create a system-wide virtual controller.
 
 The separate `uat` executable drives a deterministic fixture through 150,
 350, and 512 enemies, sustained particles, death, and retry. Only this runner
@@ -88,11 +128,12 @@ an automated fixture, not a human playthrough or a hardware certification.
 - `src/main.w`: playable lifecycle and fixed-step loop.
 - `src/game.w`: deterministic simulation, preallocated pools, local separation.
 - `src/tuning.w`: gameplay knobs, independent from presentation.
-- `src/input.w`: radial deadzones, keyboard/mouse, gamepad selection.
+- `src/input.w`: radial deadzones and keyboard/mouse/controller arbitration.
+- `src/gamepads.w`, `src/sdl.w`: native controller discovery, ownership, mapping.
 - `src/presentation.w`: sharp gameplay geometry, effects, HUD, render passes.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
-- `src/uat.w`, `src/audio_uat.w`, `test/`: acceptance and measurement.
+- `src/uat.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`: acceptance and measurement.
 
 The original procedural WAV assets and shader sources are checked in. See
 `assets/README.md` for provenance. Regenerate audio with

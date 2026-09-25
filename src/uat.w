@@ -6,6 +6,7 @@ use presentation
 use audio
 use std.process.env
 use metrics
+use gamepads
 
 fn pilot(g: &Game, frame: i32) -> Controls:
     let t = frame as f64 / 60.0
@@ -25,6 +26,9 @@ fn main:
     InitWindow(WIDTH, HEIGHT, "WIPE: SURVIVAL | acceptance run")
     if not IsWindowReady(): return 1
     defer: CloseWindow()
+    var pads = match Gamepads.open():
+        Ok(controllers) => controllers
+        Err(message) => { eprint(message); return 1 }
     let benchmark = env("WIPE_BENCH") == "1"
     let recording = env("WIPE_RECORD") == "1"
     let pace = if recording: 3 else: 1
@@ -42,11 +46,6 @@ fn main:
     var updates = Metric {}
     var renders = Metric {}
     var restarts = Metric {}
-    if not recording:
-        var pads = 0
-        for index in 0..4:
-            if IsGamepadAvailable(index): pads += 1
-        print(f"Connected controllers: {pads}")
     var frame = 0
     var captured = false
     var capture_at = -1
@@ -55,10 +54,13 @@ fn main:
     g.rules.contact_radius = 0.0
     var debug = false
     var best = 0.0
+    var best_score = 0
     var frame_ms = 16.67
     var peak_particles = 0
     var peak_enemies = 0
     while not WindowShouldClose():
+        // Include the production controller polling cost in frame measurements.
+        let _ = pads.poll()
         let raw_dt = GetFrameTime() as f64
         frame_ms += (raw_dt * 1000.0 - frame_ms) * 0.05
         g.clear_events()
@@ -84,12 +86,13 @@ fn main:
         for _ in 0..2: g.tick(controls, 1.0 / 120.0)
         let update_ms = (GetTime() - update_start) * 1000.0
         if g.elapsed > best: best = g.elapsed
+        if g.score > best_score: best_score = g.score
         if g.particle_count > peak_particles: peak_particles = g.particle_count
         if g.enemy_count > peak_enemies: peak_enemies = g.enemy_count
         let clock = if recording: frame as f64 / 60.0 else: GetTime()
         if not recording:
             if let Some(bank) = &sound: bank.play(g, clock)
-        let render_ms = renderer.draw(g, clock, debug and not recording, frame_ms, best)
+        let render_ms = renderer.draw(g, clock, debug and not recording, frame_ms, best, best_score)
         if not recording and frame > 60 and frame > last_capture + 2:
             updates.add(update_ms)
             renders.add(render_ms)

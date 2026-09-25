@@ -2,6 +2,7 @@ use c_import("raylib.h")
 use game
 use presentation
 use input
+use gamepads
 use audio
 
 fn main:
@@ -12,6 +13,9 @@ fn main:
         eprint("WIPE could not create a graphics context.")
         return 1
     defer: CloseWindow()
+    var pads = match Gamepads.open():
+        Ok(controllers) => controllers
+        Err(message) => { eprint(f"WIPE could not initialize controllers: {message}"); return 1 }
     SetTargetFPS(60)
     InitAudioDevice()
     defer: CloseAudioDevice()
@@ -28,6 +32,7 @@ fn main:
     var input = Input {}
     var debug = false
     var best = 0.0
+    var best_score = 0
     var accumulator = 0.0
     var frame_ms = 16.67
     while not WindowShouldClose():
@@ -37,12 +42,12 @@ fn main:
         if IsKeyPressed(KEY_F3) and game.health > 0:
             game.stress()
             debug = true
-        let pad = active_pad()
-        let retry = IsKeyPressed(KEY_SPACE) or (pad >= 0 and IsGamepadButtonPressed(pad, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
+        let pad = pads.poll()
+        let retry = IsWindowFocused() and (IsKeyPressed(KEY_SPACE) or pad.retry)
         if game.health <= 0 and retry:
             game.reset()
             accumulator = 0.0
-        let controls = input.sample(game.player, game.aim)
+        let controls = input.sample(game.player, game.aim, pad)
         game.clear_events()
         // Bound catch-up after a stall; input is sampled before fixed steps.
         accumulator += limit(elapsed, 0.0, 0.1)
@@ -50,6 +55,7 @@ fn main:
             game.tick(controls, 1.0 / 120.0)
             accumulator -= 1.0 / 120.0
         if game.elapsed > best: best = game.elapsed
+        if game.score > best_score: best_score = game.score
         if let Some(bank) = &sound: bank.play(game, GetTime())
-        let _ = renderer.draw(game, GetTime(), debug, frame_ms, best)
+        let _ = renderer.draw(game, GetTime(), debug, frame_ms, best, best_score)
     0

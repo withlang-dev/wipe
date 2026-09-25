@@ -1,0 +1,7 @@
+Observed peaks: enemies=512 particles=1512
+150 enemies / frame: samples=299 mean_ms=1.52935743967327 p50_ms<=1.25 p95_ms<=3.75 p99_ms<=4 max_ms=10.7653336599469
+350 enemies / frame: samples=159 mean_ms=1.87056001389997 p50_ms<=1.75 p95_ms<=3.75 p99_ms<=4 max_ms=4.46441676467657
+512 enemies + sustained particles / frame: samples=329 mean_ms=5.83417135033202 p50_ms<=5.5 p95_ms<=8 p99_ms<=8.5 max_ms=8.98770801723003
+simulation CPU: samples=959 mean_ms=0.09565815085159 p50_ms<=0.25 p95_ms<=0.5 p99_ms<=0.5 max_ms=0.31154166666658
+render submission CPU (excludes EndDrawing): samples=959 mean_ms=2.28122349669795 p50_ms<=1.25 p95_ms<=5 p99_ms<=5.25 max_ms=5.27420833333347
+restart CPU: samples=1 mean_ms=0.00012499999991 p50_ms<=0.25 p95_ms<=0.25 p99_ms<=0.25 max_ms=0.00012499999991
