@@ -57,10 +57,10 @@ fn capacity_uat:
     assert(g.enemy_count == 350)
     for _ in 0..1000: g.spawn_enemy()
     assert(g.enemy_count == ENEMY_CAP)
-    g.burst(V2 {}, V2 {}, 3000, 0, 1.0)
+    g.burst(V2 {}, V2 {}, 3000, .Cyan, 1.0)
     assert(g.particle_count == PARTICLE_CAP)
-    for _ in 0..100: g.pulse(V2 {}, 40.0, 0)
-    assert(g.pulse_count == 64)
+    for _ in 0..100: g.pulse(V2 {}, 40.0, .Cyan)
+    assert(g.pulse_count == PULSE_CAP)
     g.effects(1.0)
     assert(g.particle_count == 0 and g.pulse_count == 0)
     // Fire cadence and spawning run independently from rendering.

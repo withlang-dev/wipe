@@ -4,6 +4,8 @@ use paths
 
 // Each clip owns exactly one raylib sound buffer. These operations borrow
 // the token; they neither retain nor destroy the owner's sound resource.
+// The compiler does not yet project methods for by-value resource tokens,
+// so callers pass `.repr` to the raylib functions directly.
 c facade sounds:
     resource Track wraps Music
         from LoadMusicStream

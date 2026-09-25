@@ -31,8 +31,7 @@ fn main:
     var game = Game.new()
     var input = Input {}
     var debug = false
-    var best = 0.0
-    var best_score = 0
+    var session = Session {}
     var accumulator = 0.0
     var frame_ms = 16.67
     while not WindowShouldClose():
@@ -54,8 +53,7 @@ fn main:
         while accumulator >= 1.0 / 120.0:
             game.tick(controls, 1.0 / 120.0)
             accumulator -= 1.0 / 120.0
-        if game.elapsed > best: best = game.elapsed
-        if game.score > best_score: best_score = game.score
+        session.observe(game)
         if let Some(bank) = &sound: bank.play(game, GetTime())
-        let _ = renderer.draw(game, GetTime(), debug, frame_ms, best, best_score)
+        let _ = renderer.draw(game, GetTime(), debug, frame_ms, session)
     0

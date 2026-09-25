@@ -53,8 +53,7 @@ fn main:
     var g = Game.new()
     g.rules.contact_radius = 0.0
     var debug = false
-    var best = 0.0
-    var best_score = 0
+    var session = Session {}
     var frame_ms = 16.67
     var peak_particles = 0
     var peak_enemies = 0
@@ -80,19 +79,22 @@ fn main:
         if frame >= 660 * pace:
             debug = true
             g.stress(512)
-            g.burst(g.player, g.aim, 50, frame % 3, 1.0)
+            let tint: Tint = match frame % 3:
+                0 => .Cyan
+                1 => .Magenta
+                _ => .Gold
+            g.burst(g.player, g.aim, 50, tint, 1.0)
         let controls = pilot(g, frame)
         let update_start = GetTime()
         for _ in 0..2: g.tick(controls, 1.0 / 120.0)
         let update_ms = (GetTime() - update_start) * 1000.0
-        if g.elapsed > best: best = g.elapsed
-        if g.score > best_score: best_score = g.score
+        session.observe(g)
         if g.particle_count > peak_particles: peak_particles = g.particle_count
         if g.enemy_count > peak_enemies: peak_enemies = g.enemy_count
         let clock = if recording: frame as f64 / 60.0 else: GetTime()
         if not recording:
             if let Some(bank) = &sound: bank.play(g, clock)
-        let render_ms = renderer.draw(g, clock, debug and not recording, frame_ms, best, best_score)
+        let render_ms = renderer.draw(g, clock, debug and not recording, frame_ms, session)
         if not recording and frame > 60 and frame > last_capture + 2:
             updates.add(update_ms)
             renders.add(render_ms)
