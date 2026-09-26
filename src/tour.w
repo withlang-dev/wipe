@@ -121,5 +121,15 @@ fn main:
     wipe.collection_cursor = 4
     clock = frames(&wipe, &renderer, 3, clock)
     TakeScreenshot("out/tour/11-registry.png")
+    // The Ring stage mid-boss-entry: the dead center and the zoomed camera.
+    wipe.stage = .Ring
+    wipe.launch_as(.Claw)
+    wipe.game.rules.contact_radius = 0.0
+    wipe.game.stress(300)
+    wipe.game.player = add(wipe.game.center(), V2 { x: 0.0, y: 520.0 })
+    wipe.game.view = add(wipe.game.center(), V2 { x: 0.0, y: 300.0 })
+    wipe.game.zoom_timer = 1.2
+    clock = frames(&wipe, &renderer, 3, clock)
+    TakeScreenshot("out/tour/12-ring-zoom.png")
     print("tour done")
     0

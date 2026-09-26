@@ -396,6 +396,12 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     DrawRectangleLinesEx(arena, 9.0, cyan(0.08))
     DrawRectangleLinesEx(arena, 3.0, cyan(0.55 + 0.1 * sin(clock * 2.0)))
     DrawRectangleLinesEx(arena, 1.0, white(0.6))
+    if g.rules.void_radius > 0.0:
+        let void_center = to_screen(cam, g.center())
+        circle(void_center, g.rules.void_radius, ink(0.9))
+        ring(void_center, g.rules.void_radius + 4.0, cyan(0.08))
+        DrawCircleLinesV(rv(void_center), g.rules.void_radius as f32, cyan(0.55 + 0.1 * sin(clock * 2.0)))
+        ring(void_center, g.rules.void_radius - 2.0, white(0.5))
     // Decorative effects render underneath all solid gameplay silhouettes.
     for i in 0..g.pulse_count:
         let p: Pulse = g.pulses[i]
@@ -868,7 +874,7 @@ pub type Renderer {
     scene: RenderTexture2D, bloom_a: RenderTexture2D, bloom_b: RenderTexture2D,
     wide_a: RenderTexture2D, wide_b: RenderTexture2D,
     grid: Effect, bright: Effect, blur: Effect, composite: Effect,
-    ship_location: i32, camera_location: i32, visible_location: i32, count_location: i32, impulse_locations: Vec[i32],
+    ship_location: i32, camera_location: i32, visible_location: i32, stage_location: i32, count_location: i32, impulse_locations: Vec[i32],
     bullet_count_location: i32, bullet_locations: Vec[i32],
     threshold_location: i32, direction_location: i32, bloom_location: i32, wide_location: i32,
 }
@@ -891,7 +897,7 @@ pub fn Renderer.open() -> Renderer:
         scene: surface(WIDTH, HEIGHT), bloom_a: surface(320, 200), bloom_b: surface(320, 200),
         wide_a: surface(160, 100), wide_b: surface(160, 100),
         ship_location: grid.location("ship"), camera_location: grid.location("camera"),
-        visible_location: grid.location("shipVisible"), count_location: grid.location("impulseCount"),
+        visible_location: grid.location("shipVisible"), stage_location: grid.location("stage"), count_location: grid.location("impulseCount"),
         bullet_count_location: grid.location("bulletCount"), bullet_locations: bullets,
         threshold_location: bright.location("threshold"), direction_location: blur.location("direction"),
         bloom_location: composite.location("bloom"), wide_location: composite.location("wide"),
@@ -924,7 +930,7 @@ extend Renderer:
         for target in [self.scene, self.bloom_a, self.bloom_b, self.wide_a, self.wide_b]:
             if not IsRenderTextureValid(target): return false
         let uniforms = [
-            self.ship_location, self.camera_location, self.visible_location, self.count_location, self.bullet_count_location,
+            self.ship_location, self.camera_location, self.visible_location, self.stage_location, self.count_location, self.bullet_count_location,
             self.threshold_location, self.direction_location, self.bloom_location,
             self.wide_location, self.impulse_locations[0], self.bullet_locations[0],
         ]
@@ -953,7 +959,12 @@ extend Renderer:
     // or a menu on top, then call `present`. `brightness` dims attract mode.
     pub fn begin_world(self: &Self, g: &Game, clock: f64, brightness: f64) -> Camera:
         let cam = camera_for(g, clock)
-        let ship = to_screen(cam, g.player)
+        let zoom = g.zoom()
+        let center = V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 }
+        // Shader inputs are where things land on screen after the zoom.
+        let zoomed = (p: V2) => add(center, scale(sub(p, center), zoom))
+        let ship = zoomed(to_screen(cam, g.player))
+        self.grid.vector2(self.stage_location, g.rules.void_radius as f32, zoom as f32)
         self.grid.vector4(self.ship_location, ship.x as f32, ship.y as f32, clock as f32, g.trauma as f32)
         self.grid.vector4(self.camera_location, cam.origin.x as f32, cam.origin.y as f32, g.rules.arena_width as f32, g.rules.arena_height as f32)
         self.grid.scalar(self.visible_location, if g.health > 0: 1.0 else: 0.0)
@@ -961,14 +972,14 @@ extend Renderer:
         self.grid.scalar(self.count_location, count as f32)
         for i in 0..count:
             let p: Pulse = g.pulses[i]
-            let pos = to_screen(cam, p.pos)
-            self.grid.vector4(self.impulse_locations[i], pos.x as f32, pos.y as f32, (1.0 - p.life / p.total) as f32, p.radius as f32)
+            let pos = zoomed(to_screen(cam, p.pos))
+            self.grid.vector4(self.impulse_locations[i], pos.x as f32, pos.y as f32, (1.0 - p.life / p.total) as f32, (p.radius * zoom) as f32)
         var shots = 0
         for i in 0..g.bullet_count:
             if shots >= 24: break
             let b: Bullet = g.bullets[i]
             if b.hostile or not g.on_screen(b.pos, 0.0): continue
-            let pos = to_screen(cam, b.pos)
+            let pos = zoomed(to_screen(cam, b.pos))
             let heading = direction(b.vel)
             self.grid.vector4(self.bullet_locations[shots], pos.x as f32, pos.y as f32, heading.x as f32, heading.y as f32)
             shots += 1
@@ -978,7 +989,10 @@ extend Renderer:
         self.grid.begin()
         DrawRectangle(0, 0, WIDTH, HEIGHT, WHITE)
         EndShaderMode()
+        let view = Camera2D { offset: rv(center), target: rv(center), rotation: 0.0, zoom: zoom as f32 }
+        BeginMode2D(view)
         render_world(g, cam, clock)
+        EndMode2D()
         if brightness < 1.0: DrawRectangle(0, 0, WIDTH, HEIGHT, ink(1.0 - brightness))
         cam
 

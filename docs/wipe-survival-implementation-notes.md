@@ -563,13 +563,14 @@ The tree implements M1, M2, and most of M3:
 - all eight weapons, fourteen passives, eight evolutions, four unions
 - cores with magnet, combo, and merging on the floor; beacons and pickups
 - boosts with reroll, skip, and banish; caches of one, three, or five
-- all nine ships, three stages, the shop, unlocks, registry, results
+- all nine ships, four stages (Field, Corridor, Shaft, and the Ring with
+  its dead center), the shop, unlocks, registry, results
   screen with the near-miss layer, the collection, session metrics
 - the save exactly as §13 states it
 
-Not yet built: stage shapes beyond rectangles (diamond, ring, cross), the
-boss camera zoom, M4 (Steamworks, achievements, Deck acceptance), and the
-stretch lists. Tuning has been checked only with a headless bot, whose
+Not yet built: the diamond and cross stage shapes, M4 (Steamworks,
+achievements, Deck acceptance; the SDK is an external dependency not yet
+approved), and the stretch lists, which the spec gates on a balanced pool. Tuning has been checked only with a headless bot, whose
 first deaths land between five and seven minutes; the done conditions
 that name playtesters are still open.
 

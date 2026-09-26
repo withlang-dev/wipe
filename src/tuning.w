@@ -45,6 +45,8 @@ pub type Rules {
     // Stage modifiers.
     spawn_scale: f64 = 1.0,
     speed_scale: f64 = 1.0,
+    // A dead center: a circle at the arena's middle that nothing enters.
+    void_radius: f64 = 0.0,
 }
 
 extend Rules:
@@ -91,17 +93,18 @@ pub fn events() -> [Event; 12]:
 
 // Stages are arena shapes with a rule modifier. Geometry is level design,
 // and in an abstract game it costs no art.
-pub enum Stage { | Field | Corridor | Shaft }
+pub enum Stage { | Field | Corridor | Shaft | Ring }
 impl Copy for Stage
 impl Eq for Stage
 
-pub const STAGE_COUNT: i32 = 3
+pub const STAGE_COUNT: i32 = 4
 
 pub fn stage_at(index: i32) -> Stage:
     match index:
         0 => .Field
         1 => .Corridor
-        _ => .Shaft
+        2 => .Shaft
+        _ => .Ring
 
 extend Stage:
     pub fn index(self: &Self) -> i32:
@@ -109,18 +112,22 @@ extend Stage:
             .Field => 0
             .Corridor => 1
             .Shaft => 2
+            .Ring => 3
     pub fn name(self: &Self) -> str:
         match self:
             .Field => "Field"
             .Corridor => "Corridor"
             .Shaft => "Shaft"
+            .Ring => "Ring"
     pub fn describe(self: &Self) -> str:
         match self:
             .Field => "The open rectangle. Four seconds to any wall."
             .Corridor => "A horizontal corridor. Every fight is a sweep. +30% spawns."
             .Shaft => "A vertical shaft. Nowhere to circle. +20% enemy speed."
+            .Ring => "A ring around a dead center. Every chase curves. +15% spawns."
     pub fn rules(self: &Self) -> Rules:
         match self:
             .Field => Rules {}
             .Corridor => Rules { arena_width: 3600.0, arena_height: 720.0, spawn_scale: 1.3 }
             .Shaft => Rules { arena_width: 900.0, arena_height: 2600.0, speed_scale: 1.2 }
+            .Ring => Rules { arena_width: 2000.0, arena_height: 2000.0, void_radius: 420.0, spawn_scale: 1.15 }

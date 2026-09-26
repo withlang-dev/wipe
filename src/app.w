@@ -783,6 +783,7 @@ extend App:
                     let w = 100.0 * limit(rules.arena_width / 3600.0, 0.2, 1.0)
                     let h = 60.0 * limit(rules.arena_height / 2600.0, 0.2, 1.0)
                     DrawRectangleLines((center.x - w / 2.0) as i32, (center.y - h / 2.0) as i32, w as i32, h as i32, if open: cyan(1.0) else: white(0.2))
+                    if rules.void_radius > 0.0: ring(center, h * rules.void_radius / rules.arena_height, if open: cyan(1.0) else: white(0.2))
                 }
             centered_at(if open: self.entry_name(self.tab, i) else: "LOCKED", x + 70, y + 80, 12, if open: white(0.9) else: white(0.3))
         // Detail panel.

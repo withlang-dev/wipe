@@ -12,7 +12,7 @@ drop cores; cores fill the level-up bar and the combo; every level is a
 choice of three cards from eight weapons, fourteen passives, and twelve
 merges. Elites drop caches, beacons drop pickups, bosses arrive at five,
 ten, and fifteen minutes, and the Null ends the run at twenty. Credits are
-banked whatever happens and spent in a refundable shop. Nine ships, three
+banked whatever happens and spent in a refundable shop. Nine ships, four
 stages, and a registry of every enemy unlock from run facts. The save is
 read before the first frame and written atomically with a backup on every
 change.

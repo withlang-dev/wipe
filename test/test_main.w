@@ -154,6 +154,21 @@ fn ships_uat:
     g.start(launch)
     assert(g.level == 5 and g.build.weapon_count() == 3)
 
+fn stage_uat:
+    // The Ring's dead center holds the ship, enemies, and bolts out.
+    var g = Game.new(Stage.Ring.rules())
+    assert(not g.in_void(g.player))
+    g.player = g.center()
+    g.tick(Controls {}, 1.0 / 120.0)
+    assert(not g.in_void(g.player))
+    let pos = g.clamp_to_arena(add(g.center(), V2 { x: 10.0 }), 5.0)
+    assert(length2(sub(pos, g.center())) >= 425.0 * 425.0 - 1.0)
+    // A boss's entry pulls the camera back, then returns it.
+    g.zoom_timer = 1.2
+    assert(g.zoom() < 0.9)
+    g.zoom_timer = 0.0
+    near(g.zoom(), 1.0)
+
 fn capacity_uat:
     var g = Game.new()
     g.stress()
@@ -194,6 +209,7 @@ fn main:
     boost_uat()
     timeline_uat()
     ships_uat()
+    stage_uat()
     capacity_uat()
     determinism_uat()
     print("UAT passed: movement, camera, fire, damage, cores, level-up, merge, death, restart, timeline, capacity, determinism")

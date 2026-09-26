@@ -210,6 +210,7 @@ pub fn stage_condition(stage: Stage) -> Condition:
         .Field => .Start
         .Corridor => .Clear
         .Shaft => .Bosses(count: 10)
+        .Ring => .Elites(count: 50)
 
 pub fn stage_unlocked(stage: Stage, s: &Save) -> bool: met(stage_condition(stage), s)
 

@@ -274,6 +274,8 @@ pub type Game {
     reboot_used: bool = false, null_killed: bool = false,
     kills_by_kind: [i32; 8] = [0; 8],
     best_crossed: bool = false, best_flare: f64 = 0.0,
+    // Boss entry pulls the camera back for a moment.
+    zoom_timer: f64 = 0.0,
     banner: Banner = Banner {},
     enemy_count: i32 = 0, bullet_count: i32 = 0, core_count: i32 = 0, particle_count: i32 = 0,
     pulse_count: i32 = 0, popup_count: i32 = 0, pickup_count: i32 = 0, beacon_count: i32 = 0,
@@ -356,8 +358,8 @@ extend Game:
     pub fn reset(mut self: Self):
         let launch: Launch = self.launch
         self.phase = .Running
-        self.player = self.center()
-        self.view = self.center()
+        self.player = self.clamp_to_arena(self.center(), 60.0)
+        self.view = self.player
         self.aim = V2 { x: 1.0, y: 0.0 }
         self.build = Build {
             weapon_slots: launch.ship.weapon_slots(),
@@ -423,6 +425,7 @@ extend Game:
         for i in 0..KIND_COUNT: self.kills_by_kind[i] = 0
         self.best_crossed = false
         self.best_flare = 0.0
+        self.zoom_timer = 0.0
         self.banner = Banner {}
         self.enemy_count = 0
         self.bullet_count = 0
@@ -497,14 +500,25 @@ extend Game:
 
     // ----- arena and camera ---------------------------------------------
 
-    fn clamp_to_arena(self: &Self, pos: V2, inset: f64) -> V2:
-        V2 {
+    // Inside the walls and outside the dead center, if the stage has one.
+    pub fn clamp_to_arena(self: &Self, pos: V2, inset: f64) -> V2:
+        let boxed = V2 {
             x: limit(pos.x, inset, self.rules.arena_width - inset),
             y: limit(pos.y, inset, self.rules.arena_height - inset),
         }
+        if self.rules.void_radius <= 0.0: return boxed
+        let delta = sub(boxed, self.center())
+        let reach = self.rules.void_radius + inset
+        if length2(delta) >= reach * reach: return boxed
+        let away = if length2(delta) > 0.01: direction(delta) else: V2 { x: 1.0 }
+        add(self.center(), scale(away, reach))
+
+    pub fn in_void(self: &Self, pos: V2) -> bool:
+        self.rules.void_radius > 0.0 and length2(sub(pos, self.center())) < self.rules.void_radius * self.rules.void_radius
 
     pub fn in_arena(self: &Self, pos: V2, margin: f64) -> bool:
-        pos.x >= -margin and pos.x <= self.rules.arena_width + margin and pos.y >= -margin and pos.y <= self.rules.arena_height + margin
+        let boxed = pos.x >= -margin and pos.x <= self.rules.arena_width + margin and pos.y >= -margin and pos.y <= self.rules.arena_height + margin
+        boxed and not self.in_void(pos)
 
     // The camera rectangle, clamped inside the arena.
     pub fn view_origin(self: &Self) -> V2:
@@ -516,9 +530,19 @@ extend Game:
             else: limit(self.view.y - half_h, 0.0, self.rules.arena_height - HEIGHT as f64)
         V2 { x, y }
 
+    // The camera's zoom: 1 normally, pulled back to 0.82 on a boss's entry.
+    pub fn zoom(self: &Self) -> f64:
+        if self.zoom_timer <= 0.0: return 1.0
+        let t = self.zoom_timer / 2.4
+        1.0 - 0.18 * sin(t * 3.14159)
+
+    // On screen, counting what a zoomed-out camera also shows.
     pub fn on_screen(self: &Self, pos: V2, margin: f64) -> bool:
         let o = self.view_origin()
-        pos.x >= o.x - margin and pos.x <= o.x + WIDTH as f64 + margin and pos.y >= o.y - margin and pos.y <= o.y + HEIGHT as f64 + margin
+        let z = self.zoom()
+        let ex = (1.0 / z - 1.0) * WIDTH as f64 / 2.0 + margin
+        let ey = (1.0 / z - 1.0) * HEIGHT as f64 / 2.0 + margin
+        pos.x >= o.x - ex and pos.x <= o.x + WIDTH as f64 + ex and pos.y >= o.y - ey and pos.y <= o.y + HEIGHT as f64 + ey
 
     fn follow(mut self: Self, dt: f64):
         let target = add(self.player, scale(self.aim, self.rules.lookahead))
@@ -546,10 +570,11 @@ extend Game:
 
     fn place_beacon(mut self: Self):
         if self.beacon_count >= BEACON_CAP: return
-        let pos = V2 {
+        let raw = V2 {
             x: 120.0 + self.random() * (self.rules.arena_width - 240.0),
             y: 120.0 + self.random() * (self.rules.arena_height - 240.0),
         }
+        let pos = self.clamp_to_arena(raw, 60.0)
         self.beacons[self.beacon_count] = Beacon { pos, alive: true }
         self.beacon_count += 1
 
@@ -614,6 +639,7 @@ extend Game:
             self.boss_alive = true
             self.boss_event = true
             self.freeze = self.rules.boss_stop
+            self.zoom_timer = 2.4
             self.show(.Boss, 2.0)
 
     fn spawn_null(mut self: Self):
@@ -691,7 +717,7 @@ extend Game:
         // Populate the arena, preserving a safe circle around the player.
         let count = if target > ENEMY_CAP: ENEMY_CAP else: target
         while self.enemy_count < count:
-            let pos = V2 { x: 30.0 + self.random() * (self.rules.arena_width - 60.0), y: 30.0 + self.random() * (self.rules.arena_height - 60.0) }
+            let pos = self.clamp_to_arena(V2 { x: 30.0 + self.random() * (self.rules.arena_width - 60.0), y: 30.0 + self.random() * (self.rules.arena_height - 60.0) }, 20.0)
             if length2(sub(pos, self.player)) < 180.0 * 180.0: continue
             let kind = kind_at((self.random() * 4.999) as i32)
             if self.place_enemy(pos, kind): self.enemies[self.enemy_count - 1].age = 0.2
@@ -1165,6 +1191,7 @@ extend Game:
         self.muzzle = limit(self.muzzle - dt, 0.0, 1.0)
         self.kill_energy = limit(self.kill_energy - dt * 3.0, 0.0, 5.0)
         self.best_flare = limit(self.best_flare - dt, 0.0, 5.0)
+        self.zoom_timer = limit(self.zoom_timer - dt, 0.0, 5.0)
         if self.banner.life > 0.0: self.banner.life -= dt
         var i = 0
         while i < self.particle_count:
@@ -1508,6 +1535,16 @@ extend Game:
                         self.bullets[self.bullet_count] = Bullet { pos: bullet.pos, vel: add(scale(bullet.vel, 0.9), scale(side, 180.0)), life: bullet.life, damage: bullet.damage, bounces: bullet.bounces, bounced: true, weapon: bullet.weapon }
                         self.bullet_count += 1
                 else: spent = true
+            if not spent and self.in_void(bullet.pos):
+                if bullet.bounces > 0:
+                    bullet.bounces -= 1
+                    bullet.bounced = true
+                    let normal = direction(sub(bullet.pos, self.center()))
+                    let along = bullet.vel.x * normal.x + bullet.vel.y * normal.y
+                    bullet.vel = sub(bullet.vel, scale(normal, 2.0 * along))
+                    bullet.pos = self.clamp_to_arena(bullet.pos, 1.0)
+                    self.pulse(bullet.pos, 24.0, .Gold)
+                else: spent = true
             var hit = false
             if not spent:
                 // Enemies in the cells around the bolt; big enemies are few
@@ -1632,7 +1669,7 @@ extend Game:
                 beacon.respawn -= dt
                 if beacon.respawn <= 0.0:
                     beacon.alive = true
-                    beacon.pos = V2 { x: 120.0 + self.random() * (self.rules.arena_width - 240.0), y: 120.0 + self.random() * (self.rules.arena_height - 240.0) }
+                    beacon.pos = self.clamp_to_arena(V2 { x: 120.0 + self.random() * (self.rules.arena_width - 240.0), y: 120.0 + self.random() * (self.rules.arena_height - 240.0) }, 60.0)
                 self.beacons[i] = beacon
                 continue
             var b = 0

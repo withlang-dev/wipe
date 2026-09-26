@@ -7,6 +7,7 @@ uniform float impulseCount;
 uniform vec4 bullets[24];      // screen x/y, unit direction
 uniform float bulletCount;
 uniform float shipVisible;     // 0 hides the gravity well (menus, death)
+uniform vec2 stage;            // dead-center radius, camera zoom
 
 float lattice(vec2 p, float spacing, float thickness) {
     vec2 d = abs(mod(p + spacing * .5, spacing) - spacing * .5);
@@ -37,16 +38,19 @@ vec3 stars(vec2 world, float time) {
 }
 
 void main() {
-    vec2 screen = vec2(gl_FragCoord.x, 800.0 - gl_FragCoord.y);
+    vec2 raw = vec2(gl_FragCoord.x, 800.0 - gl_FragCoord.y);
+    // Zoom about the screen center; every screen-space input is pre-zoomed.
+    vec2 screen = (raw - vec2(640.0, 400.0)) / stage.y + vec2(640.0, 400.0);
     vec2 world = screen + camera.xy;
     vec3 color = vec3(.002,.003,.012) + stars(world * .6 + camera.xy * .4, ship.z);
-    if (world.x < 0.0 || world.x > camera.z || world.y < 0.0 || world.y > camera.w) {
+    bool inVoid = stage.x > 0.0 && length(world - camera.zw * .5) < stage.x;
+    if (world.x < 0.0 || world.x > camera.z || world.y < 0.0 || world.y > camera.w || inVoid) {
         // Beyond the containment edge: stars only, dimmed toward the void.
         finalColor = vec4(color * .7, 1.0); return;
     }
     vec2 p = world;
     // The ship sits in a gravity well: lines are drawn toward it.
-    vec2 delta = screen - ship.xy;
+    vec2 delta = raw - ship.xy;
     float distance = length(delta);
     float well = 26.0 * (distance / 70.0) * exp(1.0 - distance / 70.0) * shipVisible;
     p += delta / max(distance, 1.0) * well * (1.0 + .08 * sin(ship.z * 6.0));
@@ -55,7 +59,7 @@ void main() {
     for (int i = 0; i < 16; ++i) {
         if (float(i) >= impulseCount) break;
         vec4 source = impulses[i];
-        vec2 d = screen - source.xy;
+        vec2 d = raw - source.xy;
         float r = length(d);
         float wave = r - source.w * source.z * 4.5;
         float envelope = exp(-abs(wave) / 70.0) * (1.0 - source.z);
@@ -66,7 +70,7 @@ void main() {
     for (int i = 0; i < 24; ++i) {
         if (float(i) >= bulletCount) break;
         vec4 b = bullets[i];
-        vec2 d = screen - b.xy;
+        vec2 d = raw - b.xy;
         float r = length(d);
         float behind = max(0.0, -dot(d, b.zw));
         float pull = exp(-r / 26.0) * 7.0 + exp(-(r - behind) / 9.0) * exp(-behind / 60.0) * 2.5;
