@@ -17,7 +17,7 @@ pub fn build(ctx: BuildCtx) -> Build:
     ctx.new_build().add_target(
         target_new(.CopyTree, "shaders", "assets/shaders").output("out/bin/assets/shaders").input("grid.fs").input("bright.fs").input("blur.fs").input("composite.fs")
     ).add_target(
-        target_new(.CopyTree, "audio", "assets/audio").output("out/bin/assets/audio").input("shot.wav").input("hit.wav").input("kill.wav").input("hurt.wav").input("death.wav").input("ambient_house.wav")
+        target_new(.CopyTree, "audio", "assets/audio").output("out/bin/assets/audio").input("shot.wav").input("hit.wav").input("kill.wav").input("hurt.wav").input("death.wav").input("ambient_house.wav").input("core.wav").input("pickup.wav").input("zap.wav")
     ).add_target(game_target("wipe", "src/main.w")).add_target(
         game_target("uat", "src/uat.w")
     ).add_target(

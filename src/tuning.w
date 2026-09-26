@@ -48,10 +48,14 @@ pub type Rules {
     // A dead center: a circle at the arena's middle that nothing enters.
     void_radius: f64 = 0.0,
     // Offer weights: an upgrade to an owned weapon or passive against a new card at 1.
-    upgrade_weight: f64 = 3.0,
+    upgrade_weight: f64 = 5.0,
+    new_weapon_weight: f64 = 2.5,
+    // Chance a kill drops a Repair pickup.
+    repair_drop_chance: f64 = 0.0025,
+    new_passive_weight: f64 = 0.6,
     // The floor of enemies alive at the start of a run (see minimum_alive).
-    minimum_start: f64 = 24.0,
-    passive_upgrade_weight: f64 = 1.5,
+    minimum_start: f64 = 20.0,
+    passive_upgrade_weight: f64 = 0.8,
 }
 
 impl Copy for Rules
@@ -190,6 +194,9 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ "speed_scale " ++ num(r.speed_scale) ++ "\n"
     out = out ++ "void_radius " ++ num(r.void_radius) ++ "\n"
     out = out ++ "upgrade_weight " ++ num(r.upgrade_weight) ++ "\n"
+    out = out ++ "new_weapon_weight " ++ num(r.new_weapon_weight) ++ "\n"
+    out = out ++ "repair_drop_chance " ++ num(r.repair_drop_chance) ++ "\n"
+    out = out ++ "new_passive_weight " ++ num(r.new_passive_weight) ++ "\n"
     out = out ++ "minimum_start " ++ num(r.minimum_start) ++ "\n"
     out = out ++ "passive_upgrade_weight " ++ num(r.passive_upgrade_weight) ++ "\n"
     out
@@ -236,6 +243,9 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "speed_scale": out.speed_scale = value
     else if key == "void_radius": out.void_radius = value
     else if key == "upgrade_weight": out.upgrade_weight = value
+    else if key == "new_weapon_weight": out.new_weapon_weight = value
+    else if key == "repair_drop_chance": out.repair_drop_chance = value
+    else if key == "new_passive_weight": out.new_passive_weight = value
     else if key == "minimum_start": out.minimum_start = value
     else if key == "passive_upgrade_weight": out.passive_upgrade_weight = value
     else: return (r, false)

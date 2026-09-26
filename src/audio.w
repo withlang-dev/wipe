@@ -46,6 +46,7 @@ c facade sounds:
 
 pub type Audio {
     shot: Clip, hit: Clip, kill: Clip, hurt: Clip, death: Clip,
+    core: Clip, pickup: Clip, zap: Clip,
     music: Track,
 }
 pub fn Audio.open() -> Audio:
@@ -56,6 +57,9 @@ pub fn Audio.open() -> Audio:
         kill: Clip.load(asset_path("audio/kill.wav")),
         hurt: Clip.load(asset_path("audio/hurt.wav")),
         death: Clip.load(asset_path("audio/death.wav")),
+        core: Clip.load(asset_path("audio/core.wav")),
+        pickup: Clip.load(asset_path("audio/pickup.wav")),
+        zap: Clip.load(asset_path("audio/zap.wav")),
     }
     SetMusicVolume(bank.music.repr, 0.32)
     PlayMusicStream(bank.music.repr)
@@ -64,11 +68,14 @@ pub fn Audio.open() -> Audio:
     SetSoundVolume(bank.kill.repr, 0.35)
     SetSoundVolume(bank.hurt.repr, 0.55)
     SetSoundVolume(bank.death.repr, 0.65)
+    SetSoundVolume(bank.core.repr, 0.22)
+    SetSoundVolume(bank.pickup.repr, 0.6)
+    SetSoundVolume(bank.zap.repr, 0.3)
     bank
 
 extend Audio:
     pub fn valid(self: &Self) -> bool:
-        IsMusicValid(self.music.repr) and IsSoundValid(self.shot.repr) and IsSoundValid(self.hit.repr) and IsSoundValid(self.kill.repr) and IsSoundValid(self.hurt.repr) and IsSoundValid(self.death.repr)
+        IsMusicValid(self.music.repr) and IsSoundValid(self.shot.repr) and IsSoundValid(self.hit.repr) and IsSoundValid(self.kill.repr) and IsSoundValid(self.hurt.repr) and IsSoundValid(self.death.repr) and IsSoundValid(self.core.repr) and IsSoundValid(self.pickup.repr) and IsSoundValid(self.zap.repr)
 
     // Event-driven from the simulation's flags. New moments reuse the five
     // clips at new pitches: a rising kill for a level-up, a bright death for
@@ -94,7 +101,16 @@ extend Audio:
         if g.boss_event:
             SetSoundPitch(self.hurt.repr, 0.55)
             PlaySound(self.hurt.repr)
-        if g.pickup_event or g.cache_event or g.best_event:
+        // Cores chime, rising with the combo; powerups ring an arpeggio.
+        if g.core_event:
+            let rise = if g.combo > 40: 1.0 else: g.combo as f64 / 40.0
+            SetSoundPitch(self.core.repr, (0.9 + rise * 0.5) as f32)
+            PlaySound(self.core.repr)
+        if g.pickup_event or g.cache_event: PlaySound(self.pickup.repr)
+        if g.zap_event:
+            SetSoundPitch(self.zap.repr, (0.9 + (sin(clock * 91.0) + 1.0) * 0.1) as f32)
+            PlaySound(self.zap.repr)
+        if g.best_event:
             SetSoundPitch(self.hit.repr, 1.8)
             PlaySound(self.hit.repr)
         if ui_move:

@@ -338,7 +338,7 @@ Launch roster, eight weapons:
 | Seeker | Homing bolts at the nearest enemy. |
 | Lance | Piercing beam in the movement direction. |
 | Mines | Dropped on the path, detonating on contact. |
-| Arc | Chain lightning between nearby enemies. |
+| Arc | Lightning strikes random enemies about once a second, the first bolt on the closest threat. One bolt at I, three at V; chains to neighbors from II. |
 | Shard | Bouncing fragments that ricochet off arena walls. |
 
 ### Passives
@@ -534,7 +534,7 @@ the game, and the reason a player who has cleared a run starts another.
 | Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +1 blade every 6 levels, +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
 | Needle | Lance | +35% damage, −20% cooldowns, lance pierce doubled | +3% damage per level | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
 | Sapper | Mines | +50% area, −28% cooldowns, +3 max health, mines chain-detonate | The cooldown edge fades after level 18 | Only 4 weapon slots | Complete two merges in one run |
-| Phase | Arc | Phases out for 1.5 s every 6 s; 3 s invulnerable on every level-up; −20% cooldowns | Damage edge of +60% fades 2.5% per level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
+| Phase | Arc | Phases out for 1.5 s every 5 s; +2 lightning bolts; 3 s invulnerable on every level-up; −20% cooldowns | The rhythm slows and a +90% damage edge fades with level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
 | Null | Nova | Starts at level 5 with three weapons at level III; +30% credits; +3 max health | +1% credits per level | −25% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 
 ### Ship profiles
@@ -566,18 +566,19 @@ bands:
 
 | Phase | Measured as | Strong | Even | Weak |
 |---|---|---|---|---|
-| Opening | runs past 2:00 | 15 or more | 14 or more | 8 or more |
-| Middle | runs past 10:00 | 7 or more | 5 to 10 | 3 to 7 |
-| Late | runs past 15:00 | 4 or more | 1 to 6 | 0 to 3 |
+| Opening | runs past 2:00 | 14 or more | 12 or more | 8 or more |
+| Middle | runs past 10:00 | 9 or more | 5 to 13 | 3 to 12 |
+| Late | runs past 15:00 | 3 or more | 1 to 9 | 6 or fewer |
 
 The bands overlap because the bot resolves shape coarsely: it plays every
 ship the same way, perfectly aimed and never greedy. Recorded human runs
 (`runs calibrate`) are the finer check. Every weapon at level V kills 600
 to 1,500 enemies a minute against the balance bench's swarm, and every
-merge 1,100 to 3,200.
+merge 1,100 to 3,600.
 
-A standing-still Claw dies in 7 to 14 seconds, as a standing-still player
-does in the first seconds of Vampire Survivors.
+A standing-still Claw dies in 15 to 45 seconds: measured against Vampire
+Survivors (10 to 13 seconds on an upgraded profile), then eased after
+playtesting said the opening was a little too hard.
 
 Growth is a ship's stat gain per level within the run, so a ship's identity
 sharpens across twenty minutes instead of being fixed at the start. It is a

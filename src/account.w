@@ -189,7 +189,7 @@ pub fn weapon_condition(w: Weapon) -> Condition:
         .Seeker => .Start
         .Lance => .SurviveWith(weapon: .Cannon, seconds: 900)
         .Mines => .Elites(count: 40)
-        .Arc => .Level(level: 35)
+        .Arc => .Start
         .Shard => .LifetimeKills(count: 30000)
         _ => .Start
 

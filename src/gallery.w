@@ -203,5 +203,13 @@ fn main:
     let screen = sub(late.player, late.view_origin())
     print(f"late: ship at screen {screen.x as i32},{screen.y as i32}; {stacked} enemies within 40 px; particles {late.particle_count}")
     shot(&renderer, &late, 70.0, "50-late-run")
+    // Pickups out of view: pulsing edge indicators.
+    var off = staged()
+    off.build.weapons[0].level = 0
+    off.drop_pickup(add(off.player, V2 { x: 900.0, y: -120.0 }), PickupKind.Cache)
+    off.drop_pickup(add(off.player, V2 { x: -800.0, y: 250.0 }), PickupKind.Repair)
+    off.drop_pickup(add(off.player, V2 { x: 100.0, y: 600.0 }), PickupKind.Freeze)
+    off = step(off, 0.2, V2 { x: 1.0 })
+    shot(&renderer, &off, 80.0, "60-offscreen-pickups")
     print("gallery done")
     0

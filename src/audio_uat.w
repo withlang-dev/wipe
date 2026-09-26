@@ -2,6 +2,7 @@
 use c_import("raylib.h")
 use audio
 use game
+use tuning
 
 fn main:
     SetTraceLogLevel(LOG_WARNING)

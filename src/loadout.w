@@ -102,7 +102,7 @@ extend Weapon:
             .Seeker => "Homing bolts at the nearest enemy."
             .Lance => "Piercing beams forward and back along the movement."
             .Mines => "Dropped on the path, detonating on contact."
-            .Arc => "Lightning that chains between nearby enemies."
+            .Arc => "Lightning strikes random enemies about once a second. More bolts and longer chains as it levels."
             .Shard => "Fragments that ricochet off the arena walls."
             .Railgun => "Cannon evolved: three heavy bolts that pierce three."
             .Corona => "Orbit evolved: a wide, dense ring of blades."
@@ -110,7 +110,7 @@ extend Weapon:
             .Swarm => "Seeker evolved: a cloud of fast homing bolts."
             .Pike => "Lance evolved: a longer beam that pierces far deeper."
             .Minefield => "Mines evolved: a dense field that chain-detonates."
-            .Storm => "Arc evolved: long chains, twice the reach."
+            .Storm => "Arc evolved: a storm of bolts with long chains."
             .Shatter => "Shard evolved: every bounce splits the fragment."
             .Tracer => "Cannon and Seeker: aimed bolts that hunt."
             .Pulsar => "Orbit and Nova: blades that burst as they turn."
@@ -219,7 +219,7 @@ extend Passive:
             .ProjSpeed => "+12% projectile speed"
             .Magnet => "+25% core pull radius"
             .Speed => "+8% move speed"
-            .Health => "+2 max health"
+            .Health => "+2 max health, repair 1 health every 20 s"
             .Cooldown => "-6% every weapon's cooldown"
             .Armor => "ignore 1 more damage per hit"
             .Luck => "+10% cache size and a fourth card at III"
@@ -281,7 +281,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     // A merged weapon starts from its components at their maximum and grows
     // from there: merging must never make a build weaker.
     let curve = 1 + ((merged_level - 1) * (CURVE_TOP - 1) + (MAX_WEAPON_LEVEL - 2)) / (MAX_WEAPON_LEVEL - 1)
-    let level = if weapon.is_merged(): CURVE_TOP + (merged_level - 1) / 2 else: curve
+    // Every merge level is a step: I reads the components' maximum, each
+    // level after it one step further along the same curve.
+    let level = if weapon.is_merged(): CURVE_TOP + (merged_level - 1) else: curve
     let l = level as f64
     var s = WeaponStats {}
     // Every family's damage grows with its level so a weapon taken at
@@ -305,7 +307,8 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.damage = 3 + level / 2
         }
         .Ring => {
-            s.cooldown = 2.6 - (l - 1.0) * 0.14
+            // Rings strike everything they cross, so they pulse slowly.
+            s.cooldown = (2.6 - (l - 1.0) * 0.14) * 1.8
             s.radius = 130.0 + l * 12.0
             s.damage = 1 + level / 2
         }
@@ -321,7 +324,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.cooldown = 0.55 - (l - 1.0) * 0.025
             s.radius = 420.0 + l * 30.0
             // Two beams, forward and back, so each hits for less.
-            s.damage = 1 + level / 2
+            s.damage = 2 + level / 2
             s.pierce = 2 + level / 2
         }
         .Dropped => {
@@ -331,10 +334,12 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.max_active = 5 + step(level, 2, 2)
         }
         .Chain => {
-            s.cooldown = 0.9 - (l - 1.0) * 0.05
-            s.chain = 4 + step(level, 2, 2)
-            s.radius = 330.0
-            s.damage = 5 + level * 3 / 2
+            // One bolt at I, two at III, three at V; chains from II.
+            s.cooldown = 1.0 - (l - 1.0) * 0.04
+            s.count = 1 + (level - 1) / 3
+            s.chain = (level - 1) / 2
+            s.radius = 230.0
+            s.damage = 6 + level * 2
         }
         .Bouncing => {
             s.cooldown = 0.55 - (l - 1.0) * 0.03
@@ -352,13 +357,13 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     match weapon:
         .Railgun => { s.count = 3; s.pierce = 3; s.damage = s.damage * 3 / 2; s.speed *= 1.3 }
         .Corona => { s.count += 4; s.radius *= 1.4; s.damage *= 2 }
-        .Supernova => { s.radius *= 1.15; s.damage = s.damage * 5 / 4; s.cooldown *= 0.9 }
+        .Supernova => { s.damage = s.damage * 5 / 4; s.cooldown *= 0.95 }
         .Swarm => { s.count = s.count * 3 / 2 + 1; s.damage = s.damage * 3 / 2; s.cooldown *= 0.8; s.speed *= 1.3 }
         .Pike => { s.pierce += 6; s.damage = s.damage * 3 / 2; s.radius *= 1.4 }
         .Minefield => { s.cooldown *= 0.7; s.damage = s.damage * 3 / 2; s.max_active += 4; s.chains_on_hit = true }
-        .Storm => { s.chain *= 2; s.radius *= 1.4; s.damage = s.damage * 3 / 2; s.cooldown *= 0.8 }
+        .Storm => { s.chain += 2; s.radius *= 1.3; s.damage = s.damage * 5 / 4; s.cooldown *= 0.85 }
         .Shatter => { s.bounces += 2; s.damage = s.damage * 3 / 2; s.pierce += 1; s.splits = true }
-        .Tracer => { s.homing = true; s.damage = s.damage * 3 / 2; s.count += 1 }
+        .Tracer => { s.homing = true; s.damage *= 2; s.count += 1 }
         .Pulsar => { s.count += 2; s.damage *= 2; s.ring_on_orbit = true }
         .Grid => { s.damage = s.damage * 3 / 2; s.max_active += 3; s.chains_on_hit = true }
         .Refractor => { s.pierce += 6; s.damage *= 2; s.shatters = true }
@@ -369,7 +374,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     s.cooldown *= mods.cooldown
     if weapon.family() == .Aimed: s.cooldown *= mods.cannon_rate
     if s.cooldown < 0.03: s.cooldown = 0.03
-    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting:
+    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting or weapon.family() == .Chain:
         s.count += mods.count
     s.radius *= mods.area
     s.speed *= mods.proj_speed
@@ -565,7 +570,10 @@ extend Build:
                 .ProjSpeed => { m.proj_speed *= 1.0 + 0.12 * l }
                 .Magnet => { m.magnet *= 1.0 + 0.25 * l }
                 .Speed => { m.speed *= 1.0 + 0.08 * l }
-                .Health => { m.max_health += 2 * s.level }
+                .Health => {
+                    m.max_health += 2 * s.level
+                    m.regen += 0.05 * l
+                }
                 .Cooldown => { m.cooldown *= 1.0 - 0.06 * l }
                 .Armor => { m.armor += s.level }
                 .Luck => { m.luck += 0.1 * l }

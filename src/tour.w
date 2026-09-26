@@ -8,6 +8,7 @@ use save
 use account
 use presentation
 use app
+use gamepads
 use std.process.env
 
 fn frames(wipe: &App, renderer: &Renderer, count: i32, clock: f64) -> f64:

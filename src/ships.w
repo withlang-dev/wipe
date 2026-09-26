@@ -117,7 +117,7 @@ extend Ship:
             .Halo => "+60% magnet, +1 orbit blade, cores worth +25% XP"
             .Needle => "+35% damage, faster cooldowns, lance pierce doubled"
             .Sapper => "+50% area, faster cooldowns, mines chain-detonate"
-            .Phase => "Phases out 1.5 s of every 6; invulnerable 3 s on level-up"
+            .Phase => "Phases out on a rhythm, +2 lightning bolts, invulnerable 3 s on level-up"
             .Null => "Starts at level 5 with three weapons at III, +30% credits"
 
     pub fn growth(self: &Self) -> str:
@@ -196,16 +196,16 @@ extend Ship:
             .Hull => {
                 // The late wall: health doubles and keeps growing, armor
                 // thickens, and the hull slowly repairs itself.
-                m.max_health = m.max_health * 2 + level
-                m.armor += 1 + level / 6
-                m.regen += 0.4
-                m.speed *= 0.85
+                m.max_health = m.max_health * 2 + level * 3 / 2
+                m.armor += 1 + level / 4
+                m.regen += 0.6
+                m.speed *= 0.9
             }
             .Prism => {
                 // The middle game: an extra shard and two more bounces.
                 m.rebound += 3
                 m.count += 1
-                m.damage *= 1.1
+                m.damage *= 1.12
                 m.area *= 1.2 * (1.0 + 0.01 * l)
             }
             .Halo => {
@@ -213,19 +213,20 @@ extend Ship:
                 m.xp *= 1.25
                 // One more blade now and one every eight levels: a slow
                 // start that catches up.
-                m.count += 1 + level / 6
+                m.count += 1 + level / 5
+                m.damage *= 1.15
             }
             .Needle => {
                 // The late killer: damage compounds with every level, and
                 // every weapon cycles faster.
-                m.damage *= 1.35 * (1.0 + 0.03 * l)
-                m.cooldown *= 0.8
+                m.damage *= 1.35 * (1.0 + 0.025 * l)
+                m.cooldown *= 0.72
             }
             .Sapper => {
                 // The card promised +40% area; it was never applied.
                 // Peaks early: the bonus fades as the run goes on.
                 m.area *= 1.5
-                m.cooldown *= 0.72 * (1.0 + 0.06 * limit(l - 18.0, 0.0, 30.0))
+                m.cooldown *= 0.62 * (1.0 + 0.09 * clamp(l - 18.0, 0.0, 30.0))
                 m.max_health += 3
             }
             .Phase => {
@@ -233,7 +234,8 @@ extend Ship:
                 m.invuln_bonus = 3.0 + 0.1 * (level / 5) as f64
                 // Strongest in the middle game; the edge fades with level.
                 m.cooldown *= 0.8
-                m.damage *= limit(1.6 - 0.025 * l, 0.8, 1.6)
+                m.count += 2
+                m.damage *= clamp(1.9 - 0.035 * l, 0.8, 1.9)
             }
             .Null => {
                 m.credit *= 1.3 * (1.0 + 0.01 * l)
@@ -242,3 +244,6 @@ extend Ship:
             }
         if m.max_health < 1: m.max_health = 1
         m
+
+fn clamp(n: f64, lo: f64, hi: f64) -> f64:
+    if n < lo: lo else if n > hi: hi else: n

@@ -6,6 +6,7 @@ use ships
 use save
 use account
 use input
+use gamepads
 use presentation
 use pilots
 use record

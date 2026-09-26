@@ -2,6 +2,7 @@
 // Only this fixture disables contact damage and supplies scripted controls.
 use c_import("raylib.h")
 use game
+use tuning
 use presentation
 use audio
 use std.process.env

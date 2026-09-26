@@ -435,15 +435,18 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         line(pos, tail, p.size + 2.6, Fade(color, remaining * 0.18))
         line(pos, tail, p.size, color)
         if remaining > 0.7: line(pos, sub(pos, scale(heading, 2.0 + speed * 0.012)), p.size * 0.7, white((remaining - 0.7) * 2.5))
-    // Cores: small cyan diamonds, larger when merged.
+    // Cores: white-hot diamonds in a cyan glow, so they stand out from the
+    // blue lattice; larger when merged.
     for i in 0..g.core_count:
         let c: Core = g.cores[i]
         if not g.on_screen(c.pos, 20.0): continue
         let pos = to_screen(cam, c.pos)
-        let size = 4.0 + limit((c.value as f64), 1.0, 40.0) * 0.35
-        let pulse = 0.75 + 0.25 * sin(clock * 6.0 + c.pos.x * 0.05)
-        DrawPolyLinesEx(rv(pos), 4, size as f32, (clock * 90.0) as f32, 1.6, cyan(pulse))
-        circle(pos, size * 0.3, white(pulse * 0.8))
+        let size = 6.0 + limit((c.value as f64), 1.0, 40.0) * 0.4
+        let pulse = 0.8 + 0.2 * sin(clock * 6.0 + c.pos.x * 0.05)
+        circle(pos, size * 1.8, cyan(0.10 * pulse))
+        DrawPoly(rv(pos), 4, size as f32, 0.0, cyan(0.55 * pulse))
+        DrawPolyLinesEx(rv(pos), 4, size as f32, 0.0, 1.6, white(pulse))
+        circle(pos, size * 0.35, white(1.0))
     // Beacons: gold hexagons, the reason to cross the arena.
     for i in 0..g.beacon_count:
         let b: Beacon = g.beacons[i]
@@ -651,9 +654,8 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     if g.health > 0:
         let pos = to_screen(cam, g.player)
         let flicker = if g.invulnerable > 0.0 and (clock * 22.0) as i32 % 2 == 0: 0.55 else: 1.0
-        // The player is never lost in the swarm: a dark backing under the
-        // silhouette and a thin ring around it, drawn over every effect.
-        circle(pos, 22.0, ink(0.9))
+        // A faint ring keeps the ship findable in the swarm; the ship itself
+        // stays see-through.
         ring(pos, 23.0, white(0.14))
         draw_ship(g.launch.ship, pos, g.aim, flicker, 1.0)
         if g.muzzle > 0.0:
@@ -662,12 +664,6 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             circle(front, 10.0 * g.muzzle / 0.055, gold(0.16))
             line(add(front, scale(side, -5.0)), add(front, scale(side, 5.0)), 2.0, white(1.0))
             line(front, add(front, scale(g.aim, 12.0)), 3.0, white(1.0))
-        // Health as a bar under the ship.
-        let width = 34.0
-        let fraction = limit(g.health as f64 / g.max_health as f64, 0.0, 1.0)
-        let bar = add(pos, V2 { x: -width / 2.0, y: 24.0 })
-        DrawRectangle(bar.x as i32, bar.y as i32, width as i32, 3, ink(0.7))
-        DrawRectangle(bar.x as i32, bar.y as i32, (width * fraction) as i32, 3, if fraction > 0.5: lime(0.9) else if fraction > 0.25: gold(0.9) else: red(1.0))
         // Magnet radius, faint.
         ring(pos, g.rules.magnet_radius * g.mods.magnet, cyan(0.05))
     for i in 0..g.popup_count:
@@ -719,40 +715,55 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     if g.enemies_frozen > 0.0:
         DrawRectangle(0, 0, WIDTH, HEIGHT, blue(0.06))
 
-// An indicator at the screen edge pointing at an off-screen world position.
+// An indicator at the screen edge pointing at an off-screen world position:
+// a pulsing arrowhead with a glow, larger and brighter for what matters.
 fn edge_indicator(g: &Game, cam: Camera, target: V2, color: Color, size: f64, clock: f64):
     if g.on_screen(target, -10.0): return
     let center = V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 }
     let screen = to_screen(cam, target)
-    let delta = sub(screen, center)
-    let heading = direction(delta)
-    // Clamp the direction to the screen rectangle with a margin.
-    let margin = 30.0
+    let heading = direction(sub(screen, center))
+    // Inside the play area: clear of the top HUD band and the bottom strip.
+    let margin = 34.0
+    let top = 96.0
+    let bottom = HEIGHT as f64 - 86.0
     let sx = if heading.x > 0.0001: (WIDTH as f64 - margin - center.x) / heading.x else if heading.x < -0.0001: (margin - center.x) / heading.x else: 1.0e9
-    let sy = if heading.y > 0.0001: (HEIGHT as f64 - 80.0 - center.y) / heading.y else if heading.y < -0.0001: (60.0 - center.y) / heading.y else: 1.0e9
+    let sy = if heading.y > 0.0001: (bottom - center.y) / heading.y else if heading.y < -0.0001: (top - center.y) / heading.y else: 1.0e9
     let t = if sx < sy: sx else: sy
     let at = add(center, scale(heading, t))
+    let beat = 0.5 + 0.5 * sin(clock * 7.0)
+    let grow = size * (1.0 + 0.25 * beat)
     let side = perpendicular(heading)
-    let tip = add(at, scale(heading, size))
-    let l = add(sub(at, scale(heading, size * 0.5)), scale(side, size * 0.7))
-    let r = sub(sub(at, scale(heading, size * 0.5)), scale(side, size * 0.7))
-    let pulse = 0.6 + 0.4 * sin(clock * 6.0)
-    line(l, tip, 2.0, Fade(color, pulse))
-    line(tip, r, 2.0, Fade(color, pulse))
-    line(l, r, 1.0, Fade(color, pulse * 0.5))
+    let tip = add(at, scale(heading, grow))
+    let l = add(sub(at, scale(heading, grow * 0.6)), scale(side, grow * 0.8))
+    let r = sub(sub(at, scale(heading, grow * 0.6)), scale(side, grow * 0.8))
+    circle(at, grow * 1.1, Fade(color, (0.10 + 0.12 * beat) as f32))
+    DrawTriangle(rv(tip), rv(l), rv(r), Fade(color, (0.35 + 0.35 * beat) as f32))
+    DrawTriangle(rv(tip), rv(r), rv(l), Fade(color, (0.35 + 0.35 * beat) as f32))
+    glow_line(l, tip, Fade(color, (0.7 + 0.3 * beat) as f32))
+    glow_line(tip, r, Fade(color, (0.7 + 0.3 * beat) as f32))
+    glow_line(l, r, Fade(color, (0.5 + 0.3 * beat) as f32))
+
+fn pickup_color(kind: PickupKind) -> Color:
+    match kind:
+        .Cache => gold(1.0)
+        .Credits => gold(1.0)
+        .Bundle => gold(1.0)
+        .Repair => lime(1.0)
+        .Freeze => blue(1.0)
+        .Clear => white(1.0)
+        .Tractor => cyan(1.0)
 
 fn render_indicators(g: &Game, cam: Camera, clock: f64):
     for i in 0..g.pickup_count:
         let p: Pickup = g.pickups[i]
-        let color = if p.kind == .Cache: gold(1.0) else: white(0.8)
-        edge_indicator(g, cam, p.pos, color, if p.kind == .Cache: 14.0 else: 9.0, clock)
+        edge_indicator(g, cam, p.pos, pickup_color(p.kind), if p.kind == .Cache: 18.0 else: 13.0, clock)
     for i in 0..g.beacon_count:
         let b: Beacon = g.beacons[i]
-        if b.alive: edge_indicator(g, cam, b.pos, gold(0.6), 9.0, clock)
+        if b.alive: edge_indicator(g, cam, b.pos, gold(0.8), 10.0, clock)
     for i in 0..g.enemy_count:
         let e: Enemy = g.enemies[i]
-        if e.kind == .Boss or e.kind == .Null: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 1.0), 18.0, clock)
-        else if e.elite: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 0.8), 11.0, clock)
+        if e.kind == .Boss or e.kind == .Null: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 1.0), 20.0, clock)
+        else if e.elite: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 0.8), 12.0, clock)
 
 // ----- HUD ---------------------------------------------------------------------
 
@@ -769,11 +780,18 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     DrawRectangle(0, 0, (WIDTH as f64 * fraction) as i32, 8, lime(0.85))
     DrawRectangle((WIDTH as f64 * fraction) as i32 - 3, 0, 3, 8, white(1.0))
     neon(f"LV {g.level}", 22, 16, 28, hud_lime(1.0))
+    // Health lives in the HUD, out of the action: a bar under the level.
+    let health_fraction = limit(g.health as f64 / g.max_health as f64, 0.0, 1.0)
+    let bar_color = if health_fraction > 0.5: lime(0.95) else if health_fraction > 0.25: gold(0.95) else: red(1.0)
+    DrawRectangle(22, 50, 96, 8, ink(0.8))
+    DrawRectangle(22, 50, (96.0 * health_fraction) as i32, 8, bar_color)
+    DrawRectangleLines(22, 50, 96, 8, white(0.25))
+    label(f"{g.health}/{g.max_health}", 124, 49, 10, bar_color)
     if g.combo > 1:
         let size = if g.combo >= 50: 34 else if g.combo >= 20: 30 else: 26
-        neon(f"x{g.combo}", 130, 16, size, if g.combo >= 50: gold(1.0) else: cyan(1.0))
+        neon(f"x{g.combo}", 180, 16, size, if g.combo >= 50: gold(1.0) else: cyan(1.0))
         let fade = limit(g.combo_timer / g.rules.combo_window, 0.0, 1.0)
-        DrawRectangle(130, 48, (60.0 * fade) as i32, 3, cyan(0.8))
+        DrawRectangle(180, 48, (60.0 * fade) as i32, 3, cyan(0.8))
     // Timer with the best-time marker.
     let timer_color = if g.best_crossed: gold(1.0) else: white(1.0)
     let time_text = if g.best_flare > 0.0 and (clock * 4.0) as i32 % 2 == 0: "NEW BEST" else: stamp(g.elapsed)
@@ -887,7 +905,7 @@ fn count_name(f: Family) -> str:
         .Orbiting => "Blades"
         .Homing => "Seekers"
         .Bouncing => "Shards"
-        .Chain => "Chain"
+        .Chain => "Bolts"
         .Dropped => "Mines"
         _ => ""
 
@@ -915,9 +933,10 @@ pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i3
     else: rows.push(stat_row("Rate/s", has_before, fmt1(1.0 / b.cooldown), fmt1(1.0 / a.cooldown)))
     let cn = count_name(f)
     if cn.len() > 0:
-        let now = if f == .Chain: b.chain else if f == .Dropped: b.max_active else: b.count
-        let next = if f == .Chain: a.chain else if f == .Dropped: a.max_active else: a.count
+        let now = if f == .Dropped: b.max_active else: b.count
+        let next = if f == .Dropped: a.max_active else: a.count
         rows.push(stat_row(cn, has_before, f"{now}", f"{next}"))
+    if f == .Chain: rows.push(stat_row("Chain", has_before, f"{b.chain}", f"{a.chain}"))
     let an = area_name(f)
     if an.len() > 0: rows.push(stat_row(an, has_before, f"{b.radius as i32}", f"{a.radius as i32}"))
     if a.pierce > 0: rows.push(stat_row("Pierce", has_before, f"{b.pierce}", f"{a.pierce}"))
@@ -930,7 +949,7 @@ fn amount(x: f64) -> str: if x < 10.0: fmt1(x) else: f"{x as i32}"
 
 fn output(f: Family, s: WeaponStats) -> f64:
     let rate = if f == .Orbiting: 3.3 else: 1.0 / s.cooldown
-    let n = if f == .Chain: s.chain else if f == .Beam: 2 else if f == .Dropped or f == .Ring: 1 else: s.count
+    let n = if f == .Chain: s.count * (1 + s.chain) else if f == .Beam: 2 else if f == .Dropped or f == .Ring: 1 else: s.count
     (s.damage as f64) * rate * (n as f64)
 
 fn stat_row(name: &str, has_before: bool, before: str, after: str) -> StatRow:

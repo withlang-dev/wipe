@@ -27,7 +27,7 @@ const CELL_ROWS: i32 = 44
 const CELL_COUNT: i32 = CELL_COLS * CELL_ROWS
 pub const KIND_COUNT: i32 = 8
 // The Phase is invulnerable for PHASE_LENGTH seconds every PHASE_PERIOD.
-pub const PHASE_PERIOD: f64 = 6.0
+pub const PHASE_PERIOD: f64 = 5.0
 pub const PHASE_LENGTH: f64 = 1.5
 
 pub type V2 { x: f64 = 0.0, y: f64 = 0.0 }
@@ -117,7 +117,7 @@ extend Kind:
     // twelve-minute build walk through the last eight.
     fn base_hp(self: &Self, minute: f64) -> i32:
         let m = minute
-        let curve = m * 1.0 + m * m * 0.055
+        let curve = m * 1.25 + m * m * 0.055
         // Opening enemies die to one hit; the pressure is their number.
         match self:
             .Block => (1.0 + curve) as i32
@@ -198,7 +198,7 @@ pub type Beacon { pos: V2 = V2 {}, alive: bool = true, respawn: f64 = 0.0 }
 pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bool = false, age: f64 = 0.0 }
 pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0 }
 pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3 }
-pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.5, total: f64 = 0.5 }
+pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.125, total: f64 = 0.125 }
 pub type Particle {
     pos: V2 = V2 {}, vel: V2 = V2 {},
     life: f64 = 0.0, total: f64 = 1.0,
@@ -309,7 +309,7 @@ pub type Game {
     kill_event: bool = false, hurt_event: bool = false, death_event: bool = false,
     level_event: bool = false, merge_event: bool = false, boss_event: bool = false,
     pickup_event: bool = false, core_event: bool = false, cache_event: bool = false,
-    boss_kill_event: bool = false, best_event: bool = false,
+    boss_kill_event: bool = false, best_event: bool = false, zap_event: bool = false,
 }
 
 pub fn Game.new(rules: Rules = Rules {}) -> Game:
@@ -482,6 +482,7 @@ extend Game:
         self.cache_event = false
         self.boss_kill_event = false
         self.best_event = false
+        self.zap_event = false
 
     // Recompute every multiplier: shop ranks, then passives, then the ship.
     fn refresh_mods(mut self: Self):
@@ -806,6 +807,9 @@ extend Game:
         self.pulse(e.pos, (46.0 + self.kill_energy * 5.0) * e.size, e.kind.tint(), Some(e.kind))
         self.trauma = limit(self.trauma + 0.045, 0.0, 0.3)
         self.drop_core(e.pos, e.kind.core_value() * (if e.elite: 5 else: 1))
+        // Now and then a kill leaves a repair behind, as a torch leaves
+        // food in Vampire Survivors: healing is found in the fight.
+        if self.random() < self.rules.repair_drop_chance: self.drop_pickup(e.pos, PickupKind.Repair)
         if e.elite:
             self.elites_killed += 1
             self.drop_pickup(e.pos, PickupKind.Cache)
@@ -903,6 +907,15 @@ extend Game:
             weapon, homing: stats.homing, splits: stats.splits, shatters: stats.shatters,
         }
         self.bullet_count += 1
+
+    // A random enemy in view, not struck in the last moment; -1 when none.
+    fn random_visible_enemy(mut self: Self) -> i32:
+        if self.enemy_count == 0: return -1
+        for _ in 0..16:
+            let i = (self.random() * (self.enemy_count as f64 - 0.001)) as i32
+            let e: Enemy = self.enemies[i]
+            if e.hit_cd <= 0.0 and self.on_screen(e.pos, -20.0): return i
+        -1
 
     fn arc_chain(mut self: Self, from: V2, chain: i32, range: f64, damage: i32):
         var origin = from
@@ -1041,10 +1054,24 @@ extend Game:
                             self.mine_count += 1
                         }
                         .Chain => {
-                            if self.nearest_enemy(self.player, stats.radius, true) < 0: continue
+                            // Lightning: bolts from above onto random enemies in view,
+                            // each chaining on to its neighbors.
                             self.build.weapons[slot].timer = stats.cooldown
-                            self.arc_chain(self.player, stats.chain, stats.radius, stats.damage)
-                            self.shot_event = true
+                            var struck = 0
+                            for b in 0..stats.count:
+                                // The first bolt always strikes the closest threat.
+                                let near = if b == 0: self.nearest_enemy(self.player, 420.0, true) else: -1
+                                let target = if near >= 0: near else: self.random_visible_enemy()
+                                if target < 0: break
+                                let pos: V2 = self.enemies[target].pos
+                                if self.arc_count < ARC_CAP:
+                                    self.arcs[self.arc_count] = ArcBolt { a: add(pos, V2 { x: (self.random() - 0.5) * 120.0, y: -560.0 }), b: pos }
+                                    self.arc_count += 1
+                                self.pulse(pos, 44.0, .Violet)
+                                let _ = self.damage_enemy(target, stats.damage, V2 { y: 1.0 })
+                                if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, stats.damage * 2 / 3 + 1)
+                                struck += 1
+                            if struck > 0: self.zap_event = true
                         }
                         .Bouncing => {
                             self.build.weapons[slot].timer = stats.cooldown
@@ -1097,8 +1124,8 @@ extend Game:
         match pick:
             .UpgradeWeapon(_) => self.rules.upgrade_weight
             .UpgradePassive(_) => self.rules.passive_upgrade_weight
-            .NewWeapon(_) => 1.0
-            .NewPassive(_) => 1.0
+            .NewWeapon(_) => self.rules.new_weapon_weight
+            .NewPassive(_) => self.rules.new_passive_weight
             .Merge(_) => 0.0
 
     // Draw the cards: a ready merge first, then weighted draws without
@@ -1725,7 +1752,8 @@ extend Game:
                 let e: Enemy = self.enemies[i]
                 let d = sqrt(length2(sub(e.pos, wave.pos)))
                 let reach = e.kind.radius() * e.size
-                if e.hit_cd <= 0.0 and d - reach <= wave.radius and d + reach >= previous:
+                // Each ring strikes an enemy once, as its edge crosses it.
+                if d - reach <= wave.radius and d + reach >= previous:
                     if not self.damage_enemy(i, wave.damage, direction(sub(e.pos, wave.pos))): i += 1
                 else: i += 1
             if wave.life <= 0.0:
@@ -1888,7 +1916,8 @@ extend Game:
         if self.launch.ship == .Phase:
             self.phase_timer -= dt
             if self.phase_timer <= 0.0:
-                self.phase_timer += PHASE_PERIOD
+                // The rhythm slows as the Phase levels: its late game fades.
+                self.phase_timer += PHASE_PERIOD + 0.45 * self.level as f64
                 if self.invulnerable < PHASE_LENGTH: self.invulnerable = PHASE_LENGTH
         self.enemies_frozen = limit(self.enemies_frozen - dt, 0.0, 5.0)
         self.breather = limit(self.breather - dt, 0.0, 10.0)
