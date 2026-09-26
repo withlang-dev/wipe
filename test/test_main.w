@@ -169,7 +169,8 @@ fn ships_uat:
     for i in 0..8: launch.unlocked_weapons[i] = true
     for i in 0..8: launch.unlocked_passives[i] = true
     g.start(launch)
-    assert(g.max_health == 15 and g.mods.armor == 1)
+    // Double health plus one per level, one armor.
+    assert(g.max_health == 21 and g.mods.armor == 1)
     assert(g.build.weapon_level(.Nova) == 1)
     launch.ship = .Sapper
     g.start(launch)

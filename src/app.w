@@ -7,6 +7,10 @@ use save
 use account
 use input
 use presentation
+use pilots
+use record
+use std.fs
+use std.process.env
 
 // The screens of spec §11. One confirm, one back, everywhere.
 pub enum Screen { | Title | Select | Run | Pause | Results | Shop | Collection }
@@ -87,6 +91,10 @@ pub type App {
     quit_armed: f64 = 0.0,
     input: Input = Input {}, menu: MenuState = MenuState {},
     debug: bool = false, frame_ms: f64 = 16.67,
+    // Recording, the run log, and live tuning.
+    rec: Recorder = Recorder {},
+    picks: str = "",
+    tuning_path: str = "", tuning_text: str = "", tuning_note: str = "", tuning_check: f64 = 0.0,
     // Presentation sound cues for the audio layer.
     ui_move: bool = false, ui_confirm: bool = false, ui_buy: bool = false,
 }
@@ -104,6 +112,14 @@ pub fn App.open() -> App:
     if not ship_unlocked(app.ship, &app.save): app.ship = .Claw
     app.ship_cursor = app.ship.index()
     app.input.deadzone = save.deadzone
+    // Live tuning: WIPE_TUNING, or tuning.txt beside the save. The defaults
+    // file lists every knob with its current value.
+    let override = env("WIPE_TUNING")
+    app.tuning_path = if override.len() > 0: override else: f"{app.file.directory}/tuning.txt"
+    let defaults = "# Every tuning knob and its built-in value. Copy lines into tuning.txt\n# to change them; the game reloads tuning.txt while it runs.\n" ++ rules_dump(Rules {})
+    let defaults_path = f"{app.file.directory}/tuning.defaults.txt"
+    let _ = write_file(defaults_path, defaults)
+    app.reload_tuning()
     // The attract simulation is the real game with a scripted pilot.
     app.attract.rules.contact_radius = 0.0
     app.attract.rng = 987654
@@ -147,17 +163,23 @@ extend App:
         if self.save.last_ship != ship.index():
             self.save.last_ship = ship.index()
             self.persist()
-        let endless = self.endless and self.save.cleared[ship.index()]
-        let rules = self.stage.rules()
-        self.game.rules = rules
-        self.game.rng = 1234567 +% (self.save.runs as u32) *% 2654435761
-        self.game.start(launch_for(ship, &self.save, endless))
+        let cleared: bool = self.save.cleared[ship.index()]
+        let endless = self.endless and cleared
+        // A fresh game per run, built exactly as a replay builds it.
+        let h = Header {
+            seed: 1234567 +% (self.save.runs as u32) *% 2654435761 +% (GetTime() * 1000.0) as u32,
+            ship, stage: self.stage, endless, save: self.save, tuning: self.tuning_text.clone(),
+        }
+        self.game = start_game(&h)
+        self.rec.begin(h.seed, ship, self.stage, endless, self.save.serialize(), self.tuning_text)
+        self.picks = ""
         self.screen = .Run
         self.boost_cursor = 0
         self.death_timer = 0.0
 
     // Bank the run, star the bests, compute the open loops, save at once.
     pub fn finish_run(mut self: Self):
+        self.write_run_files()
         let before: Save = self.save
         let previous = if self.game.launch.endless: before.best_endless[self.ship.index()] else: before.best_time[self.ship.index()]
         let (after, new_best) = record_run(before, &self.game)
@@ -288,6 +310,10 @@ extend App:
         self.notice_timer = limit(self.notice_timer - dt, 0.0, 10.0)
         self.shop_flash = limit(self.shop_flash - dt, 0.0, 1.0)
         if m.debug: self.debug = not self.debug
+        self.tuning_check -= dt
+        if self.tuning_check <= 0.0:
+            self.tuning_check = 1.0
+            self.reload_tuning()
         match self.screen:
             .Title => self.update_title(m, dt)
             .Select => self.update_select(m)
@@ -364,11 +390,17 @@ extend App:
         self.game.clear_events()
         var steps = 0
         var accumulator = limit(dt, 0.0, 0.1)
+        // The simulation only ever sees quantized controls: what is recorded
+        // is exactly what was simulated.
+        let exact = quantize(controls)
         while accumulator >= 1.0 / 120.0 - 0.00001:
-            self.game.tick(controls, 1.0 / 120.0)
+            self.rec.tick(exact, true)
+            self.game.tick(exact, 1.0 / 120.0)
             accumulator -= 1.0 / 120.0
             steps += 1
-        if steps == 0: self.game.tick(controls, 0.0)
+        if steps == 0:
+            self.rec.tick(exact, false)
+            self.game.tick(exact, 0.0)
         if self.game.phase == .Over:
             self.death_timer += dt
             // The death burst gets its moment; any press skips it.
@@ -377,7 +409,9 @@ extend App:
     fn update_boost(mut self: Self, m: MenuInput):
         let count = self.game.offer_count
         if self.game.cache_reveal > 0.0:
-            if m.confirm: self.game.cache_reveal = 0.0
+            if m.confirm:
+                self.rec.event("v")
+                self.game.cache_reveal = 0.0
             return
         if m.left or m.right:
             self.boost_cursor = wrap(self.boost_cursor + (if m.right: 1 else: -1), count)
@@ -391,12 +425,23 @@ extend App:
                     return
         if m.digit > 0 and m.digit <= count: self.take(m.digit - 1)
         else if m.confirm: self.take(self.boost_cursor)
-        else if m.reroll: self.game.reroll()
-        else if m.skip: self.game.skip()
-        else if m.banish: self.game.banish(self.boost_cursor)
+        else if m.reroll and self.game.rerolls > 0:
+            self.note_pick("reroll")
+            self.rec.event("r")
+            self.game.reroll()
+        else if m.skip and self.game.skips > 0:
+            self.note_pick("skip")
+            self.rec.event("s")
+            self.game.skip()
+        else if m.banish and self.game.banishes > 0:
+            self.note_pick(f"banish {self.game.offers[self.boost_cursor].pick.title()}")
+            self.rec.event(f"b {self.boost_cursor}")
+            self.game.banish(self.boost_cursor)
         if self.boost_cursor >= self.game.offer_count: self.boost_cursor = 0
 
     fn take(mut self: Self, index: i32):
+        if index < self.game.offer_count: self.note_pick(pick_label(self.game.offers[index].pick))
+        self.rec.event(f"c {index}")
         self.game.choose(index)
         self.boost_cursor = 0
         self.ui_confirm = true
@@ -427,11 +472,13 @@ extend App:
                 3 => {
                     if self.confirm_abandon:
                         // Abandoning banks what the run earned so far.
+                        self.rec.event("a")
                         self.game.abandon()
                         self.finish_run()
                     else: self.confirm_abandon = true
                 }
                 4 => {
+                    self.rec.event("a")
                     self.game.abandon()
                     self.finish_run()
                     self.go(.Title)
@@ -533,8 +580,63 @@ extend App:
             }
         renderer.present()
 
+    // Re-read the tuning file. A change applies to the run in progress (and
+    // is recorded) and to every later launch.
+    pub fn reload_tuning(mut self: Self):
+        let text = match read_file(self.tuning_path):
+            Ok(t) => t
+            Err(_) => ""
+        if text == self.tuning_text: return
+        self.tuning_text = text.clone()
+        let (_, count, unknown) = apply_tuning(Rules {}, text)
+        self.tuning_note = if unknown.len() > 0: f"TUNING {count} set, unknown: {unknown}" else: f"TUNING {count} set"
+        if self.screen == .Run or self.screen == .Pause:
+            let (rules, _, _) = apply_tuning(self.stage.rules(), self.tuning_text)
+            self.game.rules = rules
+            self.rec.tuning(self.tuning_text)
+
+    fn note_pick(mut self: Self, choice: str):
+        var offered = ""
+        for i in 0..self.game.offer_count:
+            let label = pick_label(self.game.offers[i].pick)
+            offered = if offered.len() == 0: label else: offered ++ "|" ++ label
+        let when = match self.game.boost_source:
+            .LevelUp => f"L{self.game.level - self.game.pending_levels}"
+            .Cache => "cache"
+        let entry = f"{when}:{offered}>{choice}"
+        self.picks = if self.picks.len() == 0: entry else: self.picks ++ " " ++ entry
+
+    // The recording and one run-log line, beside the save.
+    fn write_run_files(mut self: Self):
+        let g = &self.game
+        let dir = f"{self.file.directory}/runs"
+        let _ = mkdir_p(dir)
+        let number = self.save.runs + 1
+        let name = f"run-{number}-{self.ship.name()}.rec"
+        let recording = self.rec.finish(g)
+        let _ = write_file(f"{dir}/{name}", recording)
+        let log_path = f"{self.file.directory}/runs.tsv"
+        let previous = match read_file(log_path):
+            Ok(t) => t
+            Err(_) => "run\tship\tstage\tendless\tseconds\tlevel\tkills\thits\tkiller\tcleared\tcredits\tweapons\tpassives\tpicks\trecording\n"
+        let killer = match g.killer:
+            Some(k) => k.name()
+            None => if g.cleared: "cleared" else: "abandoned"
+        var weapons = ""
+        for slot in 0..SLOT_COUNT:
+            let w: WeaponSlot = g.build.weapons[slot]
+            if w.level > 0: weapons = weapons ++ f"{w.weapon.name()}:{w.level} "
+        var passives = ""
+        for slot in 0..SLOT_COUNT:
+            let p: PassiveSlot = g.build.passives[slot]
+            if p.level > 0: passives = passives ++ f"{p.passive.name()}:{p.level} "
+        let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\n"
+        let _ = write_file(log_path, previous ++ row)
+
     fn debug_info(self: &Self) -> DebugInfo:
-        DebugInfo { frame_ms: self.frame_ms, save_path: self.file.path.clone(), metrics: self.metrics.lines() }
+        var lines = self.metrics.lines()
+        if self.tuning_note.len() > 0: lines.push(self.tuning_note.clone())
+        DebugInfo { frame_ms: self.frame_ms, save_path: self.file.path.clone(), metrics: lines }
 
     fn credits_corner(self: &Self):
         neon_right(commas(self.save.credits), 1250, 24, 28, gold(1.0))
@@ -915,3 +1017,11 @@ fn collection_card_origin(i: i32) -> (i32, i32):
 // A locked ship is a question mark: its shape is part of the reward.
 fn mystery(at: V2, size: i32, color: Color):
     neon("?", at.x as i32 - MeasureText("?", size) / 2, at.y as i32 - size / 2, size, color)
+
+fn pick_label(p: Pick) -> str:
+    match p:
+        .NewWeapon(w) => "+" ++ w.name()
+        .UpgradeWeapon(w) => w.name()
+        .NewPassive(x) => "+" ++ x.name()
+        .UpgradePassive(x) => x.name()
+        .Merge(w) => "=" ++ w.name()

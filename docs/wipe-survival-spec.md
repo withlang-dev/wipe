@@ -528,14 +528,56 @@ the game, and the reason a player who has cleared a run starts another.
 | Ship | Base weapon | Strength | Growth | Weakness | Unlock |
 |---|---|---|---|---|---|
 | Claw | Cannon | Balanced; +1 reroll per run | +1% damage per level | None | Start |
-| Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Half max health | Survive 5:00 |
-| Hull | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
-| Prism | Shard | Shards bounce twice more; +20% area | +1% area per level | −15% damage | Kill 200 enemies with bounced shards |
-| Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
-| Needle | Lance | +35% damage, lance pierce doubled | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
-| Sapper | Mines | +40% area, −15% cooldowns, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
-| Phase | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
-| Null | Shear (unique) | Starts at level 5 with 3 weapons; +30% credits | +1% credits per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
+| Dart | Seeker | +25% move speed, +20% projectile speed, +1 seeker | None: its edge is the opening | Half max health | Survive 5:00 |
+| Hull | Nova | Double max health, +1 armor, repairs 1 health every 2.5 s | +1 max health per level, +1 armor every 6 levels | −15% move speed | Take 20 hits in one run and survive |
+| Prism | Shard | +1 shard, shards bounce three more times, +20% area, +10% damage | +1% area per level | Weak first minute | Kill 200 enemies with bounced shards |
+| Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +1 blade every 6 levels, +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
+| Needle | Lance | +35% damage, −20% cooldowns, lance pierce doubled | +3% damage per level | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
+| Sapper | Mines | +50% area, −28% cooldowns, +3 max health, mines chain-detonate | The cooldown edge fades after level 18 | Only 4 weapon slots | Complete two merges in one run |
+| Phase | Arc | Phases out for 1.5 s every 6 s; 3 s invulnerable on every level-up; −20% cooldowns | Damage edge of +60% fades 2.5% per level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
+| Null | Nova | Starts at level 5 with three weapons at level III; +30% credits; +3 max health | +1% credits per level | −25% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
+
+### Ship profiles
+
+Every ship is strong somewhere and weak somewhere, on purpose. A weakness
+is part of the ship's identity, not a bug to be tuned away; balance means
+each ship reaches the late run about as often as the others, by its own
+route. A run has three phases:
+
+- **Opening**, the first two minutes: the swarm outgrows a single weapon.
+- **Middle**, two to ten minutes: builds form, the first bosses arrive.
+- **Late**, ten minutes to the cap: density peaks and the build is tested.
+
+| Ship | Opening | Middle | Late | The shape |
+|---|---|---|---|---|
+| Claw | Even | Even | Even | The reference: nothing given, nothing taken. Aim rewards skill. |
+| Dart | Strong | Even | Weak | Seekers never miss and the ship outruns anything, but half health makes every mistake costly and single seekers thin out against late crowds. |
+| Hull | Weak | Even | Strong | Slow, and Nova's pulse is a poor early killer; health grows all run, so the Hull is the hardest ship to kill late. |
+| Prism | Weak | Strong | Even | Two shards are thin in the first minute; with bounces in a bounded arena they own the middle game. |
+| Halo | Weak | Even | Even | One orbiting blade is a poor early killer; the magnet and XP bonus level the Halo fastest, so it catches up. |
+| Needle | Weak | Even | Strong | Cannot aim and starts slow; deep-piercing beams and damage growth make it the strongest late killer. |
+| Sapper | Strong | Strong | Weak | Mines behind a kiting ship make the opening and middle safe; four weapon slots cap the late build. |
+| Phase | Even | Strong | Weak | Level-up invulnerability chains through the middle game; one hit kills, and late levels come slowly. |
+| Null | Strong | Even | Weak | Starts at level 5 with three weapons; no merges and less XP let it fade late. |
+
+Each rating is a measured band for the careful playtest bot over sixteen
+seeds (`runs profile 16`), and `test/targets.w` holds every ship inside its
+bands:
+
+| Phase | Measured as | Strong | Even | Weak |
+|---|---|---|---|---|
+| Opening | runs past 2:00 | 15 or more | 14 or more | 8 or more |
+| Middle | runs past 10:00 | 7 or more | 5 to 10 | 3 to 7 |
+| Late | runs past 15:00 | 4 or more | 1 to 6 | 0 to 3 |
+
+The bands overlap because the bot resolves shape coarsely: it plays every
+ship the same way, perfectly aimed and never greedy. Recorded human runs
+(`runs calibrate`) are the finer check. Every weapon at level V kills 600
+to 1,500 enemies a minute against the balance bench's swarm, and every
+merge 1,100 to 3,200.
+
+A standing-still Claw dies in 7 to 14 seconds, as a standing-still player
+does in the first seconds of Vampire Survivors.
 
 Growth is a ship's stat gain per level within the run, so a ship's identity
 sharpens across twenty minutes instead of being fixed at the start. It is a

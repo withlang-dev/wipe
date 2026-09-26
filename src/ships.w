@@ -111,38 +111,38 @@ extend Ship:
     pub fn strength(self: &Self) -> str:
         match self:
             .Claw => "Balanced. +1 reroll per run"
-            .Dart => "+25% move speed, +20% projectile speed"
-            .Hull => "+50% max health, +1 armor"
-            .Prism => "Shards bounce twice more, +20% area"
+            .Dart => "+25% move speed, +20% projectile speed, +1 seeker"
+            .Hull => "Double max health, +1 armor, self-repair"
+            .Prism => "+1 shard, three more bounces, +20% area"
             .Halo => "+60% magnet, +1 orbit blade, cores worth +25% XP"
-            .Needle => "+35% damage, lance pierce doubled"
-            .Sapper => "+40% area, -15% cooldowns, mines chain-detonate"
-            .Phase => "Invulnerable 2 s on every level-up"
-            .Null => "Starts at level 5 with 3 weapons, +30% credits"
+            .Needle => "+35% damage, faster cooldowns, lance pierce doubled"
+            .Sapper => "+50% area, faster cooldowns, mines chain-detonate"
+            .Phase => "Phases out 1.5 s of every 6; invulnerable 3 s on level-up"
+            .Null => "Starts at level 5 with three weapons at III, +30% credits"
 
     pub fn growth(self: &Self) -> str:
         match self:
             .Claw => "+1% damage per level"
-            .Dart => "+1% move speed per level"
-            .Hull => "+1 max health every 5 levels"
+            .Dart => "None: its edge is the opening"
+            .Hull => "+1 max health per level, armor every 6"
             .Prism => "+1% area per level"
-            .Halo => "+2% magnet per level"
-            .Needle => "+1% damage per level, +5% every 10"
-            .Sapper => "+1% cooldown per level"
-            .Phase => "+0.1 s invulnerability every 5 levels"
+            .Halo => "+1 blade every 6 levels"
+            .Needle => "+3% damage per level"
+            .Sapper => "The cooldown edge fades after level 18"
+            .Phase => "Its damage edge fades with level"
             .Null => "+1% credits per level"
 
     pub fn weakness(self: &Self) -> str:
         match self:
             .Claw => "None"
             .Dart => "Half max health"
-            .Hull => "-20% move speed"
-            .Prism => "-15% damage"
+            .Hull => "-15% move speed"
+            .Prism => "Weak first minute"
             .Halo => "Cannot take the Cannon"
             .Needle => "Cannot aim: no Cannon, the right stick does nothing"
             .Sapper => "Only 4 weapon slots"
             .Phase => "Max health 1. Reboots do not work"
-            .Null => "-40% XP gain. Cannot merge"
+            .Null => "-25% XP gain. Cannot merge"
 
     pub fn condition(self: &Self) -> Condition:
         match self:
@@ -188,38 +188,57 @@ extend Ship:
         match self:
             .Claw => { m.damage *= 1.0 + 0.01 * l }
             .Dart => {
-                m.speed *= 1.25 * (1.0 + 0.01 * l)
+                m.speed *= 1.25
                 m.proj_speed *= 1.2
+                m.count += 1
                 m.max_health = m.max_health / 2
             }
             .Hull => {
-                m.max_health = ((m.max_health as f64) * 1.5) as i32 + level / 5
-                m.armor += 1
-                m.speed *= 0.8
+                // The late wall: health doubles and keeps growing, armor
+                // thickens, and the hull slowly repairs itself.
+                m.max_health = m.max_health * 2 + level
+                m.armor += 1 + level / 6
+                m.regen += 0.4
+                m.speed *= 0.85
             }
             .Prism => {
-                m.rebound += 2
+                // The middle game: an extra shard and two more bounces.
+                m.rebound += 3
+                m.count += 1
+                m.damage *= 1.1
                 m.area *= 1.2 * (1.0 + 0.01 * l)
-                m.damage *= 0.85
             }
             .Halo => {
                 m.magnet *= 1.6 * (1.0 + 0.02 * l)
                 m.xp *= 1.25
-                m.count += 1
+                // One more blade now and one every eight levels: a slow
+                // start that catches up.
+                m.count += 1 + level / 6
             }
-            .Needle => { m.damage *= 1.35 * (1.0 + 0.01 * l + 0.05 * (level / 10) as f64) }
+            .Needle => {
+                // The late killer: damage compounds with every level, and
+                // every weapon cycles faster.
+                m.damage *= 1.35 * (1.0 + 0.03 * l)
+                m.cooldown *= 0.8
+            }
             .Sapper => {
                 // The card promised +40% area; it was never applied.
-                m.area *= 1.4
-                m.cooldown *= 0.85 * (1.0 - 0.01 * l)
+                // Peaks early: the bonus fades as the run goes on.
+                m.area *= 1.5
+                m.cooldown *= 0.72 * (1.0 + 0.06 * limit(l - 18.0, 0.0, 30.0))
+                m.max_health += 3
             }
             .Phase => {
                 m.max_health = 1
-                m.invuln_bonus = 2.0 + 0.1 * (level / 5) as f64
+                m.invuln_bonus = 3.0 + 0.1 * (level / 5) as f64
+                // Strongest in the middle game; the edge fades with level.
+                m.cooldown *= 0.8
+                m.damage *= limit(1.6 - 0.025 * l, 0.8, 1.6)
             }
             .Null => {
                 m.credit *= 1.3 * (1.0 + 0.01 * l)
-                m.xp *= 0.6
+                m.xp *= 0.75
+                m.max_health += 3
             }
         if m.max_health < 1: m.max_health = 1
         m

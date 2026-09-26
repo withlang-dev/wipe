@@ -4,6 +4,7 @@ use presentation
 use gamepads
 use audio
 use app
+use record
 
 fn main:
     SetTraceLogLevel(LOG_WARNING)
@@ -36,6 +37,7 @@ fn main:
         let elapsed = GetFrameTime() as f64
         wipe.frame_ms += (elapsed * 1000.0 - wipe.frame_ms) * 0.05
         if IsKeyPressed(KEY_F3) and wipe.screen == .Run and wipe.game.phase == .Running:
+            wipe.rec.event("x 1800")
             wipe.game.stress(1800)
             wipe.debug = true
         let pad = pads.poll()

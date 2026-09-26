@@ -107,6 +107,37 @@ Disconnect and reconnect to check recovery. Escape closes the test and prints
 the observed controls and mean/peak polling time. A device being detected alone
 does not establish full hardware acceptance.
 
+## Recordings, the run log, and live tuning
+
+Every run is recorded and logged beside the save (see the save location
+above):
+
+- `runs/run-N-SHIP.rec`: the seed, the account, the tuning, and every input
+  the simulation received. Inputs are quantized to 1/4096 before the
+  simulation sees them, so a recording replays exactly, and any bug you hit
+  can be reproduced from its file.
+- `runs.tsv`: one line per run: ship, stage, length, level, kills, hits,
+  killer, build, and every card offered and taken.
+- `tuning.txt`: optional knob overrides as `name value` lines. The game
+  reloads it every second, applies changes to the run in progress, and
+  records them. `tuning.defaults.txt` lists every knob and its built-in
+  value. `WIPE_TUNING` points at a different file.
+
+The `runs` tool works on those files without a window:
+
+```sh
+with build :runs
+./out/bin/runs replay            # every recording replays exactly, or says where it diverged
+./out/bin/runs calibrate         # your runs beside the careful bot on the same seeds
+./out/bin/runs profile 16        # every ship, stationary and careful, across a whole run
+```
+
+`with build :test` holds the balance targets: a standing-still Claw dies
+in 7 to 14 seconds as in Vampire Survivors, each ship stays inside the
+opening, middle, and late bands of its profile in spec §9, and every
+weapon and merge stays inside its kill-rate band. The suite takes about two
+minutes because of these.
+
 ## Acceptance and performance
 
 ```sh
@@ -222,6 +253,9 @@ an automated fixture, not a human playthrough or a hardware certification.
   icons, the boost overlay, render passes and bloom.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
+- `src/record.w`: recordings and exact replay. `src/pilots.w`: the bots shared
+  by tests, benches, and calibration. `src/runs.w`: the replay, calibrate,
+  and profile tool.
 - `src/uat.w`, `src/play.w`, `src/balance.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
   acceptance and measurement.
 

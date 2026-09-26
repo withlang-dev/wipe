@@ -26,6 +26,9 @@ const CELL_COLS: i32 = 60
 const CELL_ROWS: i32 = 44
 const CELL_COUNT: i32 = CELL_COLS * CELL_ROWS
 pub const KIND_COUNT: i32 = 8
+// The Phase is invulnerable for PHASE_LENGTH seconds every PHASE_PERIOD.
+pub const PHASE_PERIOD: f64 = 6.0
+pub const PHASE_LENGTH: f64 = 1.5
 
 pub type V2 { x: f64 = 0.0, y: f64 = 0.0 }
 pub fn add(a: V2, b: V2) -> V2: V2 { x: a.x + b.x, y: a.y + b.y }
@@ -114,7 +117,7 @@ extend Kind:
     // twelve-minute build walk through the last eight.
     fn base_hp(self: &Self, minute: f64) -> i32:
         let m = minute
-        let curve = m * 0.8 + m * m * 0.045
+        let curve = m * 1.0 + m * m * 0.055
         // Opening enemies die to one hit; the pressure is their number.
         match self:
             .Block => (1.0 + curve) as i32
@@ -281,6 +284,8 @@ pub type Game {
     best_crossed: bool = false, best_flare: f64 = 0.0,
     // Boss entry pulls the camera back for a moment.
     zoom_timer: f64 = 0.0,
+    // The Phase slips out of the world on a rhythm.
+    phase_timer: f64 = 0.0,
     banner: Banner = Banner {},
     enemy_count: i32 = 0, bullet_count: i32 = 0, core_count: i32 = 0, particle_count: i32 = 0,
     pulse_count: i32 = 0, popup_count: i32 = 0, pickup_count: i32 = 0, beacon_count: i32 = 0,
@@ -388,8 +393,10 @@ extend Game:
         self.build.weapons[0].seen = true
         self.level = launch.ship.starting_level()
         if launch.ship == .Null:
+            // The strongest start: three weapons, already at level three.
             self.build.add_weapon(.Orbit)
             self.build.add_weapon(.Seeker)
+            for slot in 0..3: self.build.weapons[slot].level = 3
         self.xp = 0
         self.xp_next = self.rules.xp_for_level(self.level)
         self.pending_levels = 0
@@ -444,6 +451,7 @@ extend Game:
         self.best_crossed = false
         self.best_flare = 0.0
         self.zoom_timer = 0.0
+        self.phase_timer = PHASE_PERIOD
         self.banner = Banner {}
         self.enemy_count = 0
         self.bullet_count = 0
@@ -1877,6 +1885,11 @@ extend Game:
             self.best_flare = 2.0
             self.show(.NewBest, 2.0)
         self.invulnerable = limit(self.invulnerable - dt, 0.0, 5.0)
+        if self.launch.ship == .Phase:
+            self.phase_timer -= dt
+            if self.phase_timer <= 0.0:
+                self.phase_timer += PHASE_PERIOD
+                if self.invulnerable < PHASE_LENGTH: self.invulnerable = PHASE_LENGTH
         self.enemies_frozen = limit(self.enemies_frozen - dt, 0.0, 5.0)
         self.breather = limit(self.breather - dt, 0.0, 10.0)
         self.combo_timer -= dt
