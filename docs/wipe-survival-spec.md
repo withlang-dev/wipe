@@ -19,10 +19,10 @@ builds the second game's loop under it.
 The addiction is not one mechanic. It is three curves that overlap so that
 one is always rising:
 
-1. Power within the run: level-ups, weapons, passives, evolutions.
+1. Power within the run: boosts, weapons, passives, merges.
 2. Progress between runs: gold banked from every run, a shop of permanent
    power-ups, an unlock list.
-3. A collection that is never complete: weapons, ships, evolutions, stages.
+3. A collection that is never complete: weapons, ships, merge recipes, stages.
 
 Desired reactions, in order:
 
@@ -108,7 +108,7 @@ Difficulty is a minute-by-minute spawn timeline, not a wave counter:
 | 0–2 | Chasers only, thin. First level-up within 30 seconds. |
 | 2–5 | Density rises. Darts appear. First elite at 3:00. |
 | 5–10 | Spinners and Weavers join. Elites every minute. Boss at 5:00 and 10:00. |
-| 10–15 | Full roster, walls of enemies, second and third evolutions become reachable. |
+| 10–15 | Full roster, walls of enemies, second and third merges become reachable. |
 | 15–20 | Screen-filling density. Boss at 15:00. Reaper at 20:00. |
 
 Every enemy kind, elite, and boss has a first-appearance minute in a data
@@ -122,7 +122,7 @@ knobs.
 - **Bosses**: at 5, 10, and 15 minutes. A boss is a screen-clear gate with a
   telegraphed pattern and a health bar, the one enemy health bar in the game.
 - **Chests**: dropped by elites and bosses. Opening a chest grants one to
-  three upgrades at once, or an evolution if one is available. This is where
+  a boost on the spot, with a completed merge offered first. This is where
   the run's power spikes.
 - **Breathers**: after a boss dies, five seconds of thinned spawns and a
   music lift.
@@ -150,7 +150,7 @@ Juice is required scope, not polish:
 - **Kills**: 8–20 line sparks inheriting impact direction, expanding ring,
   silhouette scale-out, kill sound, light shake scaled by combo.
 - **Level-up**: brief freeze, a pulse from the ship, a rising chime.
-- **Evolution**: the loudest non-death moment: freeze, screen flash, a named
+- **Merge**: the loudest non-death moment: freeze, screen flash, a named
   banner, the new weapon's first volley.
 - **Boss entry**: red edge warning for 1.5 seconds, WARNING text, spawns
   pause, 120–150 ms freeze, camera zoom out, music shift.
@@ -181,14 +181,17 @@ screen.
 ### Level-ups
 
 The level-up bar fills with XP; the XP needed per level grows so that early
-levels come every 30 seconds and late levels every one to two minutes. On
-level-up the game pauses and offers a choice of three (four with a luck
-passive):
+levels come every 30 seconds and late levels every one to two minutes. A
+level-up is a boost: the game pauses and offers a choice of three (four
+with a luck passive):
 
+- a merge, if a recipe is complete (always offered first; see Merges)
 - a new weapon, if a weapon slot is free
 - an upgrade to an owned weapon (up to level 8)
 - a new passive, if a passive slot is free
 - an upgrade to an owned passive (up to level 5)
+
+A chest is also a boost, opened on the spot with the same choice.
 
 Skip and reroll exist as shop-bought permanent counts, one per run each at
 first. Choosing resumes play immediately.
@@ -218,15 +221,28 @@ Six passive slots. Launch roster, eight passives: damage, fire rate,
 projectile count, area, projectile speed, magnet, move speed, max health.
 Plus cooldown, armor, luck, and gold gain as unlockables.
 
-### Evolutions
+### Merges
 
-A weapon at max level plus its paired passive at any level, then the next
-chest, evolves the weapon into a named, visually distinct, much stronger
-form. Evolutions are the late-run hook and the collection's centerpiece.
-Every launch weapon has exactly one evolution and one pairing; pairings are
-listed in the unlock panel once discovered.
+A merge is a recipe: two specific powerups, both at max level, plus the
+recipe's key item held in a slot. Once all three are true, the merged
+skill appears as a guaranteed option in the next boost, taking one of the
+three choices. Picking it consumes the two components into one merged
+weapon, named, visually distinct, and much stronger. Not picking it keeps
+it in every following boost until it is picked.
 
-Build variety comes from slot pressure and pairings, not from a synergy rule
+Two recipe shapes:
+
+- **Evolution**: a weapon at max plus a passive at max, keyed by that
+  passive. The weapon evolves; the passive stays.
+- **Union**: two weapons at max, keyed by a passive at any level. The two
+  become one, which frees a weapon slot, the strongest reward in a run.
+
+Every launch weapon has exactly one evolution; four unions exist at launch.
+Recipes are hidden until first discovered, then listed in the unlock panel
+with their components. Merges are the late-run hook and the collection's
+centerpiece: a player who knows a recipe plays the run to reach it.
+
+Build variety comes from slot pressure and recipes, not from a synergy rule
 system. Six weapons and six passives against eight and twelve options is
 enough to make every run's build a decision.
 
@@ -288,7 +304,7 @@ affordable at the moment of death.
 
 A visible list. Every entry shows its condition, its progress, and what it
 gives. Conditions are run facts: survive N minutes with a weapon, reach a
-level, evolve a weapon, kill a boss, reach a combo. Entries unlock:
+level, complete a merge, kill a boss, reach a combo. Entries unlock:
 
 - weapons and passives beyond the launch roster
 - ships: see §9; each has its own condition, from trivial to very specific
@@ -307,7 +323,7 @@ RUN OVER                          (or CLEARED at the cap)
 
 Survived 18:40   (best 19:12)
 Level 31   Kills 2,317   Best combo x48
-Build: Cannon IV · Orbit (evolved) · Seeker II · Nova I
+Build: Cannon IV · Orbit (merged) · Seeker II · Nova I
        Magnet III · Damage II · Speed I
 
 +412 gold   (banked: 1,988)
@@ -359,9 +375,9 @@ the game, and the reason a player who has cleared a run starts another.
 | Prism | Shard | Shards bounce twice more; +20% area | −15% damage | Kill 200 enemies with bounced shards |
 | Lantern | Orbit | +60% magnet, gems worth +25% XP | Cannot take the Cannon | Collect 5,000 gems, lifetime |
 | Needle | Lance | +35% damage, lance pierces everything | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
-| Ember | Mines | +40% area, mines chain-detonate | Only 4 weapon slots | Evolve two weapons in one run |
+| Ember | Mines | +40% area, mines chain-detonate | Only 4 weapon slots | Complete two merges in one run |
 | Ghost | Arc | Invulnerable for 2 seconds on every level-up | Max health 1; revives do not work | Clear a 20-minute run with no revive |
-| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | −40% XP gain; cannot evolve | Secret: "Face what ends the run, and end it first" |
+| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 
 The Reaper is the mirror of Vampire Survivors' Red Death: the Reaper that
 arrives at the 20-minute cap is unkillable to an ordinary build, and a build
@@ -563,7 +579,7 @@ for the shape of every system in current With. New systems follow the
 prototype's pattern: state in the simulation, knobs in the rules value,
 presentation reads and never writes.
 
-The spawn timeline, weapon and passive tables, evolution pairings, shop
+The spawn timeline, weapon and passive tables, merge recipes, shop
 prices, and unlock conditions are data tables in the rules module so tuning
 never touches system code.
 
@@ -572,7 +588,7 @@ never touches system code.
 ## 15. Steam
 
 Achievements mirror the unlock list one-to-one plus milestones: first clear,
-first evolution, every boss, 10 and 50 and 100 runs. Achievements trigger on
+first merge, every boss, 10 and 50 and 100 runs. Achievements trigger on
 the run fact, immediately, through the Steamworks flat C API modeled as a
 facade. Steam Deck verified: controls, readability, and speaker mix checked
 on the device. If Steam is not running the game runs without it and says so
@@ -608,9 +624,9 @@ Done when the five metrics read as designed across ten playtest sessions:
 runs per session rising, most results screens showing an open loop within
 30%.
 
-### M3 — Variety and evolutions
+### M3 — Variety and merges
 
-All eight weapons, all passives, every evolution with its banner, the third
+All eight weapons, all passives, every evolution and union with its banner, the third
 boss, the Spinner and Weaver behaviors, stages with modifiers, the full ship
 roster including the killable Reaper and its ship.
 
