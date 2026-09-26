@@ -32,8 +32,8 @@ fn kills_once(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i3
     // No level-ups: their hit-stop would freeze the weapon being measured.
     g.xp_next = 1000000000
     // Weaver bolts still land: an unkillable hull keeps the weapon firing.
-    g.max_health = 1000000000
-    g.health = 1000000000
+    g.max_health = 100000000
+    g.health = 100000000
     var hp_killed = 0.0
     var arcs = 0
     let steps = (seconds * 120.0) as i32

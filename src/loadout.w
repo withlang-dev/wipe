@@ -100,18 +100,18 @@ extend Weapon:
             .Mines => "Dropped on the path, detonating on contact."
             .Arc => "Lightning that chains between nearby enemies."
             .Shard => "Fragments that ricochet off the arena walls."
-            .Railgun => "Cannon evolved: bolts pierce everything they cross."
+            .Railgun => "Cannon evolved: three heavy bolts that pierce three."
             .Corona => "Orbit evolved: a wide, dense ring of blades."
             .Supernova => "Nova evolved: a vast ring, twice as often."
             .Swarm => "Seeker evolved: a cloud of fast homing bolts."
-            .Pike => "Lance evolved: a long beam that pierces everything."
+            .Pike => "Lance evolved: a longer beam that pierces far deeper."
             .Minefield => "Mines evolved: a dense field that chain-detonates."
             .Storm => "Arc evolved: long chains, twice the reach."
             .Shatter => "Shard evolved: every bounce splits the fragment."
             .Tracer => "Cannon and Seeker: aimed bolts that hunt."
             .Pulsar => "Orbit and Nova: blades that burst as they turn."
             .Grid => "Mines and Arc: detonations that chain lightning."
-            .Refractor => "Lance and Shard: a beam that shatters at the wall."
+            .Refractor => "Lance and Shard: a deep beam that shatters where it ends."
 
     pub fn family(self: &Self) -> Family:
         match self:
@@ -341,7 +341,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     // magnitude: the Railgun pierced everything at triple damage and
     // out-killed every other weapon five to one.
     match weapon:
-        .Railgun => { s.count = 2; s.pierce = 4; s.damage = s.damage * 3 / 2; s.speed *= 1.3 }
+        .Railgun => { s.count = 3; s.pierce = 3; s.damage = s.damage * 3 / 2; s.speed *= 1.3 }
         .Corona => { s.count += 4; s.radius *= 1.4; s.damage *= 2 }
         .Supernova => { s.radius *= 1.15; s.damage = s.damage * 5 / 4; s.cooldown *= 0.9 }
         .Swarm => { s.count = s.count * 3 / 2 + 1; s.damage = s.damage * 3 / 2; s.cooldown *= 0.8; s.speed *= 1.3 }

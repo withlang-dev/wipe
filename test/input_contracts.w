@@ -33,4 +33,15 @@ fn main:
     near(length2(movement(combined.motion)), 1.0)
     near(combined.aim.x, 0.0)
     near(combined.aim.y, 1.0)
+    // A d-pad press echoed as an arrow key a few frames later counts once;
+    // two real presses on one device both count.
+    let (after_pad, first) = one_press([-100, -100], false, true, 10)
+    assert(first)
+    let (after_echo, echo) = one_press(after_pad, true, false, 13)
+    assert(not echo)
+    let (_, later) = one_press(after_echo, false, true, 30)
+    assert(later)
+    let (twice_marks, one) = one_press([-100, -100], false, true, 40)
+    let (_, two) = one_press(twice_marks, false, true, 42)
+    assert(one and two)
     print("UAT passed: native axis range, independent sticks, aim retention, mouse takeover, disconnect")

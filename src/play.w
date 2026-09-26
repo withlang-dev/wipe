@@ -176,7 +176,10 @@ fn main:
     var first_level_sum = 0.0
     var first_level_runs = 0
     var shots = 0
-    log.note(f"start: screen {screen_name(wipe.screen)} (fresh save launches straight into a run)")
+    if wipe.screen != .Title:
+        failures += 1
+        log.note(f"  FAIL: launched to {screen_name(wipe.screen)}, not the title")
+    log.note(f"start: screen {screen_name(wipe.screen)}")
     while runs_done < runs_target and p.frame < 60 * 60 * 200:
         p.frame += 1
         clock += DT
@@ -189,7 +192,7 @@ fn main:
             match wipe.screen:
                 .Title => {
                     // Look around first: the shop and the collection once each.
-                    if p.shop_visits == 0 and wipe.save.credits > 0: m.shop = true
+                    if p.shop_visits == 0 and wipe.save.credits > 0 and runs_done > 0: m.shop = true
                     else if p.collection_visits == 0 and wipe.save.runs > 0: m.collection = true
                     else: m.confirm = true
                     p.wait = 0.8

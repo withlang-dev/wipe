@@ -36,6 +36,8 @@ extend PadFrame:
 pub type Gamepads {
     pad: Option[Pad] = None, ready: bool = false, next_scan: u64 = 0,
     preferred_id: u32 = 0, south_held: bool = false, held: u32 = 0,
+    // Valve controllers: when "lizard mode off" was last sent.
+    valve: bool = false, next_controller_mode: u64 = 0,
     report_connections: bool = true, warned: bool = false,
 }
 
@@ -80,6 +82,8 @@ extend Gamepads:
                     // Connecting with A held must not automatically restart.
                     self.south_held = pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
                     self.held = held_mask(&pad)
+                    self.valve = pad.vendor() == VALVE_VENDOR
+                    self.next_controller_mode = 0
                     self.pad = Some(pad)
                     self.warned = false
                     return
@@ -100,6 +104,7 @@ extend Gamepads:
             self.warned = false
             return PadFrame {}
         if self.pad.is_none(): self.discover()
+        self.hold_controller_mode()
         let Some(pad) = &self.pad else return PadFrame {}
         let south = pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
         let held = held_mask(pad)
@@ -113,6 +118,36 @@ extend Gamepads:
         self.south_held = south
         self.held = held
         frame
+
+pub const VALVE_VENDOR: u16 = 0x28DE
+
+// A Steam Controller with no software claiming it runs in "lizard mode":
+// its firmware moves the OS cursor and types arrow keys from the d-pad. SDL
+// turns that off only every three seconds, and the firmware's watchdog
+// turns it back on in between, so the cursor wanders toward the screen's hot
+// corners and one d-pad press can arrive as a key and a button. While WIPE
+// holds the controller it sends "lizard mode off" twice a second.
+//
+// The report is the driver's own: report 1, ID_SET_SETTINGS_VALUES (0x87),
+// one three-byte setting, SETTING_LIZARD_MODE (9) = LIZARD_MODE_OFF (0).
+const CONTROLLER_MODE_REPORT_BYTES: i32 = 64
+
+extend Gamepads:
+    fn hold_controller_mode(mut self: Self):
+        if not self.valve: return
+        let now = SDL_GetTicks()
+        if now < self.next_controller_mode: return
+        self.next_controller_mode = now + 500
+        let Some(pad) = &self.pad else return
+        var report: [u8; 64] = [0; 64]
+        report[0] = 1
+        report[1] = 0x87
+        report[2] = 3
+        report[3] = 9
+        // The controller rejects nothing it can't parse; a non-Triton Valve
+        // pad reports the effect unsupported, which is harmless.
+        unsafe:
+            let _ = SDL_SendGamepadEffect(pad.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
 
 fn held_mask(pad: &Pad) -> u32:
     var mask: u32 = 0

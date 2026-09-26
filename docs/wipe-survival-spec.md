@@ -50,8 +50,8 @@ Desired reactions, in order:
 
 ### Pillars
 
-- **Instant.** Launch into gameplay in under 3 seconds. No menus before the
-  first run. Death to next run in under 2 seconds.
+- **Instant.** The title within a second of launch; a run two presses
+  later, through ship select. Death to next run in under 2 seconds.
 - **Responsive.** Twin-stick movement and aiming, auto-fire, fixed-step
   simulation, no perceived input latency.
 - **Readable under chaos.** Gameplay silhouettes stay solid; effects are
@@ -140,8 +140,8 @@ Difficulty is a minute-by-minute spawn timeline, not a wave counter:
 | Minutes | What happens |
 |---|---|
 | 0–2 | Chasers only, thin. First level-up within 30 seconds. |
-| 2–5 | Density rises. Darts appear. First elite at 3:00. |
-| 5–10 | Spinners and Weavers join. Elites every minute. Boss at 5:00 and 10:00. |
+| 2–5 | Density rises. Darts appear. First elite at 4:00. |
+| 5–10 | Spinners and Weavers join. Elites every two minutes. Boss at 5:00 and 10:00. |
 | 10–15 | Full roster, walls of enemies, second and third merges become reachable. |
 | 15–20 | Density fills the view wherever the ship goes. Boss at 15:00. The Null at 20:00. |
 
@@ -548,10 +548,9 @@ its progress shows only after the first attempt.
 
 ### Ship select
 
-Ship select is a screen only after the first ship is unlocked. Before that,
-launching starts a run as the Claw with no screen at all. The screen shows
-every ship, locked ones greyed with their condition and progress, and
-remembers the last choice.
+Ship select is always shown, even when only the Claw is unlocked. The
+screen shows every ship, locked ones greyed with their condition and
+progress, and remembers the last choice.
 
 ### Ships in the loop
 
@@ -669,9 +668,10 @@ launch ─▶ TITLE ─A─▶ SHIP SELECT ─A─▶ RUN ─death/cap─▶ RES
 RUN: Start/Esc ─▶ PAUSE      level-up/cache ─▶ BOOST overlay
 ```
 
-A fresh save with only the Claw skips ship select: title, A, run. The
-spec's instant pillar in numbers: title within one second of launch, a run
-within two presses.
+Launching always goes through ship select, even with only the Claw: the
+player sees the roster, its locks, and what they are flying. The instant
+pillar in numbers: title within one second of launch, a run within two
+presses.
 
 ### Common rules
 

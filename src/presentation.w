@@ -865,12 +865,137 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
             .Endless(c) => centered(f"LOOP {c}", 300, 44, magenta(alpha))
 
 // The boost overlay: three or four cards over the frozen world.
+// ----- card information -----------------------------------------------------
+
+pub fn boost_card_rect(i: i32, count: i32) -> (i32, i32, i32, i32):
+    let card_w = 260
+    let gap = 22
+    let total = count * card_w + (count - 1) * gap
+    let x0 = (WIDTH - total) / 2
+    (x0 + i * (card_w + gap), 160, card_w, 470)
+
+fn fmt1(x: f64) -> str:
+    let tenths = (x * 10.0 + 0.5) as i32
+    f"{tenths / 10}.{tenths % 10}"
+
+// One row of a card's stat table: a name, the value now, the value after.
+pub type StatRow { name: str, before: str, after: str }
+
+fn count_name(f: Family) -> str:
+    match f:
+        .Aimed => "Bolts"
+        .Orbiting => "Blades"
+        .Homing => "Seekers"
+        .Bouncing => "Shards"
+        .Chain => "Chain"
+        .Dropped => "Mines"
+        _ => ""
+
+fn area_name(f: Family) -> str:
+    match f:
+        .Orbiting => "Radius"
+        .Ring => "Radius"
+        .Beam => "Length"
+        .Dropped => "Blast"
+        .Chain => "Reach"
+        _ => ""
+
+// The weapon's numbers before and after a pick, with the build's passives
+// and ranks applied: what the player actually gets.
+pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i32, mods: Mods) -> Vec[StatRow]:
+    var rows: Vec[StatRow] = Vec.new()
+    let has_before = before.is_some()
+    let b = match before:
+        Some((w, l)) => weapon_stats(w, l, mods)
+        None => WeaponStats {}
+    let a = weapon_stats(after, after_level, mods)
+    let f = after.family()
+    rows.push(stat_row("Damage", has_before, f"{b.damage}", f"{a.damage}"))
+    if f == .Orbiting: rows.push(stat_row("Hits/s", has_before, "2.5", "2.5"))
+    else: rows.push(stat_row("Rate/s", has_before, fmt1(1.0 / b.cooldown), fmt1(1.0 / a.cooldown)))
+    let cn = count_name(f)
+    if cn.len() > 0:
+        let now = if f == .Chain: b.chain else if f == .Dropped: b.max_active else: b.count
+        let next = if f == .Chain: a.chain else if f == .Dropped: a.max_active else: a.count
+        rows.push(stat_row(cn, has_before, f"{now}", f"{next}"))
+    let an = area_name(f)
+    if an.len() > 0: rows.push(stat_row(an, has_before, f"{b.radius as i32}", f"{a.radius as i32}"))
+    if a.pierce > 0: rows.push(stat_row("Pierce", has_before, f"{b.pierce}", f"{a.pierce}"))
+    if f == .Bouncing: rows.push(stat_row("Bounces", has_before, f"{b.bounces}", f"{a.bounces}"))
+    // One number to compare: damage a second before pierce and area.
+    rows.push(stat_row("Output/s", has_before, amount(output(f, b)), amount(output(f, a))))
+    rows
+
+fn amount(x: f64) -> str: if x < 10.0: fmt1(x) else: f"{x as i32}"
+
+fn output(f: Family, s: WeaponStats) -> f64:
+    let rate = if f == .Orbiting: 2.5 else: 1.0 / s.cooldown
+    let n = if f == .Chain: s.chain else if f == .Dropped: 1 else if f == .Ring or f == .Beam: 1 else: s.count
+    (s.damage as f64) * rate * (n as f64)
+
+fn stat_row(name: &str, has_before: bool, before: str, after: str) -> StatRow:
+    StatRow { name: name.clone(), before: if has_before: before else: "-", after }
+
+fn uses(r: Recipe, w: Weapon) -> bool:
+    if r.first == w: return true
+    match r.second:
+        Some(x) => x == w
+        None => false
+
+// A passive's total effect at a level, in the same words as its card.
+pub fn passive_total(p: Passive, level: i32) -> str:
+    if level == 0: return "-"
+    match p:
+        .Damage => f"+{15 * level}%"
+        .FireRate => f"-{8 * level}%"
+        .Count => f"+{(level + 1) / 2}"
+        .Area => f"+{12 * level}%"
+        .ProjSpeed => f"+{12 * level}%"
+        .Magnet => f"+{25 * level}%"
+        .Speed => f"+{8 * level}%"
+        .Health => f"+{2 * level}"
+        .Cooldown => f"-{6 * level}%"
+        .Armor => f"{level}"
+        .Luck => f"+{10 * level}%"
+        .Credit => f"+{15 * level}%"
+        .Rebound => f"{level}"
+        .Overclock => f"+{10 * level}%"
+
+// What a pick leads to: the merge this item is part of, and how close.
+pub fn merge_hint(b: &Build, pick: Pick) -> str:
+    for r in recipes():
+        if b.weapon_level(r.result) > 0: continue
+        let involved = match pick:
+            .NewWeapon(w) => uses(r, w)
+            .UpgradeWeapon(w) => uses(r, w)
+            .NewPassive(p) => r.key == p
+            .UpgradePassive(p) => r.key == p
+            .Merge(_) => false
+        if not involved: continue
+        let key_held = b.passive_level(r.key) > 0
+        match pick:
+            .NewPassive(_) => return f"Key to {r.result.name()}"
+            .UpgradePassive(_) => return f"Key to {r.result.name()} (held)"
+            _ => {
+                let partner = match r.second:
+                    Some(x) => f" + {x.name()} VIII"
+                    None => ""
+                let key = if key_held: f"{r.key.name()} held" else: f"needs {r.key.name()}"
+                return f"{r.result.name()} at VIII{partner}, {key}"
+            }
+    ""
+
 fn render_boost(g: &Game, cursor: i32, clock: f64):
-    DrawRectangle(0, 0, WIDTH, HEIGHT, ink(0.62))
+    // The world dims; the build strip along the bottom stays lit so every
+    // card can be weighed against what the ship already carries.
+    DrawRectangle(0, 0, WIDTH, HEIGHT - 52, ink(0.7))
+    DrawRectangle(0, HEIGHT - 52, WIDTH, 2, white(0.25))
     let title = match g.boost_source:
         .LevelUp => f"LEVEL {g.level - g.pending_levels}"
         .Cache => "CACHE"
-    centered(title, 150, 30, if g.boost_source == .Cache: gold(1.0) else: lime(1.0))
+    centered(title, 96, 30, if g.boost_source == .Cache: gold(1.0) else: lime(1.0))
+    let slots = f"WEAPONS {g.build.weapon_count()}/{g.build.weapon_slots}     PASSIVES {g.build.passive_count()}/{SLOT_COUNT}"
+    centered(slots, 132, 12, white(0.6))
     if g.cache_reveal > 0.0:
         // The ceremony: icons spin through a window and slow into the reveal.
         let speed = g.cache_reveal * g.cache_reveal * 40.0
@@ -892,27 +1017,22 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         centered("OPENING", 580, 16, gold(0.9))
         return
     let count = g.offer_count
-    let card_w = 220
-    let gap = 24
-    let total = count * card_w + (count - 1) * gap
-    let x0 = (WIDTH - total) / 2
     for i in 0..count:
         let o: Offer = g.offers[i]
-        let x = x0 + i * (card_w + gap)
-        let y = 230
+        let (x, y, card_w, card_h) = boost_card_rect(i, count)
         let selected = i == cursor
         let accent = if o.pick.is_merge(): gold(1.0) else if selected: white(1.0) else: cyan(0.6)
-        DrawRectangle(x, y, card_w, 300, ink(if selected: 0.96 else: 0.9))
-        DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: card_w as f32, height: 300.0 }, if selected: 3.0 else: 1.0, Fade(accent, if selected: 1.0 else: 0.5))
-        if selected: DrawRectangleLinesEx(Rectangle { x: (x - 6) as f32, y: (y - 6) as f32, width: (card_w + 12) as f32, height: 312.0 }, 1.0, Fade(accent, 0.3 + 0.2 * sin(clock * 6.0)))
+        DrawRectangle(x, y, card_w, card_h, ink(if selected: 0.97 else: 0.92))
+        DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: card_w as f32, height: card_h as f32 }, if selected: 3.0 else: 1.0, Fade(accent, if selected: 1.0 else: 0.5))
+        if selected: DrawRectangleLinesEx(Rectangle { x: (x - 6) as f32, y: (y - 6) as f32, width: (card_w + 12) as f32, height: (card_h + 12) as f32 }, 1.0, Fade(accent, 0.3 + 0.2 * sin(clock * 6.0)))
         let cx = x + card_w / 2
-        if o.pick.is_merge(): centered_at("MERGE", cx, y + 14, 14, gold(1.0))
-        else if o.unseen: centered_at("UNSEEN", cx, y + 14, 12, magenta(0.9))
-        draw_pick_icon(o.pick, V2 { x: cx as f64, y: (y + 90) as f64 }, 30.0, clock, 1.0)
-        centered_at(o.pick.title(), cx, y + 150, 24, white(1.0))
+        if o.pick.is_merge(): centered_at("MERGE", cx, y + 12, 14, gold(1.0))
+        else if o.unseen: centered_at("UNSEEN", cx, y + 12, 12, magenta(0.9))
+        draw_pick_icon(o.pick, V2 { x: cx as f64, y: (y + 58) as f64 }, 24.0, clock, 1.0)
+        centered_at(o.pick.title(), cx, y + 92, 22, white(1.0))
         let sub_text = match o.pick:
-            .NewWeapon(_) => "NEW"
-            .NewPassive(_) => "NEW"
+            .NewWeapon(_) => "NEW WEAPON"
+            .NewPassive(_) => "NEW PASSIVE"
             .UpgradeWeapon(w) => f"{roman(g.build.weapon_level(w))} > {roman(g.build.weapon_level(w) + 1)}"
             .UpgradePassive(p) => f"{roman(g.build.passive_level(p))} > {roman(g.build.passive_level(p) + 1)}"
             .Merge(w) => match recipe_for(w):
@@ -920,27 +1040,70 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
                     Some(s) => f"{r.first.name()} + {s.name()}"
                     None => f"{r.first.name()} + {r.key.name()}"
                 None => ""
-        centered_at(sub_text, cx, y + 182, 16, if o.pick.is_merge(): gold(0.9) else: cyan(0.9))
+        centered_at(sub_text, cx, y + 120, 14, if o.pick.is_merge(): gold(0.9) else: cyan(0.9))
         let detail = match o.pick:
             .NewWeapon(w) => w.describe()
             .UpgradeWeapon(w) => w.describe()
             .Merge(w) => w.describe()
             .NewPassive(p) => p.describe()
             .UpgradePassive(p) => p.describe()
-        // Wrap the detail line at the card width.
+        // Wrap the description at the card width.
         var line_text = ""
-        var line_y = y + 214
+        var line_y = y + 144
         for word in detail.split(" "):
             let trial = if line_text.len() == 0: word.clone() else: line_text ++ " " ++ word
             if MeasureText(trial, 12) > card_w - 24 and line_text.len() > 0:
                 centered_at(line_text, cx, line_y, 12, white(0.7))
-                line_y += 16
+                line_y += 15
                 line_text = word.clone()
             else: line_text = trial
         if line_text.len() > 0: centered_at(line_text, cx, line_y, 12, white(0.7))
-        centered_at(f"{i + 1}", cx, y + 276, 12, white(0.4))
+        // The numbers: now, and after this pick.
+        var rows: Vec[StatRow] = Vec.new()
+        match o.pick:
+            .NewWeapon(w) => { rows = weapon_rows(None, w, 1, g.mods) }
+            .UpgradeWeapon(w) => {
+                let level = g.build.weapon_level(w)
+                rows = weapon_rows(Some((w, level)), w, level + 1, g.mods)
+            }
+            .Merge(w) => {
+                let from = match recipe_for(w):
+                    Some(r) => r.first
+                    None => w
+                rows = weapon_rows(Some((from, MAX_WEAPON_LEVEL)), w, 1, g.mods)
+            }
+            .NewPassive(p) => { rows.push(StatRow { name: p.name(), before: "-", after: passive_total(p, 1) }) }
+            .UpgradePassive(p) => {
+                let level = g.build.passive_level(p)
+                rows.push(StatRow { name: p.name(), before: passive_total(p, level), after: passive_total(p, level + 1) })
+            }
+        var row_y = y + 200
+        DrawRectangle(x + 14, row_y - 6, card_w - 28, 1, white(0.15))
+        label("NOW", x + card_w - 126, row_y, 12, white(0.45))
+        label("AFTER", x + card_w - 66, row_y, 12, white(0.45))
+        row_y += 22
+        for r in rows:
+            let changed = r.before != r.after
+            label(r.name.clone(), x + 16, row_y, 17, white(0.8))
+            label(r.before.clone(), x + card_w - 126, row_y, 17, white(0.5))
+            neon(r.after.clone(), x + card_w - 66, row_y, 17, if changed: lime(1.0) else: white(0.8))
+            row_y += 26
+        let hint = merge_hint(&g.build, o.pick)
+        if hint.len() > 0:
+            DrawRectangle(x + 14, y + card_h - 58, card_w - 28, 1, white(0.15))
+            var hint_line = ""
+            var hint_y = y + card_h - 50
+            for word in hint.split(" "):
+                let trial = if hint_line.len() == 0: word.clone() else: hint_line ++ " " ++ word
+                if MeasureText(trial, 12) > card_w - 24 and hint_line.len() > 0:
+                    centered_at(hint_line, cx, hint_y, 12, gold(0.85))
+                    hint_y += 15
+                    hint_line = word.clone()
+                else: hint_line = trial
+            if hint_line.len() > 0: centered_at(hint_line, cx, hint_y, 12, gold(0.85))
+        centered_at(f"{i + 1}", cx, y + card_h - 18, 12, white(0.4))
     let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / K] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
-    label(controls, (WIDTH - MeasureText(controls, 12)) / 2, 580, 12, white(0.6))
+    label(controls, (WIDTH - MeasureText(controls, 14)) / 2, 660, 14, white(0.7))
 
 // ----- debug ------------------------------------------------------------------------
 

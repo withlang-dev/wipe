@@ -71,8 +71,8 @@ fn combat_uat:
 
 fn boost_uat:
     var g = Game.new()
-    // Ten XP is the first level; the boost pauses the world.
-    g.gain_xp(10)
+    // The first level's XP; the boost pauses the world.
+    g.gain_xp(g.xp_next)
     g.tick(Controls {}, 1.0 / 120.0)
     assert(g.level == 2 and g.phase == .Boost and g.level_event)
     assert(g.offer_count == 3)
@@ -112,7 +112,7 @@ fn timeline_uat:
     assert(g.boss_index == 1)
     // Elites arrive on schedule and carry a cache.
     var h = Game.new()
-    h.elapsed = 179.9
+    h.elapsed = 239.9
     for _ in 0..30: h.tick(Controls {}, 1.0 / 120.0)
     var elites = 0
     for i in 0..h.enemy_count:

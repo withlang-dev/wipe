@@ -768,7 +768,7 @@ extend Game:
 
     fn random_pickup(mut self: Self, from_beacon: bool) -> PickupKind:
         let roll = self.random()
-        if from_beacon and roll < 0.04: .Cache
+        if from_beacon and roll < 0.02: .Cache
         else if roll < 0.30: .Credits
         else if roll < 0.36: .Bundle
         else if roll < 0.56: .Tractor
@@ -1169,7 +1169,7 @@ extend Game:
         self.cache_event = true
         // One item, or with luck three or five.
         let roll = self.random()
-        let items = if roll < self.mods.luck * 0.15: 5 else if roll < self.mods.luck * 0.5: 3 else: 1
+        let items = if roll < self.mods.luck * 0.08: 5 else if roll < self.mods.luck * 0.3: 3 else: 1
         self.pending_cache_items += items
         if self.phase == .Running: self.resume()
 

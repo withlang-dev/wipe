@@ -17,7 +17,7 @@ use c_import("SDL3/SDL.h", only: [
     "SDL_VirtualJoystickDesc", "SDL_VirtualJoystickSensorDesc", "SDL_VirtualJoystickTouchpadDesc",
     "SDL_JOYSTICK_TYPE_GAMEPAD", "SDL_AttachVirtualJoystick", "SDL_DetachVirtualJoystick",
     "SDL_OpenJoystick", "SDL_CloseJoystick", "SDL_SetJoystickVirtualAxis",
-    "SDL_SetJoystickVirtualButton",
+    "SDL_SetJoystickVirtualButton", "SDL_SendGamepadEffect",
 ])
 c facade controllers:
     resource Pad wraps *mut SDL_Gamepad

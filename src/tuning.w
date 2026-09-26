@@ -37,8 +37,8 @@ pub type Rules {
     weaver_minute: f64 = 5.0,
     skimmer_minute: f64 = 8.0,
     well_minute: f64 = 12.0,
-    first_elite: f64 = 180.0,
-    elite_interval: f64 = 60.0,
+    first_elite: f64 = 240.0,
+    elite_interval: f64 = 120.0,
     beacon_count: i32 = 3,
     beacon_respawn: f64 = 60.0,
     breather: f64 = 5.0,
@@ -60,7 +60,7 @@ extend Rules:
     // minute or two against a rising kill rate.
     pub fn xp_for_level(self: &Self, level: i32) -> i32:
         let l = (level - 1) as f64
-        (5.0 + l * 6.0 + l * l * 1.0) as i32
+        (9.0 + l * 10.0 + l * l * 2.2) as i32
 
     // Bosses at five, ten, and fifteen minutes.
     pub fn boss_minutes(self: &Self) -> [f64; 3]: [5.0, 10.0, 15.0]

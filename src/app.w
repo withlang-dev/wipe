@@ -107,8 +107,6 @@ pub fn App.open() -> App:
     // The attract simulation is the real game with a scripted pilot.
     app.attract.rules.contact_radius = 0.0
     app.attract.rng = 987654
-    // A fresh save launches straight into the Claw: no menus before the first run.
-    if app.notice == .Fresh: app.launch()
     app
 
 // The attract pilot: circles the arena center and aims at the nearest enemy.
@@ -310,9 +308,9 @@ extend App:
 
     fn update_title(mut self: Self, m: MenuInput, dt: f64):
         self.quit_armed = limit(self.quit_armed - dt, 0.0, 2.0)
-        if m.confirm:
-            if unlocked_ship_count(&self.save) > 1 or stage_unlocked(.Corridor, &self.save): self.go(.Select)
-            else: self.launch_as(.Claw)
+        // Launch always goes through ship select, even with one ship: the
+        // player sees the roster, its locks, and what they are flying.
+        if m.confirm: self.go(.Select)
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
         else if m.escape:
@@ -908,9 +906,4 @@ fn select_card_origin(i: i32) -> (i32, i32):
 fn collection_card_origin(i: i32) -> (i32, i32):
     (40 + (i % 5) * 160, 120 + (i / 5) * 116)
 
-pub fn boost_card_rect(i: i32, count: i32) -> (i32, i32, i32, i32):
-    let card_w = 220
-    let gap = 24
-    let total = count * card_w + (count - 1) * gap
-    let x0 = (WIDTH - total) / 2
-    (x0 + i * (card_w + gap), 230, card_w, 300)
+
