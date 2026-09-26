@@ -1,10 +1,12 @@
 #version 330
 out vec4 finalColor;
 uniform vec4 ship;             // screen x/y, presentation time, trauma
+uniform vec4 camera;           // world origin x/y of the screen, arena width/height
 uniform vec4 impulses[16];     // screen x/y, normalized age, radius
 uniform float impulseCount;
 uniform vec4 bullets[24];      // screen x/y, unit direction
 uniform float bulletCount;
+uniform float shipVisible;     // 0 hides the gravity well (menus, death)
 
 float lattice(vec2 p, float spacing, float thickness) {
     vec2 d = abs(mod(p + spacing * .5, spacing) - spacing * .5);
@@ -14,15 +16,15 @@ float lattice(vec2 p, float spacing, float thickness) {
 }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
 
-// Seeded, layered starfield; no allocation and no gameplay entities.
-vec3 stars(vec2 screen, float time) {
+// Seeded, layered starfield in world space with slight parallax.
+vec3 stars(vec2 world, float time) {
     vec3 color = vec3(0.0);
     for (int layer = 0; layer < 2; ++layer) {
         float size = layer == 0 ? 15.0 : 37.0;
-        vec2 cell = floor(screen / size);
+        vec2 cell = floor(world / size);
         vec2 seed = cell + float(layer) * 53.0;
         vec2 center = vec2(hash(seed), hash(seed + 19.0));
-        vec2 local = (fract(screen / size) - center) * size;
+        vec2 local = (fract(world / size) - center) * size;
         float density = layer == 0 ? .62 : .35;
         float present = step(density, hash(seed + 71.0));
         float radius = layer == 0 ? .55 : 1.1;
@@ -36,15 +38,17 @@ vec3 stars(vec2 screen, float time) {
 
 void main() {
     vec2 screen = vec2(gl_FragCoord.x, 800.0 - gl_FragCoord.y);
-    vec3 color = vec3(.002,.003,.012) + stars(screen, ship.z);
-    if (screen.x < 24.0 || screen.x > 1256.0 || screen.y < 76.0 || screen.y > 772.0) {
-        finalColor = vec4(color, 1.0); return;
+    vec2 world = screen + camera.xy;
+    vec3 color = vec3(.002,.003,.012) + stars(world * .6 + camera.xy * .4, ship.z);
+    if (world.x < 0.0 || world.x > camera.z || world.y < 0.0 || world.y > camera.w) {
+        // Beyond the containment edge: stars only, dimmed toward the void.
+        finalColor = vec4(color * .7, 1.0); return;
     }
-    vec2 p = screen;
+    vec2 p = world;
     // The ship sits in a gravity well: lines are drawn toward it.
-    vec2 delta = p - ship.xy;
+    vec2 delta = screen - ship.xy;
     float distance = length(delta);
-    float well = 26.0 * (distance / 70.0) * exp(1.0 - distance / 70.0);
+    float well = 26.0 * (distance / 70.0) * exp(1.0 - distance / 70.0) * shipVisible;
     p += delta / max(distance, 1.0) * well * (1.0 + .08 * sin(ship.z * 6.0));
     float energy = 0.0;
     // Explosions push a ring outward through the fabric.
@@ -76,8 +80,10 @@ void main() {
     vec3 majorColor = vec3(.055,.10,.52);
     color += fineColor * fine + majorColor * major;
     color += vec3(.22,.38,1.0) * max(fine, major) * min(energy, 1.4);
-    // Gentle blue haze keeps the arena from reading as flat black.
-    vec2 q = (screen - vec2(640.0, 424.0)) / vec2(640.0, 400.0);
-    color += vec3(.006,.010,.035) * (1.0 - .6 * dot(q, q));
+    // Gentle blue haze keeps the arena from reading as flat black; it
+    // brightens toward the containment edge so the wall reads at a distance.
+    vec2 q = (world - camera.zw * .5) / (camera.zw * .5);
+    float edge = pow(max(abs(q.x), abs(q.y)), 6.0);
+    color += vec3(.006,.010,.035) * (1.0 - .6 * dot(q, q)) + vec3(.02,.06,.16) * edge;
     finalColor = vec4(color, 1.0);
 }

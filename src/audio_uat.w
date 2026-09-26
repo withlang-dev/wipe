@@ -28,7 +28,7 @@ fn main:
             before_retry = GetMusicTimePlayed(bank.music.repr) as f64
             g.reset()
             after_retry = GetMusicTimePlayed(bank.music.repr) as f64
-        bank.play(g, GetTime())
+        bank.play(g, false, false, GetTime())
         BeginDrawing()
         ClearBackground(Color { r: 3, g: 4, b: 14, a: 255 })
         DrawText("AUDIO ACCEPTANCE", 24, 28, 22, RAYWHITE)

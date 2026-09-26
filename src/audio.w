@@ -70,7 +70,10 @@ extend Audio:
     pub fn valid(self: &Self) -> bool:
         IsMusicValid(self.music.repr) and IsSoundValid(self.shot.repr) and IsSoundValid(self.hit.repr) and IsSoundValid(self.kill.repr) and IsSoundValid(self.hurt.repr) and IsSoundValid(self.death.repr)
 
-    pub fn play(self: &Self, g: &Game, clock: f64) -> Unit:
+    // Event-driven from the simulation's flags. New moments reuse the five
+    // clips at new pitches: a rising kill for a level-up, a bright death for
+    // a merge, a low hurt for a boss.
+    pub fn play(self: &Self, g: &Game, ui_move: bool, ui_confirm: bool, clock: f64) -> Unit:
         UpdateMusicStream(self.music.repr)
         // Presentation variation never consumes the simulation's RNG.
         if g.shot_event:
@@ -82,3 +85,24 @@ extend Audio:
             PlaySound(self.kill.repr)
         if g.hurt_event and not g.death_event: PlaySound(self.hurt.repr)
         if g.death_event: PlaySound(self.death.repr)
+        if g.level_event:
+            SetSoundPitch(self.kill.repr, 1.6)
+            PlaySound(self.kill.repr)
+        if g.merge_event or g.boss_kill_event:
+            SetSoundPitch(self.death.repr, 1.5)
+            PlaySound(self.death.repr)
+        if g.boss_event:
+            SetSoundPitch(self.hurt.repr, 0.55)
+            PlaySound(self.hurt.repr)
+        if g.pickup_event or g.cache_event or g.best_event:
+            SetSoundPitch(self.hit.repr, 1.8)
+            PlaySound(self.hit.repr)
+        if ui_move:
+            SetSoundPitch(self.hit.repr, 1.4)
+            PlaySound(self.hit.repr)
+        if ui_confirm:
+            SetSoundPitch(self.kill.repr, 1.3)
+            PlaySound(self.kill.repr)
+        SetSoundPitch(self.hurt.repr, 1.0)
+        SetSoundPitch(self.death.repr, 1.0)
+        SetSoundPitch(self.hit.repr, 1.0)

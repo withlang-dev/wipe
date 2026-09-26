@@ -10,7 +10,8 @@ use gamepads
 
 fn pilot(g: &Game, frame: i32) -> Controls:
     let t = frame as f64 / 60.0
-    let goal = V2 { x: 640.0 + cos(t * 0.7) * 310.0, y: 420.0 + sin(t * 0.7) * 210.0 }
+    let c = g.center()
+    let goal = V2 { x: c.x + cos(t * 0.7) * 310.0, y: c.y + sin(t * 0.7) * 210.0 }
     var aim = V2 { x: cos(t * 2.3), y: sin(t * 2.3) }
     var nearest = 10000000.0
     for e in 0..g.enemy_count:
@@ -53,7 +54,6 @@ fn main:
     var g = Game.new()
     g.rules.contact_radius = 0.0
     var debug = false
-    var session = Session {}
     var frame_ms = 16.67
     var peak_particles = 0
     var peak_enemies = 0
@@ -70,7 +70,8 @@ fn main:
         if frame >= 360 * pace and frame < 540 * pace: g.stress(350)
         if frame == 540 * pace:
             g.health = 1
-            g.hurt()
+            g.invulnerable = 0.0
+            g.hurt(Kind.Dart, false, 5)
         if frame == 600 * pace:
             let started = GetTime()
             g.reset()
@@ -78,7 +79,7 @@ fn main:
             debug = false
         if frame >= 660 * pace:
             debug = true
-            g.stress(512)
+            g.stress(1800)
             let tint: Tint = match frame % 3:
                 0 => .Cyan
                 1 => .Magenta
@@ -88,13 +89,17 @@ fn main:
         let update_start = GetTime()
         for _ in 0..2: g.tick(controls, 1.0 / 120.0)
         let update_ms = (GetTime() - update_start) * 1000.0
-        session.observe(g)
+        // Boosts are taken at once; the harness measures the arena, not menus.
+        while g.phase == .Boost: g.choose(0)
         if g.particle_count > peak_particles: peak_particles = g.particle_count
         if g.enemy_count > peak_enemies: peak_enemies = g.enemy_count
         let clock = if recording: frame as f64 / 60.0 else: GetTime()
         if not recording:
-            if let Some(bank) = &sound: bank.play(g, clock)
-        let render_ms = renderer.draw(g, clock, debug and not recording, frame_ms, session)
+            if let Some(bank) = &sound: bank.play(g, false, false, clock)
+        let cam = renderer.begin_world(g, clock, 1.0)
+        let info = DebugInfo { frame_ms, metrics: Vec.new() }
+        renderer.draw_run(g, cam, Hud {}, 0, clock, if debug and not recording: Some(&info) else: None)
+        let render_ms = renderer.present()
         if not recording and frame > 60 and frame > last_capture + 2:
             updates.add(update_ms)
             renders.add(render_ms)
@@ -125,7 +130,7 @@ fn main:
         print(f"Observed peaks: enemies={peak_enemies} particles={peak_particles}")
         ordinary.report("150 enemies / frame")
         stress.report("350 enemies / frame")
-        maximum.report("512 enemies + sustained particles / frame")
+        maximum.report("1800 enemies + sustained particles / frame")
         updates.report("simulation CPU")
         renders.report("render submission CPU (excludes EndDrawing)")
         restarts.report("restart CPU")

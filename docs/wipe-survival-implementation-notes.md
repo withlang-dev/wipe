@@ -97,13 +97,18 @@ The split in the tree:
 
 ```text
 src/game.w          pure simulation: no window, audio, or foreign calls
-src/tuning.w        gameplay knobs as one Rules value
+src/loadout.w       weapons, passives, merge recipes, the run's build
+src/ships.w         the roster, strengths, weaknesses, unlock conditions
+src/tuning.w        gameplay knobs as one Rules value, events, stages
+src/account.w       shop ranks and prices, unlock progress, open loops
+src/save.w          the versioned save file, atomic writes, backup
+src/app.w           the screens and every transition between them
 src/input.w         keyboard, mouse, and pad frames become one Controls value
 src/gamepads.w      SDL controller lifecycle, discovery, polling
 src/sdl.w           the SDL facade: Pad resource, borrowed error text
 src/audio.w         the raylib sound facade: Clip and Track resources
 src/shaders.w       the raylib shader facade: Program resource, uniforms
-src/presentation.w  render passes, bloom, HUD, death overlay
+src/presentation.w  render passes, bloom, world, HUD, boost overlay
 src/main.w          the loop
 ```
 
@@ -543,3 +548,46 @@ rule.
 - The prototype in this tree is the baseline: M1 adds the timeline, gems,
   level-ups, and weapons as simulation state; M2 adds the shop and unlocks;
   M3 adds enemy behaviors and evolutions; M4 adds Steam.
+
+---
+
+# 14. Implementation Status (2026-09-26)
+
+The tree implements M1, M2, and most of M3:
+
+- the bounded arena with a following camera, aim lookahead, a world-space
+  lattice, off-screen spawns, event telegraphs, and edge indicators
+- the twenty-minute timeline, twelve events, elites with caches, bosses at
+  five, ten, and fifteen minutes, the Null at the cap, endless mode
+- all eight enemy behaviors, including the Skimmer and the Well
+- all eight weapons, fourteen passives, eight evolutions, four unions
+- cores with magnet, combo, and merging on the floor; beacons and pickups
+- boosts with reroll, skip, and banish; caches of one, three, or five
+- all nine ships, three stages, the shop, unlocks, registry, results
+  screen with the near-miss layer, the collection, session metrics
+- the save exactly as §13 states it
+
+Not yet built: stage shapes beyond rectangles (diamond, ring, cross), the
+boss camera zoom, M4 (Steamworks, achievements, Deck acceptance), and the
+stretch lists. Tuning has been checked only with a headless bot, whose
+first deaths land between five and seven minutes; the done conditions
+that name playtesters are still open.
+
+## Compiler issues found while building it
+
+Each has a minimal reproduction on withlang-dev/with. The tree carries the
+shape noted beside each until it is fixed.
+
+- withlang-dev/with#1711: a statement `match` whose arms end in a float
+  assignment and an inline `if` assignment fails MIR validation. Pickup
+  effects that do this are methods (`freeze_enemies`, `repair`).
+- withlang-dev/with#1712: `.Variant` shorthand in a call argument resolves
+  by name across enums instead of against the parameter type. Calls where two
+  enums share a variant name spell the enum (`Kind.Boss`, `PickupKind.Cache`).
+- withlang-dev/with#1714: a tail-position `xs[i]` of a Copy element is not
+  materialized for the return type. The session median uses `return`.
+- withlang-dev/with#1715: `if xs[i]:` on a `bool` element is rejected
+  while `xs[i] or ...` is accepted. Such conditions bind first
+  (`let cleared: bool = ...`).
+- withlang-dev/with#1669 (earlier): facade methods are not projected for
+  by-value resource tokens; audio calls raylib through `.repr`.

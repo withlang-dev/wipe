@@ -2,13 +2,20 @@
 
 <img width="800" alt="WIPE: SURVIVAL gameplay: the claw ship at the center of a warped blue grid, two kill bursts in lime and magenta, and floating scores" src="docs/screenshot.png" />
 
-A native With + raylib twin-stick survival prototype. Luminous wireframes on
-a blue lattice that warps around the ship, bullets, and explosions; two-tier
-Gaussian bloom; line-spark explosions; floating kill scores; and a bass-led
-ambient house soundtrack. One arena, four chaser silhouettes (lime blocks,
-magenta spinners, blue darts, cyan weavers) that share one behavior, one-hit
-kills, automatic fire, and immediate retry. Kills score 100 times a
-multiplier that rapid kills build and idle time decays.
+A native With + raylib twin-stick survivor: Geometry Wars' feel on Vampire
+Survivors' loop. Luminous wireframes on a blue lattice that warps around the
+ship, bullets, and explosions; two-tier Gaussian bloom; line-spark
+explosions; a bass-led ambient house soundtrack.
+
+A run is up to twenty minutes in a bounded, camera-followed arena. Kills
+drop cores; cores fill the level-up bar and the combo; every level is a
+choice of three cards from eight weapons, fourteen passives, and twelve
+merges. Elites drop caches, beacons drop pickups, bosses arrive at five,
+ten, and fifteen minutes, and the Null ends the run at twenty. Credits are
+banked whatever happens and spent in a refundable shop. Nine ships, three
+stages, and a registry of every enemy unlock from run facts. The save is
+read before the first frame and written atomically with a backup on every
+change.
 
 ## Specs
 
@@ -45,10 +52,23 @@ An unavailable audio device permits silent play.
 | Move | WASD or arrows | Left stick |
 | Aim | Mouse | Right stick |
 | Fire | Automatic | Automatic |
-| Retry after death | Space | A / south face button |
-| Performance overlay | F1 | — |
-| Populate 350 enemies | F3 | — |
-| Quit | Escape | — |
+| Confirm, retry, launch, buy | Space, Enter, or click | A |
+| Back | Escape | B |
+| Shop | X | X |
+| Collection | C | Y |
+| Boost: pick a card | 1-4, arrows, or click | D-pad or stick, then A |
+| Boost: reroll, skip, banish | R, S, N | X, Y, LB |
+| Retry as a newly unlocked ship | Tab | RB |
+| Stage, tabs, shop sort | Q, E | LB, RB |
+| Pause (volume, deadzone) | Escape in a run | Start |
+| Quit | Escape on the title | Hold B on the title |
+| Performance overlay and session metrics | F1 | — |
+| Fill the arena to the stress budget | F3 | — |
+
+The save lives in the per-user data directory (`~/Library/Application
+Support/WIPE` on macOS, `%APPDATA%\WIPE` on Windows, `$XDG_DATA_HOME/wipe`
+elsewhere). `WIPE_SAVE_DIR` overrides it, which the tests and the tour use.
+A fresh save launches straight into a run as the Claw.
 
 Xbox and Steam controllers use SDL's native gamepad mapping. The first available
 mapped controller stays selected until it disconnects; WIPE then looks for a
@@ -105,12 +125,22 @@ mapping, simultaneous movement/aim, retry edges, held-button connection,
 disconnect, and reconnect. They do not create a system-wide virtual controller.
 
 The separate `uat` executable drives a deterministic fixture through 150,
-350, and 512 enemies, sustained particles, death, and retry. Only this runner
-disables contact damage and supplies automated aiming/movement. The playable
-entry point contains neither behavior. Capped runs save gameplay/stress/death/
-restart PNGs; uncapped runs measure throughput without screenshot I/O. The
-histograms report 0.25 ms upper-bound buckets, mean, and peak. CPU render
-submission is measured separately from `EndDrawing`; it is not GPU timer data.
+350, and 1,800 enemies, sustained particles, death, and retry. Only this
+runner disables contact damage and supplies automated aiming/movement. The
+playable entry point contains neither behavior. Capped runs save
+gameplay/stress/death/restart PNGs; uncapped runs measure throughput without
+screenshot I/O. The histograms report 0.25 ms upper-bound buckets, mean, and
+peak. CPU render submission is measured separately from `EndDrawing`; it is
+not GPU timer data.
+
+The `tour` executable walks every screen against a scratch save and writes
+one PNG per screen to `out/tour/`:
+
+```sh
+with build :tour
+mkdir -p out/tour
+WIPE_SAVE_DIR=/tmp/wipe-tour ./out/bin/tour
+```
 
 The audio acceptance runner checks real playback, wrap across the loop seam,
 and music continuity through a game reset. Subjective listening and controller
@@ -135,15 +165,27 @@ an automated fixture, not a human playthrough or a hardware certification.
 
 ## Code and assets
 
-- `src/main.w`: playable lifecycle and fixed-step loop.
-- `src/game.w`: deterministic simulation, preallocated pools, local separation.
-- `src/tuning.w`: gameplay knobs, independent from presentation.
-- `src/input.w`: radial deadzones and keyboard/mouse/controller arbitration.
+- `src/main.w`: window, devices, and the frame loop.
+- `src/app.w`: the screens of spec §11 (title, ship select, run, pause,
+  results, shop, collection) and every transition between them.
+- `src/game.w`: the deterministic simulation: arena, camera, timeline,
+  enemies and their behaviors, weapons, cores, pickups, beacons, boosts,
+  caches, merges, death record.
+- `src/loadout.w`: weapons, passives, merge recipes, and the run's build.
+- `src/ships.w`: the roster and unlock conditions.
+- `src/tuning.w`: gameplay knobs, the spawn curve, events, and stages.
+- `src/account.w`: shop prices and ranks, unlock progress, open loops,
+  session metrics.
+- `src/save.w`: the versioned save file, atomic writes, backup and restore.
+- `src/input.w`: radial deadzones, keyboard/mouse/controller arbitration,
+  and menu input.
 - `src/gamepads.w`, `src/sdl.w`: native controller discovery, ownership, mapping.
-- `src/presentation.w`: sharp gameplay geometry, effects, HUD, render passes.
+- `src/presentation.w`: world and HUD geometry, ship and enemy silhouettes,
+  icons, the boost overlay, render passes and bloom.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
-- `src/uat.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`: acceptance and measurement.
+- `src/uat.w`, `src/tour.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
+  acceptance and measurement.
 
 The original procedural WAV assets and shader sources are checked in. See
 `assets/README.md` for provenance. Regenerate audio with
