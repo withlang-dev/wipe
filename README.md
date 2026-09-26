@@ -133,6 +133,19 @@ screenshot I/O. The histograms report 0.25 ms upper-bound buckets, mean, and
 peak. CPU render submission is measured separately from `EndDrawing`; it is
 not GPU timer data.
 
+The `gallery` executable stages every in-run element in the real simulation
+and renderer (each weapon just after it fires, every enemy and elite, the
+boss and the Null, every pickup, the level-up, merge, cache, boss, event,
+death, and reboot moments, every ship, and a late-run swarm with real
+contact) and writes one PNG each to `out/gallery/`. It is the visual review
+against the prototype's frames in `docs/verification/`:
+
+```sh
+with build :gallery
+mkdir -p out/gallery
+./out/bin/gallery
+```
+
 The `tour` executable walks every screen against a scratch save and writes
 one PNG per screen to `out/tour/`:
 
@@ -184,7 +197,7 @@ an automated fixture, not a human playthrough or a hardware certification.
   icons, the boost overlay, render passes and bloom.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
-- `src/uat.w`, `src/tour.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
+- `src/uat.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
   acceptance and measurement.
 
 The original procedural WAV assets and shader sources are checked in. See

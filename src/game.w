@@ -188,9 +188,9 @@ extend PickupKind:
 pub type Pickup { pos: V2 = V2 {}, kind: PickupKind = .Credits, age: f64 = 0.0 }
 pub type Beacon { pos: V2 = V2 {}, alive: bool = true, respawn: f64 = 0.0 }
 pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bool = false, age: f64 = 0.0 }
-pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.2, total: f64 = 0.2, width: f64 = 14.0 }
-pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.18, total: f64 = 0.18 }
-pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.4, total: f64 = 0.4 }
+pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0 }
+pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3 }
+pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.5, total: f64 = 0.5 }
 pub type Particle {
     pos: V2 = V2 {}, vel: V2 = V2 {},
     life: f64 = 0.0, total: f64 = 1.0,
@@ -495,7 +495,7 @@ extend Game:
         self.popups[self.popup_count] = Popup { pos, life: 1.1, total: 1.1, kind }
         self.popup_count += 1
 
-    fn show(mut self: Self, kind: BannerKind, seconds: f64):
+    pub fn show(mut self: Self, kind: BannerKind, seconds: f64):
         self.banner = Banner { kind, life: seconds, total: seconds }
 
     // ----- arena and camera ---------------------------------------------
@@ -568,7 +568,7 @@ extend Game:
         let pos = V2 { x: 8.0 + self.random() * (self.rules.arena_width - 16.0), y: 8.0 + self.random() * (self.rules.arena_height - 16.0) }
         if length2(sub(pos, self.player)) > 420.0 * 420.0: Some(pos) else: None
 
-    fn place_beacon(mut self: Self):
+    pub fn place_beacon(mut self: Self):
         if self.beacon_count >= BEACON_CAP: return
         let raw = V2 {
             x: 120.0 + self.random() * (self.rules.arena_width - 240.0),
@@ -633,7 +633,7 @@ extend Game:
         if kind == .Well: kind = .Spinner
         let _ = self.place_enemy(pos, kind, true)
 
-    fn spawn_boss(mut self: Self):
+    pub fn spawn_boss(mut self: Self):
         let Some(pos) = self.spawn_point() else return
         if self.place_enemy(pos, Kind.Boss):
             self.boss_alive = true
@@ -642,7 +642,7 @@ extend Game:
             self.zoom_timer = 2.4
             self.show(.Boss, 2.0)
 
-    fn spawn_null(mut self: Self):
+    pub fn spawn_null(mut self: Self):
         let Some(pos) = self.spawn_point() else return
         if self.place_enemy(pos, Kind.Null):
             self.null_alive = true
@@ -652,7 +652,7 @@ extend Game:
 
     // A formation of one kind from one side of the camera, flying its
     // vector for a few seconds before it turns to chase.
-    fn spawn_event(mut self: Self, event: Event):
+    pub fn spawn_event(mut self: Self, event: Event):
         let o = self.view_origin()
         let kind = kind_at(event.kind_index)
         let side = self.event_side
@@ -741,7 +741,7 @@ extend Game:
         self.cores[self.core_count] = Core { pos, value }
         self.core_count += 1
 
-    fn drop_pickup(mut self: Self, pos: V2, kind: PickupKind):
+    pub fn drop_pickup(mut self: Self, pos: V2, kind: PickupKind):
         if self.pickup_count >= PICKUP_CAP: return
         self.pickups[self.pickup_count] = Pickup { pos: self.clamp_to_arena(pos, 20.0), kind }
         self.pickup_count += 1
@@ -758,7 +758,7 @@ extend Game:
 
     // ----- combat helpers -----------------------------------------------
 
-    fn kill_enemy(mut self: Self, index: i32, impact: V2, bounced: bool):
+    pub fn kill_enemy(mut self: Self, index: i32, impact: V2, bounced: bool):
         if index < 0 or index >= self.enemy_count: return
         let e: Enemy = self.enemies[index]
         self.enemy_count -= 1
@@ -797,7 +797,7 @@ extend Game:
                 self.trauma = 1.0
                 self.breather = self.rules.breather
                 self.drop_pickup(e.pos, PickupKind.Cache)
-                self.drop_pickup(add(e.pos, V2 { x: 40.0 }), PickupKind.Bundle)
+                self.drop_pickup(add(e.pos, V2 { x: 90.0 }), PickupKind.Bundle)
                 self.show(.BossDown, 2.0)
                 // Every other enemy dies with it, cores and all.
                 var i = 0
@@ -825,7 +825,7 @@ extend Game:
             _ => ()
 
     // Apply damage to one enemy; returns true when it died.
-    fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false) -> bool:
+    pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false) -> bool:
         self.enemies[index].hp -= damage
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = 0.12
@@ -983,7 +983,13 @@ extend Game:
                         .Dropped => {
                             if self.mine_count >= stats.max_active or self.mine_count >= MINE_CAP: continue
                             self.build.weapons[slot].timer = stats.cooldown
-                            self.mines[self.mine_count] = Mine { pos: self.player, radius: stats.radius, damage: stats.damage, chains: stats.chains_on_hit or self.launch.ship == .Sapper }
+                            // Mines fall behind the ship along its path, spread a little,
+                            // so a field forms where the ship has been.
+                            let behind = if length2(motion) > 0.01: scale(direction(motion), -46.0) else: scale(self.aim, -46.0)
+                            let angle = self.random() * 6.283185307
+                            let jitter = V2 { x: cos(angle) * 18.0, y: sin(angle) * 18.0 }
+                            let at = self.clamp_to_arena(add(self.player, add(behind, jitter)), 12.0)
+                            self.mines[self.mine_count] = Mine { pos: at, radius: stats.radius, damage: stats.damage, chains: stats.chains_on_hit or self.launch.ship == .Sapper }
                             self.mine_count += 1
                         }
                         .Chain => {
@@ -1460,8 +1466,17 @@ extend Game:
                                         self.enemies[self.enemy_count - 1].formation = 1.0
                     }
                     .Null => { velocity = scale(toward, enemy.speed) }
-            let velocity2 = if enemy.kind == .Boss or enemy.kind == .Null: velocity else: add(velocity, scale(movement(separation), 85.0))
+            let velocity2 = if enemy.kind == .Boss or enemy.kind == .Null: velocity else: add(velocity, scale(movement(separation), 150.0))
             enemy.pos = add(enemy.pos, scale(velocity2, dt))
+            // Nothing sits on the ship: enemies stop at a small core around
+            // it, inside the contact reach, so they still hurt and the
+            // player's silhouette is never covered.
+            if enemy.kind != .Boss and enemy.kind != .Null:
+                let off = sub(enemy.pos, self.player)
+                let core = 28.0 + enemy.kind.radius() * (enemy.size - 1.0)
+                if length2(off) < core * core:
+                    let away = if length2(off) > 0.01: direction(off) else: V2 { x: 1.0 }
+                    enemy.pos = add(self.player, scale(away, core))
             // Walls stop everyone; formation enemies turn to chase at the wall.
             let inset = enemy.kind.radius() * enemy.size * 0.5
             let clamped = self.clamp_to_arena(enemy.pos, inset)

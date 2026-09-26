@@ -417,9 +417,11 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let w: Shockwave = g.waves[i]
         let pos = to_screen(cam, w.pos)
         let remaining = w.life / w.total
-        DrawCircleLinesV(rv(pos), w.radius as f32, cyan(0.2 + remaining * 0.6))
-        DrawCircleLinesV(rv(pos), (w.radius - 4.0) as f32, white(remaining * 0.5))
-        ring(pos, w.radius + 6.0, cyan(remaining * 0.15))
+        // A shockwave: a bright leading edge with a soft wake inside it.
+        DrawRing(rv(pos), (w.radius - 14.0 * remaining) as f32, w.radius as f32, 0.0, 360.0, 64, cyan(0.10 + remaining * 0.18))
+        DrawRing(rv(pos), (w.radius - 3.0) as f32, w.radius as f32, 0.0, 360.0, 64, cyan(0.35 + remaining * 0.6))
+        DrawCircleLinesV(rv(pos), (w.radius - 1.5) as f32, white(remaining))
+        ring(pos, w.radius + 8.0, cyan(remaining * 0.18))
     for i in 0..g.particle_count:
         let p: Particle = g.particles[i]
         if not g.on_screen(p.pos, 20.0): continue
@@ -466,35 +468,82 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             .Tractor => cyan(1.0)
         let bob = sin(clock * 4.0 + p.pos.y) * 3.0
         let at = add(pos, V2 { y: bob })
+        // Each pickup has its own glyph, larger and brighter than any core.
+        let pulse = 0.8 + 0.2 * sin(clock * 5.0 + p.pos.x)
+        ring(at, 22.0 + 2.0 * sin(clock * 3.0), Fade(color, 0.22))
+        circle(at, 18.0, ink(0.6))
         match p.kind:
             .Cache => {
-                DrawPolyLinesEx(rv(at), 4, 16.0, 45.0, 6.0, Fade(color, 0.18))
-                DrawPolyLinesEx(rv(at), 4, 16.0, 45.0, 2.2, color)
-                DrawPolyLinesEx(rv(at), 4, 8.0, (clock * 120.0) as f32, 1.4, white(1.0))
+                DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 7.0, Fade(color, 0.2))
+                DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 2.6, color)
+                DrawPolyLinesEx(rv(at), 4, 9.0, (clock * 120.0) as f32, 1.6, white(1.0))
+                for k in 0..4:
+                    let a = clock * 1.5 + k as f64 * 1.5708
+                    line(add(at, V2 { x: cos(a) * 24.0, y: sin(a) * 24.0 }), add(at, V2 { x: cos(a) * 32.0, y: sin(a) * 32.0 }), 1.6, gold(0.6))
             }
-            _ => {
-                ring(at, 12.0, Fade(color, 0.25))
-                DrawPolyLinesEx(rv(at), 6, 11.0, (clock * 50.0) as f32, 2.0, color)
+            .Tractor => {
+                ring(at, 12.0, color)
+                for k in 0..4:
+                    let a = k as f64 * 1.5708 + clock
+                    let outer = add(at, V2 { x: cos(a) * 16.0, y: sin(a) * 16.0 })
+                    let inner = add(at, V2 { x: cos(a) * 6.0, y: sin(a) * 6.0 })
+                    glow_line(outer, inner, color)
+                circle(at, 2.5, white(1.0))
+            }
+            .Clear => {
+                for k in 0..8:
+                    let a = k as f64 * 0.7854 + clock * 0.5
+                    let r = if k % 2 == 0: 16.0 else: 9.0
+                    glow_line(at, add(at, V2 { x: cos(a) * r, y: sin(a) * r }), color)
                 circle(at, 3.0, white(1.0))
             }
-        centered_at(p.kind.name(), at.x as i32, (at.y - 30.0) as i32, 10, Fade(color, 0.8))
+            .Freeze => {
+                for k in 0..3:
+                    let a = k as f64 * 1.0472
+                    let d = V2 { x: cos(a) * 15.0, y: sin(a) * 15.0 }
+                    glow_line(sub(at, d), add(at, d), color)
+                DrawPolyLinesEx(rv(at), 6, 7.0, 0.0, 1.4, white(0.9))
+            }
+            .Repair => {
+                glow_line(add(at, V2 { x: -13.0 }), add(at, V2 { x: 13.0 }), color)
+                glow_line(add(at, V2 { y: -13.0 }), add(at, V2 { y: 13.0 }), color)
+                ring(at, 16.0, Fade(color, 0.6))
+            }
+            .Credits => {
+                ring(at, 11.0, color)
+                ring(at, 7.0, Fade(color, 0.7))
+                circle(at, 3.0, white(pulse))
+            }
+            .Bundle => {
+                for k in 0..3:
+                    let off = V2 { x: (k as f64 - 1.0) * 9.0, y: (k as f64 - 1.0) * -4.0 }
+                    DrawPolyLinesEx(rv(add(at, off)), 4, 9.0, 45.0, 2.0, color)
+                circle(at, 3.0, white(pulse))
+            }
+        centered_at(p.kind.name(), at.x as i32, (at.y - 40.0) as i32, 12, Fade(color, 0.9))
     // Mines.
     for i in 0..g.mine_count:
         let m: Mine = g.mines[i]
         let pos = to_screen(cam, m.pos)
         let armed = 0.6 + 0.4 * sin(clock * 8.0 + m.age)
-        DrawPolyLinesEx(rv(pos), 3, 10.0, (clock * 60.0) as f32, 2.0, gold(armed))
-        circle(pos, 2.5, red(armed))
-        ring(pos, m.radius, gold(0.05))
+        let spin = (clock * 60.0) as f32
+        DrawPolyLinesEx(rv(pos), 3, 14.0, spin, 7.0, gold(0.14))
+        DrawPolyLinesEx(rv(pos), 3, 14.0, spin, 2.4, gold(0.95))
+        DrawPolyLinesEx(rv(pos), 3, 7.0, -spin, 1.4, white(0.8))
+        circle(pos, 3.0, red(armed))
+        ring(pos, 20.0 + 3.0 * sin(clock * 6.0 + m.age), gold(0.25 * armed))
+        ring(pos, m.radius, gold(0.06))
     // Beams.
     for i in 0..g.beam_count:
         let b: Beam = g.beams[i]
         let remaining = b.life / b.total
         let a = to_screen(cam, b.a)
         let e = to_screen(cam, b.b)
-        line(a, e, b.width * remaining * 2.0, red(0.12 * remaining))
-        line(a, e, b.width * remaining, red(0.6 * remaining))
-        line(a, e, 2.0, white(remaining))
+        line(a, e, b.width * 3.0 * remaining, red(0.10 * remaining))
+        line(a, e, b.width * 1.2 * remaining, red(0.65 * remaining))
+        line(a, e, 3.0 * remaining + 1.0, white(remaining))
+        circle(a, 8.0 * remaining, white(remaining))
+        circle(e, 5.0 * remaining, red(remaining))
     // Arcs: jagged lightning.
     for i in 0..g.arc_count:
         let bolt: ArcBolt = g.arcs[i]
@@ -508,11 +557,12 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             let t = k as f64 / 6.0
             let jag = sin(clock * 60.0 + k as f64 * 2.3 + bolt.a.x) * 9.0 * (1.0 - remaining * 0.5)
             let next = if k == 6: e else: add(add(a, scale(delta, t)), scale(side, jag))
-            line(last, next, 5.0, violet(0.15 * remaining))
-            line(last, next, 1.8, violet(0.9 * remaining))
-            line(last, next, 0.9, white(remaining))
+            line(last, next, 9.0, violet(0.14 * remaining))
+            line(last, next, 3.0, violet(0.9 * remaining))
+            line(last, next, 1.4, white(remaining))
             last = next
-        line(last, e, 1.8, violet(0.9 * remaining))
+        line(last, e, 3.0, violet(0.9 * remaining))
+        circle(e, 4.0 * remaining, white(remaining))
     // Orbit blades are positions on a ring around the ship.
     for slot in 0..SLOT_COUNT:
         let s: WeaponSlot = g.build.weapons[slot]
@@ -524,15 +574,25 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             let angle = s.phase + (b as f64) * 6.283185307 / stats.count as f64
             let blade = add(ship, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
             let tangent = V2 { x: -sin(angle), y: cos(angle) }
-            glow_line(sub(blade, scale(tangent, 10.0)), add(blade, scale(tangent, 10.0)), cyan(1.0))
-            circle(blade, 3.0, white(1.0))
+            // A fading wake behind each blade shows the orbit's direction.
+            for t in 1..7:
+                let back = angle - t as f64 * 0.07
+                let at = add(ship, V2 { x: cos(back) * stats.radius, y: sin(back) * stats.radius })
+                circle(at, 5.0 - t as f64 * 0.6, cyan(0.4 - t as f64 * 0.055))
+            let radial = V2 { x: cos(angle), y: sin(angle) }
+            line(sub(blade, scale(tangent, 20.0)), add(blade, scale(tangent, 20.0)), 10.0, cyan(0.12))
+            glow_line(sub(blade, scale(tangent, 20.0)), add(blade, scale(tangent, 20.0)), cyan(1.0))
+            glow_line(sub(blade, scale(radial, 8.0)), add(blade, scale(radial, 8.0)), white(0.9))
+            circle(blade, 4.0, white(1.0))
     for i in 0..g.enemy_count:
         let e: Enemy = g.enemies[i]
         if not g.on_screen(e.pos, 120.0): continue
         let pos = to_screen(cam, e.pos)
         let growth = limit(e.age / 0.18, 0.0, 1.0)
         let radius = e.kind.radius() * e.size * growth + if e.flash > 0.0: 2.5 else: 0.0
-        let color = if e.flash > 0.0: white(1.0) else: paint(e.kind.tint(), 1.0)
+        // A hit tints toward white; a solid white flash on hundreds of
+        // enemies at once whites out the ship.
+        let color = if e.flash > 0.0: ColorLerp(paint(e.kind.tint(), 1.0), white(1.0), 0.55) else: paint(e.kind.tint(), 1.0)
         let toward = direction(sub(g.player, e.pos))
         draw_enemy(e.kind, pos, radius, clock, e.speed, toward, color, 0.85)
         if e.elite:
@@ -560,13 +620,17 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let color = weapon_tint(b.weapon)
         match b.weapon.family():
             .Bouncing => {
-                DrawPolyLinesEx(rv(pos), 3, 7.0, (clock * 400.0 + b.pos.x) as f32, 1.8, color)
-                line(sub(pos, scale(heading, 14.0)), pos, 3.0, Fade(color, 0.3))
+                let spin = (clock * 400.0 + b.pos.x) as f32
+                line(sub(pos, scale(heading, 22.0)), pos, 5.0, Fade(color, 0.18))
+                DrawPolyLinesEx(rv(pos), 3, 10.0, spin, 6.0, Fade(color, 0.18))
+                DrawPolyLinesEx(rv(pos), 3, 10.0, spin, 2.2, color)
+                circle(pos, 2.2, white(1.0))
             }
             .Homing => {
-                line(sub(pos, scale(heading, 18.0)), pos, 4.0, Fade(color, 0.25))
-                line(sub(pos, scale(heading, 18.0)), pos, 1.6, color)
-                circle(pos, 2.6, white(1.0))
+                line(sub(pos, scale(heading, 28.0)), pos, 6.0, Fade(color, 0.2))
+                line(sub(pos, scale(heading, 28.0)), pos, 2.0, color)
+                line(sub(pos, scale(heading, 10.0)), pos, 2.0, white(1.0))
+                circle(pos, 3.2, white(1.0))
             }
             _ => {
                 // Twin streaks with a white-hot head.
@@ -582,7 +646,11 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             }
     if g.health > 0:
         let pos = to_screen(cam, g.player)
-        let flicker = if g.invulnerable > 0.0 and (clock * 22.0) as i32 % 2 == 0: 0.3 else: 1.0
+        let flicker = if g.invulnerable > 0.0 and (clock * 22.0) as i32 % 2 == 0: 0.55 else: 1.0
+        // The player is never lost in the swarm: a dark backing under the
+        // silhouette and a thin ring around it, drawn over every effect.
+        circle(pos, 22.0, ink(0.9))
+        ring(pos, 23.0, white(0.14))
         draw_ship(g.launch.ship, pos, g.aim, flicker, 1.0)
         if g.muzzle > 0.0:
             let front = add(pos, scale(g.aim, 30.0))
@@ -610,13 +678,34 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             .Xp(v) => centered_at(f"{v}", pos.x as i32, pos.y as i32 - 8, 12, cyan(alpha))
     // Event telegraph: a glow on the side the formation arrives from.
     if g.event_telegraph > 0.0:
-        let strength = 0.35 + 0.35 * sin(clock * 18.0)
-        let thick = 22
+        // Never fades out: a pulse between strong and stronger, chevrons
+        // pointing in from the side, and a label.
+        let strength = 0.5 + 0.25 * sin(clock * 14.0)
+        let deep = 120
         match g.event_side:
-            0 => DrawRectangleGradientH(0, 0, thick * 3, HEIGHT, magenta(strength), magenta(0.0))
-            1 => DrawRectangleGradientH(WIDTH - thick * 3, 0, thick * 3, HEIGHT, magenta(0.0), magenta(strength))
-            2 => DrawRectangleGradientV(0, 0, WIDTH, thick * 3, magenta(strength), magenta(0.0))
-            _ => DrawRectangleGradientV(0, HEIGHT - thick * 3, WIDTH, thick * 3, magenta(0.0), magenta(strength))
+            0 => DrawRectangleGradientH(0, 0, deep, HEIGHT, magenta(strength), magenta(0.0))
+            1 => DrawRectangleGradientH(WIDTH - deep, 0, deep, HEIGHT, magenta(0.0), magenta(strength))
+            2 => DrawRectangleGradientV(0, 0, WIDTH, deep, magenta(strength), magenta(0.0))
+            _ => DrawRectangleGradientV(0, HEIGHT - deep, WIDTH, deep, magenta(0.0), magenta(strength))
+        let inward = match g.event_side:
+            0 => V2 { x: 1.0 }
+            1 => V2 { x: -1.0 }
+            2 => V2 { y: 1.0 }
+            _ => V2 { y: -1.0 }
+        let edge = match g.event_side:
+            0 => V2 { x: 30.0, y: HEIGHT as f64 / 2.0 }
+            1 => V2 { x: WIDTH as f64 - 30.0, y: HEIGHT as f64 / 2.0 }
+            2 => V2 { x: WIDTH as f64 / 2.0, y: 90.0 }
+            _ => V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 - 90.0 }
+        let side = perpendicular(inward)
+        for k in -2..3:
+            let base = add(edge, scale(side, k as f64 * 150.0))
+            let march = ((clock * 3.0) % 1.0) * 24.0
+            let tip = add(base, scale(inward, 22.0 + march))
+            glow_line(add(add(base, scale(inward, march)), scale(side, 14.0)), tip, magenta(strength + 0.2))
+            glow_line(add(add(base, scale(inward, march)), scale(side, -14.0)), tip, magenta(strength + 0.2))
+        let label_at = add(edge, scale(inward, 60.0))
+        centered_at("INCOMING", label_at.x as i32, label_at.y as i32 - 8, 16, magenta(0.9))
     if g.flash > 0.0:
         DrawRectangle(0, 0, WIDTH, HEIGHT, white(g.flash * 0.10))
         DrawRectangle(0, 0, WIDTH, 9, magenta(g.flash))
@@ -668,7 +757,9 @@ pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true }
 impl Copy for Hud
 
 fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
-    // Top: the level-up bar with the level number, combo, timer, credits.
+    // Top: the level-up bar with the level number, combo, timer, credits,
+    // over a dark band so the swarm never runs through the numbers.
+    DrawRectangleGradientV(0, 0, WIDTH, 84, ink(0.88), ink(0.0))
     DrawRectangle(0, 0, WIDTH, 8, ink(0.8))
     let fraction = limit(g.xp as f64 / g.xp_next as f64, 0.0, 1.0)
     DrawRectangle(0, 0, (WIDTH as f64 * fraction) as i32, 8, lime(0.85))
@@ -741,9 +832,9 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         let alpha = limit(remaining * 3.0, 0.0, 1.0)
         match g.banner.kind:
             .Merge(w) => {
-                centered("MERGE", 270, 16, white(alpha))
-                centered(w.name(), 292, 48, gold(alpha))
-                centered(w.describe(), 346, 14, white(alpha * 0.8))
+                centered("MERGE", 170, 16, white(alpha))
+                centered(w.name(), 192, 48, gold(alpha))
+                centered(w.describe(), 246, 14, white(alpha * 0.8))
             }
             .Boss => {
                 DrawRectangle(0, 0, WIDTH, HEIGHT, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
@@ -781,10 +872,20 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         let speed = g.cache_reveal * g.cache_reveal * 40.0
         let index = ((clock * speed) as i32) % (BASE_WEAPON_COUNT + PASSIVE_COUNT)
         let pos = V2 { x: WIDTH as f64 / 2.0, y: 400.0 }
-        panel(WIDTH / 2 - 80, 320, 160, 160, gold(1.0))
-        if index < BASE_WEAPON_COUNT: draw_weapon_icon(weapon_at(index), pos, 34.0, clock, 1.0)
-        else: draw_passive_icon(passive_at(index - BASE_WEAPON_COUNT), pos, 30.0, 1.0)
-        centered("OPENING", 500, 14, gold(0.8))
+        // Gold rays turning behind the reveal, faster while it spins.
+        for k in 0..16:
+            let a = clock * (0.6 + g.cache_reveal * 2.0) + k as f64 * 0.3927
+            let inner = add(pos, V2 { x: cos(a) * 110.0, y: sin(a) * 110.0 })
+            let outer = add(pos, V2 { x: cos(a) * 320.0, y: sin(a) * 320.0 })
+            line(inner, outer, 10.0, gold(0.05))
+            line(inner, outer, 2.0, gold(0.25))
+        DrawPolyLinesEx(rv(pos), 4, 150.0, (clock * 40.0) as f32, 8.0, gold(0.12))
+        DrawPolyLinesEx(rv(pos), 4, 150.0, (clock * 40.0) as f32, 2.5, gold(0.9))
+        DrawPolyLinesEx(rv(pos), 4, 120.0, (-clock * 60.0) as f32, 1.5, white(0.5))
+        circle(pos, 96.0, ink(0.85))
+        if index < BASE_WEAPON_COUNT: draw_weapon_icon(weapon_at(index), pos, 44.0, clock, 1.0)
+        else: draw_passive_icon(passive_at(index - BASE_WEAPON_COUNT), pos, 40.0, 1.0)
+        centered("OPENING", 580, 16, gold(0.9))
         return
     let count = g.offer_count
     let card_w = 220
