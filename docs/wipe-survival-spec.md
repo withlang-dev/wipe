@@ -433,9 +433,62 @@ density is a release requirement, measured on captured frames.
 
 ## 12. Persistence
 
-A single save file: gold, shop ranks, unlock progress, bests, session
-counters. Written on run end and on shop or refund changes. Corruption or
-absence starts fresh with a notice. Nothing else persists.
+The player never loses a save. That is the whole requirement; the rules
+below are how it is met.
+
+### What persists
+
+One save: gold, shop ranks, unlock progress, bests, lifetime counters
+(runs, kills, minutes, clears), and the session metrics of §9. Nothing else.
+A run in progress is never saved; a crash mid-run loses the run and never
+the account.
+
+### Load at launch
+
+The save is read before the first frame of gameplay. Launching is loading:
+there is no continue button, and the first run already reflects every shop
+rank and unlock. Loading a missing file is the new-player path, silently.
+
+### Save on every change
+
+The save is written at every point state changes, not only at run end:
+
+- run end, the moment the results screen appears, with the run's gold
+  already banked
+- every shop purchase and every refund
+- every unlock and every new best
+
+So the most a crash or a power loss can cost is the run on screen.
+
+### Atomic writes with a backup
+
+A write goes to a temporary file in the save directory, is flushed, and is
+renamed over the current save. The current save is renamed to `.bak` first.
+A crash during a write leaves the previous save intact; there is never a
+half-written save on disk.
+
+On load, if the primary fails to parse, the backup is loaded and the player
+is told once. Only if both fail does the game start fresh, and then it sets
+the two files aside under a dated name rather than deleting them, and says
+so.
+
+### Versioned format
+
+The file carries a schema version. A newer game reads every older version
+and rewrites the file in the current one. An older game reading a newer
+file refuses and says which version it needs; it never starts fresh over a
+save it cannot read.
+
+### Location
+
+The platform's per-user application data directory, never beside the
+executable, so moving or reinstalling the game never touches the save.
+The exact path is shown in the debug overlay.
+
+### Later
+
+The format above is what makes Steam Cloud possible without a migration.
+Cloud sync stays out of scope (§16) until the platform milestone.
 
 ---
 
@@ -474,11 +527,14 @@ Each milestone has a done condition. The next does not start before it.
 XP gems with magnet and merge, level-ups with the choice screen, the Cannon
 plus three other weapons, four passives, the 20-minute timeline with the
 Reaper, elites with chests, one boss pattern at 5 and 10 minutes, health as
-a stat, the results screen with gold and bests, a save file with gold and
-bests.
+a stat, the results screen with gold and bests, and the save as §12 states
+it: loaded before the first frame, written on every change, atomic with a
+backup, versioned, in the per-user data directory.
 
-Done when a 20-minute clear is possible for a good player and a first-run
-death lands between 6 and 10 minutes.
+Done when a 20-minute clear is possible for a good player, a first-run
+death lands between 6 and 10 minutes, and killing the process at any moment
+of a run, a purchase, or a save write leaves the account intact on the next
+launch.
 
 ### M2 — Between runs
 
