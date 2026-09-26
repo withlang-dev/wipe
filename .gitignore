@@ -2,3 +2,4 @@ out/
 .with/
 !.with/lock.json
 .DS_Store
+.claude/
