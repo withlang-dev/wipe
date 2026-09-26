@@ -583,13 +583,14 @@ extend App:
                 draw_ship(ship, center, V2 { x: 0.0, y: -1.0 }, 1.0, 1.9)
                 centered_at(ship.name().to_upper(), x + 56, y + 88, 14, white(1.0))
             else:
-                draw_ship(ship, center, V2 { x: 0.0, y: -1.0 }, 0.18, 1.9)
+                mystery(center, 40, white(0.35))
                 centered_at(if ship.secret(): "?" else: "LOCKED", x + 56, y + 88, 12, white(0.35))
         let ship = ship_at(self.ship_cursor)
         let unlocked = ship_unlocked(ship, &self.save)
         // The detail panel: the ship's card.
         panel(80, 270, 440, 360, if unlocked: cyan(1.0) else: white(0.3))
-        draw_ship(ship, V2 { x: 300.0, y: 450.0 }, V2 { x: cos(clock * 0.8), y: sin(clock * 0.8) }, if unlocked: 1.0 else: 0.2, 5.0)
+        if unlocked: draw_ship(ship, V2 { x: 300.0, y: 450.0 }, V2 { x: cos(clock * 0.8), y: sin(clock * 0.8) }, 1.0, 5.0)
+        else: mystery(V2 { x: 300.0, y: 450.0 }, 140, white(0.3))
         let x = 560
         neon(ship.name().to_upper(), x, 274, 36, white(1.0))
         if unlocked:
@@ -783,7 +784,10 @@ extend App:
             let center = V2 { x: (x + 70) as f64, y: (y + 42) as f64 }
             let alpha = if open: 1.0 else: 0.18
             match self.tab:
-                .Ships => draw_ship(ship_at(i), center, V2 { x: 0.0, y: -1.0 }, alpha, 1.6)
+                .Ships => {
+                    if open: draw_ship(ship_at(i), center, V2 { x: 0.0, y: -1.0 }, 1.0, 1.6)
+                    else: mystery(center, 36, white(0.3))
+                }
                 .Weapons => draw_weapon_icon(weapon_at(i), center, 18.0, clock, alpha)
                 .Passives => draw_passive_icon(passive_at(i), center, 16.0, alpha)
                 .Merges => {
@@ -872,7 +876,7 @@ extend App:
                     let second = match r.second:
                         Some(s) => f" and {s.name()}"
                         None => ""
-                    out.push(f"{r.first.name()}{second} at VIII")
+                    out.push(f"{r.first.name()}{second} at {roman(MAX_WEAPON_LEVEL)}")
                     out.push(f"Key: {r.key.name()} at any level")
                 else:
                     out.push("Undiscovered recipe.")
@@ -907,3 +911,7 @@ fn collection_card_origin(i: i32) -> (i32, i32):
     (40 + (i % 5) * 160, 120 + (i / 5) * 116)
 
 
+
+// A locked ship is a question mark: its shape is part of the reward.
+fn mystery(at: V2, size: i32, color: Color):
+    neon("?", at.x as i32 - MeasureText("?", size) / 2, at.y as i32 - size / 2, size, color)
