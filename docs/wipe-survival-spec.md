@@ -124,7 +124,7 @@ Difficulty is a minute-by-minute spawn timeline, not a wave counter:
 | 2–5 | Density rises. Darts appear. First elite at 3:00. |
 | 5–10 | Spinners and Weavers join. Elites every minute. Boss at 5:00 and 10:00. |
 | 10–15 | Full roster, walls of enemies, second and third merges become reachable. |
-| 15–20 | Screen-filling density. Boss at 15:00. the Null at 20:00. |
+| 15–20 | Density fills the view wherever the ship goes. Boss at 15:00. The Null at 20:00. |
 
 Every enemy kind, elite, boss, and event has a first-appearance minute in a
 data table. The table is tuning, not architecture, and lives with the other
@@ -137,7 +137,8 @@ knobs.
 - **Bosses**: at 5, 10, and 15 minutes. A boss is a screen-clear gate with a
   telegraphed pattern and a health bar, the one enemy health bar in the game.
 - **Events**: scripted set pieces at fixed minutes, telegraphed two
-  seconds ahead by a glow at the arena edge, lasting ten to twenty seconds
+  seconds ahead by a glow at the camera edge on the side they arrive from,
+  lasting ten to twenty seconds
   over the normal spawns. They are the run's memorable beats and they are
   geometry: a diagonal sweep of Blocks across the arena, a ring of Darts
   converging on the ship, a spiral of Spinners unwinding from a corner, a
@@ -151,6 +152,62 @@ knobs.
   like a jackpot rather than a menu.
 - **Breathers**: after a boss dies, five seconds of thinned spawns and a
   music lift.
+
+### Arena
+
+The arena is a bounded, camera-followed combat volume: larger than the
+screen, never endless. The principle:
+
+> Space is limited enough that walls matter, but large enough that movement
+> creates decisions.
+
+Walls are a core combat mechanic, kept from Geometry Wars on purpose. In an
+endless field retreat is always available and play collapses into kiting; in
+a bounded arena every retreat spends future space, so positioning is
+cumulative and movement and shooting stay coupled. That is what a game with
+directional aiming should keep.
+
+Size is a tuning parameter, measured in travel time at base speed rather
+than screens, because screens vary with resolution and lookahead:
+
+- center to wall: about 4 seconds
+- wall to opposite wall: about 8 seconds
+- an important fixture: 3 to 6 seconds away
+- lethal pressure closes those distances well faster than the player can
+  casually reset the fight
+
+The first arena is a plain rectangle. Camera and traversal are proven on
+their own before geometry is exploited; introducing shape and scrolling at
+once would confound the test.
+
+**Off-screen is a resource.** Once the camera does not show everything,
+enemies entering from beyond view, event telegraphs at the edge, a distant
+cache, and a boss moving outside the viewport all create anticipation the
+single screen could not. It comes with one obligation: nothing lethal
+reaches the player from off-screen without a telegraph. Edge glow,
+directional wedges, grid deformation, and event lines are the cues, all in
+the frame. Untelegraphed off-screen death is unfair, not interesting.
+
+The camera follows the ship with lookahead toward the aim direction, so the
+reticle's side of the screen always has room. Spawns originate beyond the
+camera edge and inside the walls. Navigation is edge indicators toward
+caches, beacons, and bosses, and, if playtesting at larger sizes shows the
+need, a faint arena-outline radar rather than a minimap. "No minimap" is a
+hypothesis to test, not doctrine.
+
+The boundary itself is drawn as part of the frame: a glowing geometric
+containment edge, never terrain.
+
+The implementation is a thin layer over the prototype: world bounds as a
+rule, a following camera, the grid shader in world space instead of screen
+space, off-screen spawn and telegraph rules, edge indicators. No terrain,
+no obstacles, no procedural generation. Procedural maps stay deferred
+unless testing shows the game genuinely needs exploration.
+
+Arena geometry is content, later: once the rectangle is proven, stages are
+shapes. A horizontal corridor turns every fight into a sweep; a vertical
+shaft, a diamond, a ring with a dead center, a cross-shaped chamber. In an
+abstract game, geometry is level design, and it costs no art.
 
 ### Death
 
@@ -211,8 +268,8 @@ player crosses the arena instead of circling one spot:
 
 | Pickup | Effect |
 |---|---|
-| Tractor | Pulls every core on screen to the ship |
-| Clear | Kills every non-boss enemy on screen, dropping their cores |
+| Tractor | Pulls every core in the arena to the ship |
+| Clear | Kills every non-boss enemy in view, dropping their cores |
 | Freeze | Stops every enemy for five seconds |
 | Repair | Restores 30% of max health |
 | Credits | A chip, or rarely a bundle worth twenty |
@@ -361,7 +418,8 @@ level, complete a merge, kill a boss, reach a combo. Entries unlock:
 
 - weapons and passives beyond the launch roster
 - ships: see §9; each has its own condition, from trivial to very specific
-- stages: the arena with a modifier (denser, faster, darker), unlocked late
+- stages: arena shapes (see §4, Arena) and modifiers (denser, faster,
+  darker), unlocked late
 
 Unlocks are the collection loop. Unlocked items show in full; locked items
 show as greyed silhouettes with their condition. The list is never complete
@@ -554,6 +612,9 @@ Screens: level-up choice, results, shop, unlocks, ship select. Nothing
 else. No settings screen at launch beyond volume and a deadzone slider on
 the results screen.
 
+Edge indicators mark off-screen caches, beacons, bosses, and incoming
+events; nothing else is drawn for navigation until testing says otherwise.
+
 Debug overlay (F1): FPS, frame time, enemy, bullet, particle, core counts,
 total entities, timeline minute, spawn rate, and the five session metrics.
 
@@ -569,6 +630,8 @@ Targets on Steam Deck and the development desktop:
 - stable 60 fps with 1,000 enemies, 500 bullets, 2,000 particles, 1,000 cores
 - entity budget of 2,000 enemies, spawns clamped to it
 - no per-frame allocation; pools sized at start
+- off-screen entities simulate but are not drawn; culling is by camera
+  bounds and costs no allocation
 - restart under one second; the level-up pause and resume under one frame
 
 The stress command (F3) fills the arena to the budget. Readability at that
@@ -647,8 +710,11 @@ prototype's pattern: state in the simulation, knobs in the rules value,
 presentation reads and never writes.
 
 The spawn timeline, weapon and passive tables, merge recipes, shop
-prices, and unlock conditions are data tables in the rules module so tuning
-never touches system code.
+prices, unlock conditions, and arena dimensions are data tables in the rules
+module so tuning never touches system code. The camera is presentation
+state; the simulation knows only world bounds, and the grid shader takes
+world-space coordinates from the camera rather than the screen rectangle it
+hardcodes today.
 
 ---
 
@@ -669,7 +735,11 @@ Each milestone has a done condition. The next does not start before it.
 
 ### M1 — The run grows
 
-XP cores with magnet and merge, level-ups with the choice screen, the Cannon
+The bounded scrolling arena as a thin layer: world bounds as a rule, the
+following camera with aim lookahead, the world-space grid, off-screen spawn
+and telegraph rules, edge indicators, with the size tuned by travel time
+across playtests. XP cores with magnet and merge, level-ups with the choice
+screen, the Cannon
 plus three other weapons, four passives including overclock, the 20-minute
 timeline with the Null, four events, beacons and the pickup set, elites
 with caches, one boss pattern at 5 and 10 minutes, health as a stat, the
@@ -678,7 +748,8 @@ it: loaded before the first frame, written on every change, atomic with a
 backup, versioned, in the per-user data directory.
 
 Done when a 20-minute clear is possible for a good player, a first-run
-death lands between 6 and 10 minutes, and killing the process at any moment
+death lands between 6 and 10 minutes, no playtester reports an off-screen
+death they could not see coming, and killing the process at any moment
 of a run, a purchase, or a save write leaves the account intact on the next
 launch.
 
@@ -697,7 +768,8 @@ runs per session rising, most results screens showing an open loop within
 
 All eight weapons, all passives, every evolution and union with its banner,
 the third boss, the Spinner and Weaver behaviors, all twelve events, the
-cache ceremony with three- and five-item caches, stages with modifiers, the
+cache ceremony with three- and five-item caches, stages as arena shapes
+with modifiers, the
 full ship roster including the killable Null and its ship, and endless
 mode.
 
@@ -720,7 +792,7 @@ green.
 Not in this spec, and not before every milestone is done:
 
 - prestige (see §10)
-- multiple arenas beyond stage modifiers
+- procedurally generated maps, terrain, or obstacles; the arena is a shape
 - story, characters with dialogue, tutorials beyond the first level-up hint
 - dash, manual fire, weapon switching
 - co-op or any multiplayer
