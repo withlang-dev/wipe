@@ -13,12 +13,12 @@ multiplier that rapid kills build and idle time decays.
 ## Specs
 
 The recruiting prototype spec is complete and signed off; this tree is its
-result. What comes next is in [docs/wipe-survival-mvp.md](docs/wipe-survival-mvp.md)
-(the MVP: is the game fun in the first 60 seconds?) and
-[docs/wipe-survival-v1.md](docs/wipe-survival-v1.md) (the first complete
-demo-ready version). [docs/wipe-survival-implementation-notes.md](docs/wipe-survival-implementation-notes.md)
-carries the engineering notes for both, written against the current language
-with this tree as the baseline.
+result. The game is specified in one document,
+[docs/wipe-survival-spec.md](docs/wipe-survival-spec.md): Geometry Wars' feel
+on Vampire Survivors' loop, with milestones at the end.
+[docs/wipe-survival-implementation-notes.md](docs/wipe-survival-implementation-notes.md)
+carries the engineering notes, written against the current language with
+this tree as the baseline.
 
 ## Build and play
 

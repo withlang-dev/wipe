@@ -4,7 +4,7 @@ These notes describe how the game is built in With, using the prototype in
 this tree as the baseline. Every sample below is current With: no safe
 `&mut`, no `println`, C libraries reached through `c_import` and modeled
 through `c facade` blocks, mutation through `mut self` receivers and index
-places. Where the MVP or V1 spec adds a system the tree does not have yet,
+places. Where the spec adds a system the tree does not have yet,
 the sample shows the shape it should take, not code that exists.
 
 ---
@@ -41,7 +41,7 @@ Native controller transport and mapping only: Xbox controllers and the Steam
 Controller over its USB puck, without Steam Input or keyboard/mouse
 emulation. SDL owns no window; raylib's window focus gates gameplay input.
 
-## Steamworks SDK (V1)
+## Steamworks SDK (milestone M4)
 
 Achievements, stats, overlay, Steam Deck runtime integration. Not in the tree
 yet. It is reached through the SDK's flat C API, which is what `c_import` can
@@ -330,24 +330,26 @@ The simulation records what happened this tick as booleans (`shot_event`,
 the fixed steps and the loop clears them before the next frame. Presentation
 never reaches into the simulation's RNG.
 
-## Waves, goals, combos, upgrades (MVP)
+## Timeline, gems, level-ups, combo (milestone M1)
 
-These are simulation state and belong in `Game`, with their knobs in
-`Rules`. The pattern is the one the prototype already uses for the kill
-multiplier: a scalar that builds on events and decays with `dt`, read by
-presentation, never written by it. An upgrade choice is a paused state of
+These are simulation state and belong in `Game`, with their knobs and data
+tables in `Rules`. The pattern is the one the prototype already uses for the
+kill multiplier: a scalar that builds on events and decays with `dt`, read
+by presentation, never written by it. A level-up choice is a paused state of
 the same value, not a second loop:
 
 ```with
-pub enum Phase { | Running | Choosing | Dead }
+pub enum Phase { | Running | Choosing | Over }
 impl Copy for Phase
 
 pub type Game {
     phase: Phase = .Running,
-    wave: i32 = 1,
+    minute: f64 = 0.0,
     combo: i32 = 0, combo_timer: f64 = 0.0,
-    upgrade_bar: f64 = 0.0,
-    offered: [Upgrade; 3] = [.Damage; 3],
+    xp: i32 = 0, level: i32 = 1,
+    weapons: [WeaponSlot; 6], passives: [PassiveSlot; 6],
+    offered: [Offer; 4] = [Offer {}; 4],
+    gems: Vec[Gem], gem_count: i32 = 0,
     ...
 }
 ```
@@ -444,7 +446,7 @@ the stream never restarts.
 
 ---
 
-# 10. Steam Integration (V1)
+# 10. Steam Integration (milestone M4)
 
 Steamworks is reached through its flat C API. Its state is process-wide
 and has no owner on the With side, so it is a foreign-state domain; the
@@ -534,10 +536,10 @@ rule.
 # 13. Summary
 
 - raylib and SDL3 provide graphics, audio, and controllers; Steamworks
-  provides platform integration in V1.
+  provides platform integration in milestone M4.
 - With owns the loop, the world, every system, and the presentation.
 - The simulation is a pure, deterministic value; the platform layers are
   facades around owned resources.
-- The prototype in this tree is the baseline: the MVP adds waves, goals,
-  combos, and upgrades as simulation state, and V1 adds enemy kinds with
-  behavior, progression, and Steam.
+- The prototype in this tree is the baseline: M1 adds the timeline, gems,
+  level-ups, and weapons as simulation state; M2 adds the shop and unlocks;
+  M3 adds enemy behaviors and evolutions; M4 adds Steam.
