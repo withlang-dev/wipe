@@ -17,8 +17,8 @@ result. What comes next is in [docs/wipe-survival-mvp.md](docs/wipe-survival-mvp
 (the MVP: is the game fun in the first 60 seconds?) and
 [docs/wipe-survival-v1.md](docs/wipe-survival-v1.md) (the first complete
 demo-ready version). [docs/wipe-survival-implementation-notes.md](docs/wipe-survival-implementation-notes.md)
-carries the engineering notes for both; its `&mut` signatures predate D27 and
-must be respelled before use.
+carries the engineering notes for both, written against the current language
+with this tree as the baseline.
 
 ## Build and play
 
