@@ -81,10 +81,15 @@ Steam Deck first; desktop is the development platform.
 | Move | WASD / arrows | Left stick |
 | Aim | Mouse | Right stick |
 | Fire | Automatic | Automatic |
-| Choose upgrade | Mouse / 1-2-3 | D-pad or stick + A |
-| Retry, confirm | Space | A |
-| Shop, unlocks | Click | A / B |
-| Quit | Escape | — |
+| Confirm, retry, launch, buy | Space / click | A |
+| Back | Escape | B |
+| Shop | X key / click | X |
+| Collection | C key / click | Y |
+| Boost: pick a card | 1-2-3-4 / click | D-pad or stick + A |
+| Boost: reroll, skip, banish | R, S, N | X, Y, LB |
+| Retry as the new ship | Tab | RB |
+| Pause | Escape in a run | Start |
+| Quit | Escape on the title | Hold B on the title |
 
 Requirements: radial deadzone on both sticks, centered aim retains the last
 direction, mouse movement takes aim back from the pad, gameplay input ignored
@@ -601,22 +606,244 @@ conditions.
 
 ---
 
-## 11. UI
+## 11. Screens and UI
 
-In-run HUD, top: level-up bar with level number; combo counter; timer;
-credits this run. Bottom: weapon and passive icons with level pips. Health as a
-bar under the ship. Boss health bar when a boss is alive. No score number:
-the combo and the credits are the score.
+Six screens and three in-run overlays. Every screen is reachable in at most
+two presses from any other, and the run is never more than two presses from
+the title. Menus are the same visual language as the arena: wireframe cards
+on the lattice, the same palette, no photographs, no textures.
 
-Screens: level-up choice, results, shop, unlocks, ship select. Nothing
-else. No settings screen at launch beyond volume and a deadzone slider on
-the results screen.
+### Flow
 
-Edge indicators mark off-screen caches, beacons, bosses, and incoming
-events; nothing else is drawn for navigation until testing says otherwise.
+```text
+launch ─▶ TITLE ─A─▶ SHIP SELECT ─A─▶ RUN ─death/cap─▶ RESULTS ─A─▶ RUN (same ship)
+             │            │  ▲                              │
+             X            X  │ B                            X ─▶ SHOP ─B─▶ back
+             ▼            ▼  │                              Y ─▶ COLLECTION ─B─▶ back
+           SHOP       COLLECTION                            B ─▶ SHIP SELECT
 
-Debug overlay (F1): FPS, frame time, enemy, bullet, particle, core counts,
-total entities, timeline minute, spawn rate, and the five session metrics.
+RUN: Start/Esc ─▶ PAUSE      level-up/cache ─▶ BOOST overlay
+```
+
+A fresh save with only the Claw skips ship select: title, A, run. The
+spec's instant pillar in numbers: title within one second of launch, a run
+within two presses.
+
+### Common rules
+
+- **One confirm, one back.** A/Space confirms, B/Escape backs out, X opens
+  the shop, Y opens the collection, from any screen where they make sense.
+  The same four buttons do the same four things everywhere.
+- **Remembered cursor.** Every screen reopens on the item it was closed on.
+- **No dead time.** Screens open in one frame. Animations (credit count-up,
+  card reveals) run on top of an already interactive screen; a press during
+  an animation completes it, a press after it acts.
+- **Credits always visible** on every out-of-run screen, top right, with a
+  delta animation when they change.
+- **Keyboard and mouse parity.** Every element is clickable; every action
+  has a key; hovering is selecting.
+- **Locked things are visible.** Nothing is hidden except the Null's secret
+  condition, which shows as its hint.
+
+### Title
+
+Purpose: establish the frame in one look, get out of the way.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│                      W I P E : S U R V I V A L               │
+│                    (claw silhouette, slow rotate)            │
+│                                                              │
+│                     [A]  launch                              │
+│                     [X]  shop      [Y]  collection           │
+│                                                              │
+│  best 19:12 · 2,317 kills   ·   credits 1,988   ·   v0.2     │
+│  ⌂ controller: Xbox                                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Behind the text the arena runs an attract simulation: the real
+simulation, headless input, a scripted pilot, enemies and cores, at low
+brightness. It is the game's own screensaver and it proves the frame
+before the first press.
+
+Activities: launch, open shop, open collection, quit (Escape, with a one
+second hold on controller). Nothing else. No news, no options.
+
+### Ship select
+
+Purpose: choose the opening; show the roster as the half-empty grid it is.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ SELECT SHIP                                 credits 1,988    │
+│                                                              │
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌?─┐│
+│  │CLAW│ │DART│ │HULL│ │PRSM│ │HALO│ │ ·  │ │ ·  │ │ ·  │ │ ·││
+│  └────┘ └────┘ └────┘ └────┘ └────┘ └────┘ └────┘ └────┘ └──┘│
+│                                                              │
+│   ┌──────────────────────────┐   HULL                        │
+│   │                          │   base weapon   Nova           │
+│   │     (large silhouette,   │   strength      +50% health,   │
+│   │      idle animation)     │                 +1 armor       │
+│   │                          │   growth        +1 health / 5  │
+│   └──────────────────────────┘   weakness      −20% speed     │
+│                                                              │
+│   best with Hull  14:02 · level 24 · 1,105 kills             │
+│                                                              │
+│   [A] launch    [B] back    [X] shop    [Y] collection       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The row is every ship, unlocked in full, locked as greyed silhouettes. A
+locked card's detail panel shows its condition with a live progress bar in
+place of the stats: "Survive 5:00 — best 3:41". The detail panel is the
+ship's card; the same card appears in the collection.
+
+Once stages exist (M3), a stage row appears above the ships with the same
+card pattern. Until then there is no stage row.
+
+Activities: move between cards, launch, back to title, shop, collection.
+Launching remembers the ship.
+
+### Run: HUD
+
+Top edge: level-up bar with the level number, the combo counter, the timer,
+credits this run. Bottom edge: weapon and passive icons with level pips.
+Health as a bar under the ship. Boss bar at the top when a boss is alive.
+Edge indicators for off-screen caches, beacons, bosses, and incoming
+events. No score number: the combo and the credits are the score.
+
+### Run: boost overlay
+
+Purpose: one decision, fast, with the world frozen behind it.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ (world frozen, dimmed)                          LEVEL 12     │
+│                                                              │
+│     ┌───────────┐  ┌───────────┐  ┌───────────┐              │
+│     │  ★ MERGE  │  │   ORBIT   │  │  MAGNET   │              │
+│     │  Cannon + │  │  III ▸ IV │  │   NEW     │              │
+│     │  Speed ▸  │  │  +1 blade │  │ +20% pull │              │
+│     │  RAILGUN  │  │           │  │           │              │
+│     └───────────┘  └───────────┘  └───────────┘              │
+│                                                              │
+│   [A] take   [X] reroll ×1   [Y] skip ×1   [LB] banish ×1    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Three cards, four with luck. A merge card is always first and marked. Each
+card is icon, name, level transition or NEW, and one line of delta. The
+cursor starts on the first card; the stick or d-pad moves it; 1-2-3-4 pick
+directly. Reroll, skip, and banish show their remaining counts and grey out
+at zero; banish asks which card. Taking resumes play on the same frame.
+
+### Run: cache ceremony
+
+Purpose: the jackpot moment.
+
+The screen dims, the cache opens at center, and a spinner cycles through
+item icons for one second, slowing into the reveal. One item, or with luck
+three or five, each revealed in turn as a card that flips into a boost
+choice with a completed merge first. A press during the spin ends it. The
+whole ceremony is under four seconds for one item and under eight for five.
+
+### Run: pause
+
+Start or Escape. The world freezes and dims. Resume, abandon run (credits
+earned so far are banked; asks to confirm), volume slider, deadzone slider,
+quit to title. This is the only place volume and deadzone live.
+
+### Results
+
+Purpose: the reward screen. Bank the run, star the bests, open the loops,
+put retry one press away.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ RUN OVER                                    credits 1,988 ▲412│
+│                                                              │
+│  survived 18:40  ★ best        level 31    best combo ×48    │
+│  kills 2,317   Block 1,402 · Dart 611 · Spinner 231 · Weaver 73│
+│                                                              │
+│  build  Cannon IV · Orbit (merged) · Seeker II · Nova I      │
+│         Magnet III · Damage II · Speed I                     │
+│                                                              │
+│  ▸ next unlock   Lance — survive 15:00 with Cannon   18:40 ✓ │
+│  ▸ next rank     Armor 3 — 2,300 credits          ████░ 86% │
+│  ▸ level-up bar was 4 s from full                            │
+│                                                              │
+│  NEW SHIP: SAPPER                    [RB] retry as Sapper    │
+│                                                              │
+│   [A] retry   [B] ship select   [X] shop   [Y] collection    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Sequence, all skippable by one press: credits count up into the bank with
+the delta pinned beside the total; a new best pops a star; the kill line
+fills in; the three open-loop lines slide in last, because they are what the
+player should be reading when the screen settles. A newly unlocked ship
+gets its own line with a one-press retry as that ship.
+
+Activities: retry with the same ship, back to ship select, shop, collection.
+Retry with the same ship is A the moment the screen settles, and the next
+run starts within one second.
+
+### Shop
+
+Purpose: spend credits; make the next rank always visible.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ SHOP                                        credits 1,988    │
+│                                                              │
+│  ▸ Armor         ●●○○○   rank 3      2,300   ████░ 86%        │
+│    Damage        ●●○○○   rank 3      1,800   ✓ affordable     │
+│    Fire rate     ●○○○○   rank 2        900   ✓ affordable     │
+│    Magnet        ●●●○○   rank 4      3,400                    │
+│    Reboots       ●○○     +1 per run  2,000                    │
+│    Rerolls       ●○○     +1 per run  1,200   ✓ affordable     │
+│    Banish        ○○○     +1 per run  1,500   ✓ affordable     │
+│    …                                                          │
+│                                                              │
+│   Armor 3: ignore the first 3 damage of every hit (now 2)    │
+│                                                              │
+│   [A] buy    [B] back    [Y] refund all    [LB/RB] sort      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Every power-up is a row: name, rank pips, the next rank, its price, and
+either "affordable" or a progress bar toward it. The cursor opens on the
+cheapest affordable row, or the closest unaffordable one. The detail line
+states the next rank's effect in plain numbers against the current one.
+Buying animates the pips and the credit delta and keeps the cursor. Refund
+all asks once, then clears every rank and returns every credit; the button
+shows the total it would return.
+
+Activities: buy, refund all, sort by price or by category, back.
+
+### Collection
+
+Purpose: the grids that are never full.
+
+Tabs across the top, LB/RB to switch: Ships, Weapons, Passives, Merges,
+Registry, Stages. Each tab is a grid of the same card pattern as ship
+select: unlocked in full, locked as a greyed silhouette with its condition
+and live progress, undiscovered merges as "? + ?" until first seen. A
+selected card's detail panel shows its full text and, for ships and
+weapons, the best run with it. The registry card shows lifetime kills,
+first seen, and first minute. A counter per tab, "5 / 9", is the
+collection's own open loop.
+
+Read-only. Activities: switch tab, move, back.
+
+### Debug overlay
+
+F1 in any state: FPS, frame time, enemy, bullet, particle, core counts,
+total entities, timeline minute, spawn rate, camera and arena bounds, the
+save path, and the five session metrics.
 
 ---
 
