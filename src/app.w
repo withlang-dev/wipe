@@ -266,18 +266,26 @@ extend App:
 
     // ----- update -------------------------------------------------------------
 
+    // One frame from the devices: sample, then step.
     pub fn update(mut self: Self, pad: PadFrame, dt: f64):
+        let m = self.menu.sample(pad)
+        // Aim is resolved against the ship's position on screen.
+        let screen_player = sub(self.game.player, self.game.view_origin())
+        let controls = if self.screen == .Run: self.input.sample(screen_player, self.game.aim, pad) else: Controls { aim: self.game.aim }
+        self.step(m, controls, dt)
+
+    // One frame from any source: the devices, or the playtest driver.
+    pub fn step(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
         self.ui_move = false
         self.ui_confirm = false
         self.ui_buy = false
-        let m = self.menu.sample(pad)
         self.notice_timer = limit(self.notice_timer - dt, 0.0, 10.0)
         self.shop_flash = limit(self.shop_flash - dt, 0.0, 1.0)
-        if IsKeyPressed(KEY_F1): self.debug = not self.debug
+        if m.debug: self.debug = not self.debug
         match self.screen:
             .Title => self.update_title(m, dt)
             .Select => self.update_select(m)
-            .Run => self.update_run(m, pad, dt)
+            .Run => self.update_run(m, controls, dt)
             .Pause => self.update_pause(m)
             .Results => self.update_results(m)
             .Shop => self.update_shop(m)
@@ -285,10 +293,10 @@ extend App:
         if self.screen == .Title or self.screen == .Select or self.screen == .Shop or self.screen == .Collection:
             // The attract simulation keeps flying behind the menus.
             self.attract_frame += 1
-            let controls = pilot(&self.attract, self.attract_frame)
+            let flight = pilot(&self.attract, self.attract_frame)
             self.attract.clear_events()
-            self.attract.tick(controls, dt)
-            self.attract.tick(controls, 0.0)
+            self.attract.tick(flight, dt)
+            self.attract.tick(flight, 0.0)
             if self.attract.phase == .Boost: self.attract.choose(0)
             if self.attract.minute() > 6.0 or self.attract.phase == .Over: self.attract.reset()
 
@@ -298,9 +306,9 @@ extend App:
             else: self.launch_as(.Claw)
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
-        else if IsKeyPressed(KEY_ESCAPE): self.quit = true
+        else if m.escape: self.quit = true
         // On a pad, quitting is a one second hold of B.
-        if m.back_held and not IsKeyDown(KEY_ESCAPE):
+        if m.back_held and not m.escape_held:
             self.quit_hold += dt
             if self.quit_hold >= 1.0: self.quit = true
         else: self.quit_hold = 0.0
@@ -336,7 +344,7 @@ extend App:
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
 
-    fn update_run(mut self: Self, m: MenuInput, pad: PadFrame, dt: f64):
+    fn update_run(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
         let g = &self.game
         if g.phase == .Boost:
             self.update_boost(m)
@@ -345,9 +353,6 @@ extend App:
             self.pause_cursor = 0
             self.confirm_abandon = false
             return
-        // Aim is resolved against the ship's position on screen.
-        let screen_player = sub(self.game.player, self.game.view_origin())
-        let controls = self.input.sample(screen_player, self.game.aim, pad)
         self.game.clear_events()
         var steps = 0
         var accumulator = limit(dt, 0.0, 0.1)
@@ -414,13 +419,12 @@ extend App:
                 3 => {
                     if self.confirm_abandon:
                         // Abandoning banks what the run earned so far.
-                        self.game.phase = .Over
+                        self.game.abandon()
                         self.finish_run()
                     else: self.confirm_abandon = true
                 }
                 4 => {
-                    self.persist()
-                    self.game.phase = .Over
+                    self.game.abandon()
                     self.finish_run()
                     self.go(.Title)
                 }

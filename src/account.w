@@ -81,22 +81,22 @@ extend ShopItem:
             _ => 5
     pub fn base_price(self: &Self) -> i32:
         match self:
-            .Damage => 200
-            .FireRate => 200
-            .Count => 900
-            .Area => 160
-            .Speed => 140
-            .Magnet => 110
-            .Health => 180
-            .Armor => 450
-            .Regen => 400
-            .Luck => 240
-            .Credit => 260
-            .Cooldown => 300
-            .Reboots => 1200
-            .Skips => 280
-            .Rerolls => 320
-            .Banishes => 360
+            .Damage => 400
+            .FireRate => 400
+            .Count => 1800
+            .Area => 320
+            .Speed => 280
+            .Magnet => 220
+            .Health => 360
+            .Armor => 900
+            .Regen => 800
+            .Luck => 480
+            .Credit => 520
+            .Cooldown => 600
+            .Reboots => 2400
+            .Skips => 560
+            .Rerolls => 640
+            .Banishes => 720
     // The price of the rank after `rank`: base, then +60% per rank.
     pub fn price(self: &Self, rank: i32) -> i32:
         var p = self.base_price() as f64
@@ -188,14 +188,14 @@ pub fn weapon_condition(w: Weapon) -> Condition:
         .Nova => .Start
         .Seeker => .Start
         .Lance => .SurviveWith(weapon: .Cannon, seconds: 900)
-        .Mines => .Elites(count: 10)
-        .Arc => .Level(level: 20)
-        .Shard => .LifetimeKills(count: 3000)
+        .Mines => .Elites(count: 40)
+        .Arc => .Level(level: 35)
+        .Shard => .LifetimeKills(count: 30000)
         _ => .Start
 
 pub fn passive_condition(p: Passive) -> Condition:
     match p:
-        .Cooldown => .Bosses(count: 3)
+        .Cooldown => .Bosses(count: 5)
         .Armor => .HitsTaken(count: 100)
         .Luck => .Caches(count: 10)
         .Credit => .Banked(credits: 5000)

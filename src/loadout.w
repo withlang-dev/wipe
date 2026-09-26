@@ -286,9 +286,9 @@ pub fn weapon_stats(weapon: Weapon, level: i32, mods: Mods) -> WeaponStats:
         }
         .Orbiting => {
             s.cooldown = 0.25
-            s.count = 2 + step(level, 2, 2)
-            s.radius = 70.0 + l * 6.0
-            s.damage = 1 + step(level, 4, 5)
+            s.count = 3 + step(level, 2, 3)
+            s.radius = 80.0 + l * 6.0
+            s.damage = 2 + step(level, 4, 5)
         }
         .Ring => {
             s.cooldown = 2.4 - (l - 1.0) * 0.14
@@ -304,7 +304,7 @@ pub fn weapon_stats(weapon: Weapon, level: i32, mods: Mods) -> WeaponStats:
             s.homing = true
         }
         .Beam => {
-            s.cooldown = 1.7 - (l - 1.0) * 0.1
+            s.cooldown = 0.85 - (l - 1.0) * 0.05
             s.radius = 420.0 + l * 30.0
             s.damage = 2 + step(level, 2, 3)
             s.pierce = 3 + level

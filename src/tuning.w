@@ -24,7 +24,7 @@ pub type Rules {
     level_stop: f64 = 0.10,
     merge_stop: f64 = 0.22,
     boss_stop: f64 = 0.13,
-    magnet_radius: f64 = 70.0,
+    magnet_radius: f64 = 90.0,
     core_speed: f64 = 520.0,
     core_merge_age: f64 = 3.0,
     combo_window: f64 = 2.0,
@@ -53,14 +53,14 @@ extend Rules:
     // Spawns per second at a minute of the run. The curve is gentle for two
     // minutes, then climbs so the view fills at fifteen minutes.
     pub fn spawn_rate(self: &Self, minute: f64) -> f64:
-        if minute < 2.0: 0.8 + minute * 0.35
+        if minute < 2.0: 1.1 + minute * 0.2
         else: 1.5 + (minute - 2.0) * 0.9
 
     // XP a level needs: early levels every thirty seconds, late ones every
     // minute or two against a rising kill rate.
     pub fn xp_for_level(self: &Self, level: i32) -> i32:
         let l = (level - 1) as f64
-        (10.0 + l * 6.0 + l * l * 1.0) as i32
+        (5.0 + l * 6.0 + l * l * 1.0) as i32
 
     // Bosses at five, ten, and fifteen minutes.
     pub fn boss_minutes(self: &Self) -> [f64; 3]: [5.0, 10.0, 15.0]

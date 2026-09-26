@@ -135,7 +135,7 @@ extend Ship:
     pub fn weakness(self: &Self) -> str:
         match self:
             .Claw => "None"
-            .Dart => "Max health 2"
+            .Dart => "Half max health"
             .Hull => "-20% move speed"
             .Prism => "-15% damage"
             .Halo => "Cannot take the Cannon"
@@ -151,7 +151,7 @@ extend Ship:
             .Hull => .HitsSurvived(count: 20)
             .Prism => .BouncedKills(count: 200)
             .Halo => .LifetimeCores(count: 5000)
-            .Needle => .Combo(count: 60)
+            .Needle => .Combo(count: 3000)
             .Sapper => .MergesInRun(count: 2)
             .Phase => .ClearNoReboot
             .Null => .KillNull
@@ -190,7 +190,7 @@ extend Ship:
             .Dart => {
                 m.speed *= 1.25 * (1.0 + 0.01 * l)
                 m.proj_speed *= 1.2
-                m.max_health = 2
+                m.max_health = m.max_health / 2
             }
             .Hull => {
                 m.max_health = ((m.max_health as f64) * 1.5) as i32 + level / 5

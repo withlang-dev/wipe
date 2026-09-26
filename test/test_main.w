@@ -154,6 +154,17 @@ fn ships_uat:
     g.start(launch)
     assert(g.level == 5 and g.build.weapon_count() == 3)
 
+fn abandon_uat:
+    // Abandoning banks the same end-of-run credits a death does.
+    var g = Game.new()
+    g.kills = 200
+    g.elapsed = 120.0
+    g.abandon()
+    assert(g.phase == .Over and g.credits > 0)
+    let banked: i32 = g.credits
+    g.abandon()
+    assert(g.credits == banked)
+
 fn stage_uat:
     // The Ring's dead center holds the ship, enemies, and bolts out.
     var g = Game.new(Stage.Ring.rules())
@@ -210,6 +221,7 @@ fn main:
     timeline_uat()
     ships_uat()
     stage_uat()
+    abandon_uat()
     capacity_uat()
     determinism_uat()
     print("UAT passed: movement, camera, fire, damage, cores, level-up, merge, death, restart, timeline, capacity, determinism")

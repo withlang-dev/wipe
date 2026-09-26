@@ -57,7 +57,7 @@ An unavailable audio device permits silent play.
 | Shop | X | X |
 | Collection | C | Y |
 | Boost: pick a card | 1-4, arrows, or click | D-pad or stick, then A |
-| Boost: reroll, skip, banish | R, S, N | X, Y, LB |
+| Boost: reroll, skip, banish | R, K, N | X, Y, LB |
 | Retry as a newly unlocked ship | Tab | RB |
 | Stage, tabs, shop sort | Q, E | LB, RB |
 | Pause (volume, deadzone) | Escape in a run | Start |
@@ -146,6 +146,22 @@ mkdir -p out/gallery
 ./out/bin/gallery
 ```
 
+The `play` executable is the playtest driver. A scripted player drives the
+real app through the same input path as the keyboard and pad: title, ship
+select, full runs that aim and dodge, every boost action, pause, abandon,
+death, results, retry, the shop with a refund, and the collection. It
+checks invariants every frame, logs each run the way a playtester would
+note it, and saves frames to `out/play/`. `WIPE_PLAY_VETERAN=1` starts from
+an account with everything open, which reaches stages, endless, and every
+ship:
+
+```sh
+with build :play
+mkdir -p out/play
+WIPE_SAVE_DIR=/tmp/wipe-play ./out/bin/play 10
+WIPE_PLAY_VETERAN=1 WIPE_SAVE_DIR=/tmp/wipe-vet ./out/bin/play 8
+```
+
 The `tour` executable walks every screen against a scratch save and writes
 one PNG per screen to `out/tour/`:
 
@@ -197,7 +213,7 @@ an automated fixture, not a human playthrough or a hardware certification.
   icons, the boost overlay, render passes and bloom.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
-- `src/uat.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
+- `src/uat.w`, `src/play.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
   acceptance and measurement.
 
 The original procedural WAV assets and shader sources are checked in. See

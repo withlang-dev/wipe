@@ -526,12 +526,16 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let m: Mine = g.mines[i]
         let pos = to_screen(cam, m.pos)
         let armed = 0.6 + 0.4 * sin(clock * 8.0 + m.age)
-        let spin = (clock * 60.0) as f32
-        DrawPolyLinesEx(rv(pos), 3, 14.0, spin, 7.0, gold(0.14))
-        DrawPolyLinesEx(rv(pos), 3, 14.0, spin, 2.4, gold(0.95))
-        DrawPolyLinesEx(rv(pos), 3, 7.0, -spin, 1.4, white(0.8))
-        circle(pos, 3.0, red(armed))
-        ring(pos, 20.0 + 3.0 * sin(clock * 6.0 + m.age), gold(0.25 * armed))
+        // A mine is a spiked ring: round where every enemy is a polygon, so
+        // the player never mistakes their own field for a threat.
+        let spin = clock * 1.2 + m.age
+        ring(pos, 11.0, gold(0.95))
+        ring(pos, 13.0, gold(0.25))
+        for k in 0..6:
+            let a = spin + k as f64 * 1.0472
+            line(add(pos, V2 { x: cos(a) * 11.0, y: sin(a) * 11.0 }), add(pos, V2 { x: cos(a) * 17.0, y: sin(a) * 17.0 }), 2.0, gold(0.9))
+        circle(pos, 3.5, red(armed))
+        ring(pos, 24.0 + 3.0 * sin(clock * 6.0 + m.age), gold(0.2 * armed))
         ring(pos, m.radius, gold(0.06))
     // Beams.
     for i in 0..g.beam_count:
@@ -935,7 +939,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
             else: line_text = trial
         if line_text.len() > 0: centered_at(line_text, cx, line_y, 12, white(0.7))
         centered_at(f"{i + 1}", cx, y + 276, 12, white(0.4))
-    let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / S] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
+    let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / K] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
     label(controls, (WIDTH - MeasureText(controls, 12)) / 2, 580, 12, white(0.6))
 
 // ----- debug ------------------------------------------------------------------------

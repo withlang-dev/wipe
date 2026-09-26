@@ -98,7 +98,7 @@ Steam Deck first; desktop is the development platform.
 | Shop | X key / click | X |
 | Collection | C key / click | Y |
 | Boost: pick a card | 1-2-3-4 / click | D-pad or stick + A |
-| Boost: reroll, skip, banish | R, S, N | X, Y, LB |
+| Boost: reroll, skip, banish | R, K, N | X, Y, LB |
 | Retry as the new ship | Tab | RB |
 | Pause | Escape in a run | Start |
 | Quit | Escape on the title | Hold B on the title |
@@ -526,11 +526,11 @@ the game, and the reason a player who has cleared a run starts another.
 | Ship | Base weapon | Strength | Growth | Weakness | Unlock |
 |---|---|---|---|---|---|
 | Claw | Cannon | Balanced; +1 reroll per run | +1% damage per level | None | Start |
-| Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Max health 2 | Survive 5:00 |
+| Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Half max health | Survive 5:00 |
 | Hull | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
 | Prism | Shard | Shards bounce twice more; +20% area | +1% area per level | −15% damage | Kill 200 enemies with bounced shards |
 | Halo | Orbit | +60% magnet, cores worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
-| Needle | Lance | +35% damage, lance pierces everything | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
+| Needle | Lance | +35% damage, lance pierces everything | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
 | Sapper | Mines | +40% area, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
 | Phase | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
 | Null | Shear (unique) | Starts at level 5 with 3 weapons; +30% credits | +1% credits per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |

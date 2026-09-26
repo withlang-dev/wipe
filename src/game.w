@@ -903,7 +903,7 @@ extend Game:
         var i = 0
         while i < self.enemy_count and remaining > 0:
             let e: Enemy = self.enemies[i]
-            if e.hit_cd <= 0.0 and segment_hit(from, to, e.pos, 12.0 + e.kind.radius() * e.size):
+            if e.hit_cd <= 0.0 and segment_hit(from, to, e.pos, 20.0 + e.kind.radius() * e.size):
                 remaining -= 1
                 if not self.damage_enemy(i, stats.damage, heading): i += 1
             else: i += 1
@@ -937,7 +937,7 @@ extend Game:
                     for b in 0..stats.count:
                         let angle = phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
-                        let _ = self.damage_area(blade, 16.0, stats.damage)
+                        let _ = self.damage_area(blade, 20.0, stats.damage)
                         if stats.ring_on_orbit and self.build.weapons[slot].timer <= 0.0 and not pulsed:
                             pulsed = true
                             self.spawn_wave(blade, WeaponStats { radius: 90.0, damage: stats.damage })
@@ -974,8 +974,15 @@ extend Game:
                             self.shot_event = true
                         }
                         .Beam => {
-                            let heading = if length2(motion) > 0.01: direction(motion) else if self.launch.ship.can_aim(): self.aim else: direction(sub(self.player, self.view))
-                            let heading2 = if length2(heading) > 0.01: heading else: V2 { x: 1.0 }
+                            // Along the movement, bent onto the nearest enemy within
+                            // sixty degrees of it; standing still, at the nearest enemy.
+                            // A beam that only follows the stick fires away from the
+                            // swarm whenever the player backs off it.
+                            let travel = if length2(motion) > 0.01: direction(motion) else if self.launch.ship.can_aim(): self.aim else: V2 {}
+                            let target = self.nearest_enemy(self.player, stats.radius, false)
+                            let toward = if target >= 0: direction(sub(self.enemies[target].pos, self.player)) else: V2 {}
+                            let assisted = length2(toward) > 0.01 and (length2(travel) < 0.01 or travel.x * toward.x + travel.y * toward.y > 0.5)
+                            let heading2 = if assisted: toward else if length2(travel) > 0.01: travel else: V2 { x: 1.0 }
                             self.build.weapons[slot].timer = stats.cooldown
                             self.fire_beam(self.player, heading2, stats)
                             self.shot_event = true
@@ -1027,7 +1034,9 @@ extend Game:
         if self.combo > self.best_combo: self.best_combo = self.combo
         self.combo_timer = self.rules.combo_window
         self.gain_xp(value)
-        self.credit_energy += 0.03 * (1.0 + (self.combo as f64) / 25.0) * self.mods.credit * (value as f64)
+        // The combo multiplies credits up to triple at x100 and no further.
+        let combo_bonus = limit(self.combo as f64, 0.0, 100.0) / 50.0
+        self.credit_energy += 0.012 * (1.0 + combo_bonus) * self.mods.credit * (value as f64)
         if self.credit_energy >= 1.0:
             let whole = self.credit_energy as i32
             self.credit_energy -= whole as f64
@@ -1181,6 +1190,11 @@ extend Game:
             self.pulse(self.player, 180.0, .Cyan)
             self.pulse(self.player, 100.0, .White)
             self.finish(self.cleared)
+
+    // The player ends the run from the pause screen: banked like a death.
+    pub fn abandon(mut self: Self):
+        if self.phase == .Over: return
+        self.finish(false)
 
     fn finish(mut self: Self, cleared: bool):
         self.cleared = cleared

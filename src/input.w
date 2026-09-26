@@ -44,6 +44,8 @@ pub type MenuInput {
     digit: i32 = 0, reroll: bool = false, skip: bool = false, banish: bool = false,
     click: bool = false, mouse: V2 = V2 {}, mouse_moved: bool = false,
     back_held: bool = false, any: bool = false,
+    // Escape itself, for the title's quit, and the debug toggle.
+    escape: bool = false, escape_held: bool = false, debug: bool = false,
 }
 impl Copy for MenuInput
 
@@ -63,7 +65,8 @@ extend MenuState:
         m.start = IsKeyPressed(KEY_ESCAPE) or pad.down(BTN_START)
         m.tab = IsKeyPressed(KEY_TAB) or pad.down(BTN_RB)
         m.reroll = IsKeyPressed(KEY_R) or pad.down(BTN_WEST)
-        m.skip = IsKeyPressed(KEY_S) or pad.down(BTN_NORTH)
+        // Not S: S is a movement key, and a level-up can open mid-stride.
+        m.skip = IsKeyPressed(KEY_K) or pad.down(BTN_NORTH)
         m.banish = IsKeyPressed(KEY_N) or pad.down(BTN_LB)
         m.up = IsKeyPressed(KEY_UP) or IsKeyPressed(KEY_W) or pad.down(BTN_UP)
         m.down = IsKeyPressed(KEY_DOWN) or IsKeyPressed(KEY_S) or pad.down(BTN_DOWN)
@@ -89,5 +92,8 @@ extend MenuState:
         m.mouse_moved = length2(sub(m.mouse, self.last_mouse)) > 1.0
         self.last_mouse = m.mouse
         m.click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+        m.escape = IsKeyPressed(KEY_ESCAPE)
+        m.escape_held = IsKeyDown(KEY_ESCAPE)
+        m.debug = IsKeyPressed(KEY_F1)
         m.any = m.confirm or m.back or m.shop or m.collection or m.click or m.start or GetKeyPressed() != 0
         m
