@@ -291,8 +291,7 @@ gives. Conditions are run facts: survive N minutes with a weapon, reach a
 level, evolve a weapon, kill a boss, reach a combo. Entries unlock:
 
 - weapons and passives beyond the launch roster
-- ships: alternate player silhouettes with one starting weapon and one
-  stat twist each
+- ships: see §9; each has its own condition, from trivial to very specific
 - stages: the arena with a modifier (denser, faster, darker), unlocked late
 
 Unlocks are the collection loop. Unlocked items show in full; locked items
@@ -324,7 +323,70 @@ a new best is starred.
 
 ---
 
-## 9. Retention Design
+## 9. Ships
+
+Ships are the roster. Each is a different opening and a different build
+pressure, and each unlock condition is a goal in its own right. Like
+Vampire Survivors' characters, they are the most visible half-empty grid in
+the game, and the reason a player who has cleared a run starts another.
+
+### Rules
+
+- **One silhouette.** Readable at any density and distinct from every enemy
+  and every other ship. The prototype's open claw is the language; every ship
+  is an open, asymmetric shape.
+- **One base weapon**, fixed in the first slot, never removable. It is the
+  ship's identity and it shapes the build from the first level-up.
+- **One strength and one weakness**, both stated on the ship's card in plain
+  numbers. A weakness is a real cost, not flavor: a ship that cannot aim, a
+  ship with one hit point, a ship that cannot take the Cannon.
+- **One unlock condition**, a run fact, shown with live progress in the
+  unlock panel. Conditions are graded: three are met by playing normally in
+  the first hour; three take a deliberate run; two take a specific,
+  demanding achievement. One is secret, shown as a hint rather than hidden.
+- **Ships do not stack with the shop.** Shop ranks apply to every ship
+  equally; a ship's strength is a multiplier on top, never a substitute.
+- **Every ship can clear.** A weakness makes a ship harder or stranger, never
+  impossible. Tuning target: a good player clears with any unlocked ship.
+
+### Launch roster
+
+| Ship | Base weapon | Strength | Weakness | Unlock |
+|---|---|---|---|---|
+| Claw | Cannon | Balanced; +1 reroll per run | None | Start |
+| Dart | Seeker | +25% move speed, +20% projectile speed | Max health 2 | Survive 5:00 |
+| Anvil | Nova | +50% max health, +1 armor | −20% move speed | Take 20 hits in one run and survive |
+| Prism | Shard | Shards bounce twice more; +20% area | −15% damage | Kill 200 enemies with bounced shards |
+| Lantern | Orbit | +60% magnet, gems worth +25% XP | Cannot take the Cannon | Collect 5,000 gems, lifetime |
+| Needle | Lance | +35% damage, lance pierces everything | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
+| Ember | Mines | +40% area, mines chain-detonate | Only 4 weapon slots | Evolve two weapons in one run |
+| Ghost | Arc | Invulnerable for 2 seconds on every level-up | Max health 1; revives do not work | Clear a 20-minute run with no revive |
+| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | −40% XP gain; cannot evolve | Secret: "Face what ends the run, and end it first" |
+
+The Reaper is the mirror of Vampire Survivors' Red Death: the Reaper that
+arrives at the 20-minute cap is unkillable to an ordinary build, and a build
+that kills it unlocks the ship. Its condition is the one hint on the panel;
+its progress shows only after the first attempt.
+
+### Ship select
+
+Ship select is a screen only after the first ship is unlocked. Before that,
+launching starts a run as the Claw with no screen at all. The screen shows
+every ship, locked ones greyed with their condition and progress, and
+remembers the last choice.
+
+### Ships in the loop
+
+- The results screen's next-unlock line prefers a ship when one is within
+  30% of its condition, because a ship is the largest single reward the
+  game gives.
+- A newly unlocked ship is offered on the results screen with one button:
+  retry as it. Novelty should be one press away.
+- Achievements mirror ship unlocks one-to-one (§15).
+
+---
+
+## 10. Retention Design
 
 The level-up bar, the combo, the gold total, the shop, the unlock list, and
 the results screen are one system with one job: end every run with an open
@@ -398,7 +460,7 @@ conditions.
 
 ---
 
-## 10. UI
+## 11. UI
 
 In-run HUD, top: level-up bar with level number; combo counter; timer;
 gold this run. Bottom: weapon and passive icons with level pips. Health as a
@@ -414,7 +476,7 @@ total entities, timeline minute, spawn rate, and the five session metrics.
 
 ---
 
-## 11. Performance
+## 12. Performance
 
 The run length is the performance story. At 15 minutes the screen is full,
 and that is the moment to say "this is built in With".
@@ -431,7 +493,7 @@ density is a release requirement, measured on captured frames.
 
 ---
 
-## 12. Persistence
+## 13. Persistence
 
 The player never loses a save. That is the whole requirement; the rules
 below are how it is met.
@@ -439,7 +501,7 @@ below are how it is met.
 ### What persists
 
 One save: gold, shop ranks, unlock progress, bests, lifetime counters
-(runs, kills, minutes, clears), and the session metrics of §9. Nothing else.
+(runs, kills, minutes, clears), and the session metrics of §10. Nothing else.
 A run in progress is never saved; a crash mid-run loses the run and never
 the account.
 
@@ -488,11 +550,11 @@ The exact path is shown in the debug overlay.
 ### Later
 
 The format above is what makes Steam Cloud possible without a migration.
-Cloud sync stays out of scope (§16) until the platform milestone.
+Cloud sync stays out of scope (§17) until the platform milestone.
 
 ---
 
-## 13. Architecture
+## 14. Architecture
 
 The simulation stays a pure, deterministic value with a tick; the platform
 layers are facades around owned resources. See
@@ -507,7 +569,7 @@ never touches system code.
 
 ---
 
-## 14. Steam
+## 15. Steam
 
 Achievements mirror the unlock list one-to-one plus milestones: first clear,
 first evolution, every boss, 10 and 50 and 100 runs. Achievements trigger on
@@ -518,7 +580,7 @@ once.
 
 ---
 
-## 15. Milestones
+## 16. Milestones
 
 Each milestone has a done condition. The next does not start before it.
 
@@ -527,7 +589,7 @@ Each milestone has a done condition. The next does not start before it.
 XP gems with magnet and merge, level-ups with the choice screen, the Cannon
 plus three other weapons, four passives, the 20-minute timeline with the
 Reaper, elites with chests, one boss pattern at 5 and 10 minutes, health as
-a stat, the results screen with gold and bests, and the save as §12 states
+a stat, the results screen with gold and bests, and the save as §13 states
 it: loaded before the first frame, written on every change, atomic with a
 backup, versioned, in the per-user data directory.
 
@@ -539,8 +601,8 @@ launch.
 ### M2 — Between runs
 
 The shop with all ranks, escalating prices, and refund. The unlock list with
-the remaining launch weapons and passives as unlocks, two alternate ships.
-Session metrics in the overlay.
+the remaining launch weapons and passives as unlocks. The Dart and the
+Anvil, and the ship select screen. Session metrics in the overlay.
 
 Done when the five metrics read as designed across ten playtest sessions:
 runs per session rising, most results screens showing an open loop within
@@ -549,10 +611,12 @@ runs per session rising, most results screens showing an open loop within
 ### M3 — Variety and evolutions
 
 All eight weapons, all passives, every evolution with its banner, the third
-boss, the Spinner and Weaver behaviors, stages with modifiers.
+boss, the Spinner and Weaver behaviors, stages with modifiers, the full ship
+roster including the killable Reaper and its ship.
 
-Done when three distinct builds can clear and the unlock list is at least
-half locked for a new player.
+Done when three distinct builds can clear, every ship can clear in a good
+player's hands, and the unlock list is at least half locked for a new
+player.
 
 ### M4 — Platform
 
@@ -564,11 +628,11 @@ green.
 
 ---
 
-## 16. Out of Scope
+## 17. Out of Scope
 
 Not in this spec, and not before every milestone is done:
 
-- prestige (see §9)
+- prestige (see §10)
 - multiple arenas beyond stage modifiers
 - story, characters with dialogue, tutorials beyond the first level-up hint
 - dash, manual fire, weapon switching
