@@ -10,6 +10,13 @@ discipline lives in the milestones at the end, not in document boundaries.
 
 WIPE is Geometry Wars' feel on Vampire Survivors' loop.
 
+The frame is abstract space combat, never fantasy or horror. Every name in
+this document follows that: enemies are geometry, the thing that ends a run
+is the Null, drops are cores and credits, caches not chests, overclock not
+curse, repair not healing, reboot not revive, and the enemy collection is a
+registry. When a Vampire Survivors idea is borrowed, it is renamed into the
+frame before it is written down.
+
 Geometry Wars is a skill test with a wow factor, and a skill test with no
 growth curve exhausts itself in an hour. Vampire Survivors is a growth curve:
 the run itself grows, and every run feeds a permanent curve between runs. WIPE
@@ -20,10 +27,10 @@ The addiction is not one mechanic. It is three curves that overlap so that
 one is always rising:
 
 1. Power within the run: boosts, weapons, passives, merges.
-2. Progress between runs: gold banked from every run, a shop of permanent
+2. Progress between runs: credits banked from every run, a shop of permanent
    power-ups, an unlock list.
 3. A collection that is never complete: weapons, ships, merge recipes,
-   the bestiary, stages.
+   the registry, stages.
 
 Desired reactions, in order:
 
@@ -42,7 +49,7 @@ Desired reactions, in order:
   glance at any entity count.
 - **Growth every minute.** Something gets stronger, unlocks, or fills at
   least once a minute of play.
-- **Every run pays.** Gold is banked whatever happens. No run is wasted.
+- **Every run pays.** Credits are banked whatever happens. No run is wasted.
 
 ---
 
@@ -97,14 +104,14 @@ unit of effort with a finish line, so "one more run" has a known cost. Tune
 the cap between 15 and 30 minutes only with playtest data.
 
 A run ends when the player dies or when the timer reaches the cap. At the
-cap, an unkillable Reaper enters and ends the run within seconds; surviving
+cap, the Null enters, unkillable to an ordinary build, and ends the run within seconds; surviving
 to the cap counts as a clear.
 
 **Endless.** Once a ship has cleared, endless is offered for that ship: the
 timeline loops from minute 10 with every enemy stat and spawn count scaled
-up per loop, no Reaper, and the run ends only in death. Endless is where
+up per loop, no Null, and the run ends only in death. Endless is where
 long-session players live once the roster is open, and it is where the
-performance ceiling is actually reached. Bests and gold are tracked
+performance ceiling is actually reached. Bests and credits are tracked
 separately for endless; unlock conditions count only capped runs.
 
 ### Timeline
@@ -117,7 +124,7 @@ Difficulty is a minute-by-minute spawn timeline, not a wave counter:
 | 2–5 | Density rises. Darts appear. First elite at 3:00. |
 | 5–10 | Spinners and Weavers join. Elites every minute. Boss at 5:00 and 10:00. |
 | 10–15 | Full roster, walls of enemies, second and third merges become reachable. |
-| 15–20 | Screen-filling density. Boss at 15:00. Reaper at 20:00. |
+| 15–20 | Screen-filling density. Boss at 15:00. the Null at 20:00. |
 
 Every enemy kind, elite, boss, and event has a first-appearance minute in a
 data table. The table is tuning, not architecture, and lives with the other
@@ -126,7 +133,7 @@ knobs.
 ### Pacing beats
 
 - **Elites**: one larger, tougher enemy of an existing kind, marked
-  visually, dropping a guaranteed chest.
+  visually, dropping a guaranteed supply cache.
 - **Bosses**: at 5, 10, and 15 minutes. A boss is a screen-clear gate with a
   telegraphed pattern and a health bar, the one enemy health bar in the game.
 - **Events**: scripted set pieces at fixed minutes, telegraphed two
@@ -135,12 +142,12 @@ knobs.
   geometry: a diagonal sweep of Blocks across the arena, a ring of Darts
   converging on the ship, a spiral of Spinners unwinding from a corner, a
   lattice of Weavers holding formation. Twelve events at launch, each with
-  its first minute in the table; enemies killed in an event drop gems as
-  usual, so an event is also a gem harvest for a strong build.
-- **Chests**: dropped by elites and bosses. A chest is a ceremony: it opens
+  its first minute in the table; enemies killed in an event drop cores as
+  usual, so an event is also a core harvest for a strong build.
+- **Caches**: dropped by elites and bosses. A cache is a ceremony: it opens
   with a spinning reveal of one item, or with luck three or five, each a
   boost choice in turn, a completed merge always first. Three- and five-item
-  chests are where luck pays off, and the reveal is what makes a chest feel
+  caches are where luck pays off, and the reveal is what makes a cache feel
   like a jackpot rather than a menu.
 - **Breathers**: after a boss dies, five seconds of thinned spawns and a
   music lift.
@@ -167,7 +174,7 @@ Juice is required scope, not polish:
 - **Hits**: 30–60 ms flash, scale punch, a few impact sparks, tiny knockback.
 - **Kills**: 8–20 line sparks inheriting impact direction, expanding ring,
   silhouette scale-out, kill sound, light shake scaled by combo.
-- **Level-up**: brief freeze, a pulse from the ship, a rising chime.
+- **Level-up**: brief freeze, a pulse from the ship, a rising tone.
 - **Merge**: the loudest non-death moment: freeze, screen flash, a named
   banner, the new weapon's first volley.
 - **Boss entry**: red edge warning for 1.5 seconds, WARNING text, spawns
@@ -183,16 +190,16 @@ measured at the 15-minute density, not the first minute.
 
 ## 6. Player Growth Within the Run
 
-### XP gems
+### XP cores
 
-Every kill drops a gem. Gems are collected by proximity, with a magnet radius
-that is a stat. Gems do double duty, which is where the two games meet:
+Every kill drops a core. Cores are collected by proximity, with a magnet radius
+that is a stat. Cores do double duty, which is where the two games meet:
 
 - collecting fills the level-up bar
 - collecting extends the combo; the combo decays after about two seconds
-  without a gem, resets on damage, and multiplies gold earned
+  without a core, resets on damage, and multiplies credits earned
 
-Uncollected gems merge into larger gems after a few seconds so the floor
+Uncollected cores merge into larger cores after a few seconds so the floor
 never fills with clutter.
 
 ### Pickups and fixtures
@@ -204,15 +211,15 @@ player crosses the arena instead of circling one spot:
 
 | Pickup | Effect |
 |---|---|
-| Vacuum | Collects every gem on screen |
-| Clear | Kills every non-boss enemy on screen, dropping their gems |
+| Tractor | Pulls every core on screen to the ship |
+| Clear | Kills every non-boss enemy on screen, dropping their cores |
 | Freeze | Stops every enemy for five seconds |
-| Mend | Restores 30% of max health |
-| Gold | A coin, or rarely a bag worth twenty |
-| Chest | Rarely, from a beacon; always from an elite |
+| Repair | Restores 30% of max health |
+| Credits | A chip, or rarely a bundle worth twenty |
+| Cache | Rarely, from a beacon; always from an elite |
 
-Pickups are collected on contact, are drawn brighter than gems, and never
-expire. The bag and the chest from a beacon are the reason a beacon at the
+Pickups are collected on contact, are drawn brighter than cores, and never
+expire. The bundle and the cache from a beacon are the reason a beacon at the
 far wall is worth the trip.
 
 ### Level-ups
@@ -228,7 +235,7 @@ with a luck passive):
 - a new passive, if a passive slot is free
 - an upgrade to an owned passive (up to level 5)
 
-A chest is also a boost, opened on the spot with the same choice.
+A cache is also a boost, opened on the spot with the same choice.
 
 Skip, reroll, and banish exist as shop-bought permanent counts, one per
 run each at first. Skip declines the boost, reroll redraws it, and banish
@@ -258,11 +265,11 @@ Launch roster, eight weapons:
 
 Six passive slots. Launch roster, eight passives: damage, fire rate,
 projectile count, area, projectile speed, magnet, move speed, max health.
-Plus cooldown, armor, luck, gold gain, and curse as unlockables.
+Plus cooldown, armor, luck, credit gain, and overclock as unlockables.
 
-**Curse** is the risk-reward lever: each level raises enemy speed, spawn
-rate, and spawn count by a percentage, and raises XP and gold by the same
-percentage. It is one number over the spawn table. A curse build reaches
+**Overclock** is the risk-reward lever: each level raises enemy speed, spawn
+rate, and spawn count by a percentage, and raises XP and credits by the same
+percentage. It is one number over the spawn table. An overclocked build reaches
 merges sooner and dies faster, and it is the intended way to make a cleared
 ship interesting again before endless.
 
@@ -295,8 +302,8 @@ enough to make every run's build a decision.
 ### Health
 
 Max health is a stat. Contact damage scales with the enemy's kind and the
-timeline. Health regenerates slowly only through a passive. Healing pickups
-drop rarely. A revive is a shop-bought permanent count.
+timeline. Health regenerates slowly only through a passive. Repair pickups
+drop rarely. A reboot is a shop-bought permanent count.
 
 ---
 
@@ -310,7 +317,7 @@ All enemies chase or pressure the player; none require pathfinding.
 | Dart | Burst | Fast, fragile, straight rushes. Punishes standing still. |
 | Spinner | Pressure | Tracks briefly, telegraphs, charges. Fair, readable. |
 | Weaver | Area | Keeps distance, fires slow bullets. Prevents passive circling. |
-| Elite | Beat | A larger, marked version of any kind with a chest. |
+| Elite | Beat | A larger, marked version of any kind with a cache. |
 | Boss | Gate | Large, high health, unique telegraphed pattern, health bar. |
 
 The four prototype silhouettes keep their looks and get the behaviors above;
@@ -324,26 +331,26 @@ when the budget is hit, spawns get tougher instead of more numerous.
 
 ## 8. Between Runs
 
-### Gold
+### Credits
 
-Gold drops from elites, bosses, and chests, and is awarded at the end of the
+Credits drop from elites, bosses, and caches, and is awarded at the end of the
 run from kills, minutes survived, and best combo. All of it is banked no
-matter how the run ended. Gold is a plain integer with plain prices. No
+matter how the run ended. Credits are a plain integer with plain prices. No
 second currency.
 
 ### Shop
 
-Permanent power-ups bought with gold, each in ranks with escalating prices:
+Permanent power-ups bought with credits, each in ranks with escalating prices:
 damage, fire rate, projectile count, area, speed, magnet, max health, armor,
-regen, luck, gold gain, cooldown, revives, skips, rerolls. Ranks are small
+regen, luck, credit gain, cooldown, reboots, skips, rerolls. Ranks are small
 percentages; the shop is a long, gentle curve, not a cliff.
 
-One **refund** button returns every coin ever spent and clears all ranks.
+One **refund** button returns every credit ever spent and clears all ranks.
 Refund is free and unlimited. It lets players rebuild without regret and is
 the reason there is no prestige system.
 
 Prices follow one rule: the next affordable rank should cost about 1.3 runs
-of typical gold income, so something is always almost affordable and never
+of typical credit income, so something is always almost affordable and never
 affordable at the moment of death.
 
 ### Unlocks
@@ -360,12 +367,12 @@ Unlocks are the collection loop. Unlocked items show in full; locked items
 show as greyed silhouettes with their condition. The list is never complete
 at launch.
 
-### Bestiary
+### Registry
 
 A third collection grid beside weapons and ships: every enemy kind, elite,
 boss, and event, with lifetime kills, first seen, and the minute it first
 appears once discovered. Entries are silhouettes until first killed. The
-results screen feeds it with kills per kind for the run. The bestiary costs
+results screen feeds it with kills per kind for the run. The registry costs
 nothing, the simulation already counts, and it is one more grid that is
 never full.
 
@@ -382,9 +389,9 @@ Best combo x48
 Build: Cannon IV · Orbit (merged) · Seeker II · Nova I
        Magnet III · Damage II · Speed I
 
-+412 gold   (banked: 1,988)
++412 credits   (banked: 1,988)
 Next: Lance unlock — survive 15:00 with Cannon  (18:40 ✓)
-      Armor rank 3 — 2,300 gold
+      Armor rank 3 — 2,300 credits
 
 [Retry]        [Shop]        [Unlocks]
 ```
@@ -427,19 +434,19 @@ the game, and the reason a player who has cleared a run starts another.
 |---|---|---|---|---|---|
 | Claw | Cannon | Balanced; +1 reroll per run | +1% damage per level | None | Start |
 | Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Max health 2 | Survive 5:00 |
-| Anvil | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
+| Hull | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
 | Prism | Shard | Shards bounce twice more; +20% area | +1% area per level | −15% damage | Kill 200 enemies with bounced shards |
-| Lantern | Orbit | +60% magnet, gems worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 gems, lifetime |
+| Halo | Orbit | +60% magnet, cores worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
 | Needle | Lance | +35% damage, lance pierces everything | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
-| Ember | Mines | +40% area, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
-| Ghost | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; revives do not work | Clear a 20-minute run with no revive |
-| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | +1% gold per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
+| Sapper | Mines | +40% area, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
+| Phase | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
+| Null | Shear (unique) | Starts at level 5 with 3 weapons; +30% credits | +1% credits per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 
 Growth is a ship's stat gain per level within the run, so a ship's identity
 sharpens across twenty minutes instead of being fixed at the start. It is a
 column in the same data table as the rest of the ship.
 
-The Reaper is the mirror of Vampire Survivors' Red Death: the Reaper that
+The Null is the mirror of Vampire Survivors' Red Death: the Null that
 arrives at the 20-minute cap is unkillable to an ordinary build, and a build
 that kills it unlocks the ship. Its condition is the one hint on the panel;
 its progress shows only after the first attempt.
@@ -464,7 +471,7 @@ remembers the last choice.
 
 ## 10. Retention Design
 
-The level-up bar, the combo, the gold total, the shop, the unlock list, and
+The level-up bar, the combo, the credit total, the shop, the unlock list, and
 the results screen are one system with one job: end every run with an open
 loop the player wants to close. The levers come from the psychology under
 monetized progression systems (Zachow, *Patterns and Psychology of Video
@@ -481,7 +488,7 @@ they are most of the way to the next reward. WIPE calibrates the same way:
 - The results screen always shows at least two open loops: the next unlock's
   progress and the next affordable shop rank. It also shows how far the
   level-up bar was at death.
-- The next shop rank costs about 1.3 runs of gold.
+- The next shop rank costs about 1.3 runs of credits.
 - Unlock conditions are placed so that a typical run ends at 70–90% of the
   next one. Lower reads as impossible; higher closes the loop.
 - The unlock panel shows greyed silhouettes for everything not yet seen. Set
@@ -490,7 +497,7 @@ they are most of the way to the next reward. WIPE calibrates the same way:
 ### Predetermined, never random
 
 Every unlock has a stated condition and a guaranteed result. The level-up
-offer and chest contents are the only randomness, because there the roll is
+offer and cache contents are the only randomness, because there the roll is
 the gameplay, not the reward for effort. No reward for effort is ever drawn
 from a pool.
 
@@ -502,7 +509,7 @@ three runs, then unlocks space out on a growing schedule, roughly runs 1, 2,
 
 ### Every run pays
 
-Gold banked regardless of outcome means a 4-minute death is still progress.
+Credits banked regardless of outcome means a 4-minute death is still progress.
 The results screen shows the banked total rising before anything else.
 
 ### Honest near-misses
@@ -514,7 +521,7 @@ feel it. The unlock list reports real progress only.
 ### Not used
 
 - Limited-time content, scarcity, or a streak that punishes a missed day.
-- Any currency between gold and what it buys.
+- Any currency between credits and what it buys.
 - Randomized delivery of unlocks or shop ranks.
 - Prestige: the refundable shop plus escalating prices already solves the
   plateau, and a second progression axis splits attention. Revisit only if
@@ -539,15 +546,15 @@ conditions.
 ## 11. UI
 
 In-run HUD, top: level-up bar with level number; combo counter; timer;
-gold this run. Bottom: weapon and passive icons with level pips. Health as a
+credits this run. Bottom: weapon and passive icons with level pips. Health as a
 bar under the ship. Boss health bar when a boss is alive. No score number:
-the combo and the gold are the score.
+the combo and the credits are the score.
 
 Screens: level-up choice, results, shop, unlocks, ship select. Nothing
 else. No settings screen at launch beyond volume and a deadzone slider on
 the results screen.
 
-Debug overlay (F1): FPS, frame time, enemy, bullet, particle, gem counts,
+Debug overlay (F1): FPS, frame time, enemy, bullet, particle, core counts,
 total entities, timeline minute, spawn rate, and the five session metrics.
 
 ---
@@ -559,7 +566,7 @@ and that is the moment to say "this is built in With".
 
 Targets on Steam Deck and the development desktop:
 
-- stable 60 fps with 1,000 enemies, 500 bullets, 2,000 particles, 1,000 gems
+- stable 60 fps with 1,000 enemies, 500 bullets, 2,000 particles, 1,000 cores
 - entity budget of 2,000 enemies, spawns clamped to it
 - no per-frame allocation; pools sized at start
 - restart under one second; the level-up pause and resume under one frame
@@ -576,7 +583,7 @@ below are how it is met.
 
 ### What persists
 
-One save: gold, shop ranks, unlock progress, bests, lifetime counters
+One save: credits, shop ranks, unlock progress, bests, lifetime counters
 (runs, kills, minutes, clears), and the session metrics of §10. Nothing else.
 A run in progress is never saved; a crash mid-run loses the run and never
 the account.
@@ -591,7 +598,7 @@ rank and unlock. Loading a missing file is the new-player path, silently.
 
 The save is written at every point state changes, not only at run end:
 
-- run end, the moment the results screen appears, with the run's gold
+- run end, the moment the results screen appears, with the run's credits
   already banked
 - every shop purchase and every refund
 - every unlock and every new best
@@ -662,11 +669,11 @@ Each milestone has a done condition. The next does not start before it.
 
 ### M1 — The run grows
 
-XP gems with magnet and merge, level-ups with the choice screen, the Cannon
-plus three other weapons, four passives including curse, the 20-minute
-timeline with the Reaper, four events, beacons and the pickup set, elites
-with chests, one boss pattern at 5 and 10 minutes, health as a stat, the
-results screen with gold and bests, and the save as §13 states
+XP cores with magnet and merge, level-ups with the choice screen, the Cannon
+plus three other weapons, four passives including overclock, the 20-minute
+timeline with the Null, four events, beacons and the pickup set, elites
+with caches, one boss pattern at 5 and 10 minutes, health as a stat, the
+results screen with credits and bests, and the save as §13 states
 it: loaded before the first frame, written on every change, atomic with a
 backup, versioned, in the per-user data directory.
 
@@ -679,7 +686,7 @@ launch.
 
 The shop with all ranks, escalating prices, and refund, including skip,
 reroll, and banish counts. The unlock list with the remaining launch weapons
-and passives as unlocks, and the bestiary. The Dart and the Anvil, and the
+and passives as unlocks, and the registry. The Dart and the Hull, and the
 ship select screen. Session metrics in the overlay.
 
 Done when the five metrics read as designed across ten playtest sessions:
@@ -690,8 +697,8 @@ runs per session rising, most results screens showing an open loop within
 
 All eight weapons, all passives, every evolution and union with its banner,
 the third boss, the Spinner and Weaver behaviors, all twelve events, the
-chest ceremony with three- and five-item chests, stages with modifiers, the
-full ship roster including the killable Reaper and its ship, and endless
+cache ceremony with three- and five-item caches, stages with modifiers, the
+full ship roster including the killable Null and its ship, and endless
 mode.
 
 Done when three distinct builds can clear, every ship can clear in a good
