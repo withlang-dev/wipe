@@ -29,6 +29,8 @@ pub fn build(ctx: BuildCtx) -> Build:
     ).add_target(
         game_target("balance", "src/balance.w")
     ).add_target(
+        game_target("odds", "src/odds.w")
+    ).add_target(
         game_target("audio-uat", "src/audio_uat.w")
     ).add_target(
         native_target(.Executable, "controller-uat", "src/controller_uat.w").input("src/gamepads.w").input("src/input.w").input("src/sdl.w")

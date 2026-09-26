@@ -1075,36 +1075,74 @@ extend Game:
         self.roll_offers()
 
     // Draw the cards: a merge first, then a shuffle of the legal pool.
+    // How often a card comes up relative to others: upgrades to what the
+    // ship carries lead, so a player who commits to a build can steer it.
+    fn offer_weight(self: &Self, pick: Pick) -> f64:
+        match pick:
+            .UpgradeWeapon(_) => self.rules.upgrade_weight
+            .UpgradePassive(_) => self.rules.passive_upgrade_weight
+            .NewWeapon(_) => 1.0
+            .NewPassive(_) => 1.0
+            .Merge(_) => 0.0
+
+    // Draw the cards: a ready merge first, then weighted draws without
+    // replacement. A cache offers only what the ship already carries.
     fn roll_offers(mut self: Self):
-        var pool = self.build.candidates()
-        var count = if self.mods.luck >= 0.3: 4 else: 3
+        var pool: Vec[Pick] = Vec.new()
+        let all = self.build.candidates()
+        let cache = self.boost_source == .Cache
+        for p in all:
+            let owned = match p:
+                .UpgradeWeapon(_) => true
+                .UpgradePassive(_) => true
+                .Merge(_) => true
+                _ => false
+            if not cache or owned: pool.push(p)
+        // A cache with nothing owned left to upgrade falls back to any card.
+        if pool.len() == 0:
+            for p in all: pool.push(p)
+        let count = if self.mods.luck >= 0.3: 4 else: 3
         self.offer_count = 0
-        // Merges lead; the pool lists them first already.
-        var merges = 0
+        // Every ready merge gets its own card, first: when an evolution and a
+        // union share a component, the player chooses. Offering only the
+        // first ready recipe hid the second for the rest of the run.
+        if self.launch.ship.can_merge():
+            for p in pool:
+                if p.is_merge() and self.offer_count < count:
+                    self.offers[self.offer_count] = Offer { pick: p, unseen: false }
+                    self.offer_count += 1
+        var weights: Vec[f64] = Vec.new()
+        var total = 0.0
         for p in pool:
-            if p.is_merge(): merges += 1
-        if not self.launch.ship.can_merge(): merges = 0
-        var taken = 0
-        if merges > 0:
-            self.offers[0] = Offer { pick: pool[0], unseen: false }
-            self.offer_count = 1
-            taken = 1
-        let rest = pool.len() as i32 - merges
-        while self.offer_count < count and taken < pool.len() as i32:
-            let span = pool.len() as i32 - taken
-            let choice = taken + (self.random() * (span as f64 - 0.001)) as i32
-            let pick: Pick = pool[choice]
-            pool[choice] = pool[taken]
-            pool[taken] = pick
-            taken += 1
-            if pick.is_merge(): continue
+            let w = self.offer_weight(p)
+            weights.push(w)
+            total += w
+        while self.offer_count < count and total > 0.0001:
+            var roll = self.random() * total
+            var chosen = -1
+            for i in 0..pool.len() as i32:
+                let w: f64 = weights[i]
+                if w <= 0.0: continue
+                if roll < w:
+                    chosen = i
+                    break
+                roll -= w
+            if chosen < 0:
+                // Rounding at the top of the range: the last live card.
+                for i in 0..pool.len() as i32:
+                    let w: f64 = weights[i]
+                    if w > 0.0: chosen = i
+            if chosen < 0: break
+            let pick: Pick = pool[chosen]
+            let used: f64 = weights[chosen]
+            total -= used
+            weights[chosen] = 0.0
             let unseen = match pick:
                 .NewWeapon(w) => not self.launch.taken_weapons[w.index()]
                 .NewPassive(p) => not self.launch.taken_passives[p.index()]
                 _ => false
             self.offers[self.offer_count] = Offer { pick, unseen }
             self.offer_count += 1
-        let _ = rest
         // Nothing to offer: the build is complete. Resume.
         if self.offer_count == 0: self.resume()
 

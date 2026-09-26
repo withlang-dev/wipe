@@ -125,7 +125,7 @@ fn main:
     level.tick(Controls { aim: right }, 1.0 / 120.0)
     shot(&renderer, &level, 50.0, "30-level-up-cards", 1)
     var merge = staged()
-    merge.build.weapons[0] = WeaponSlot { weapon: .Cannon, level: 8 }
+    merge.build.weapons[0] = WeaponSlot { weapon: .Cannon, level: MAX_WEAPON_LEVEL }
     merge.build.add_passive(.FireRate)
     merge.gain_xp(merge.xp_next)
     merge.tick(Controls { aim: right }, 1.0 / 120.0)

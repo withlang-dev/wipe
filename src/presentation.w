@@ -978,10 +978,10 @@ pub fn merge_hint(b: &Build, pick: Pick) -> str:
             .UpgradePassive(_) => return f"Key to {r.result.name()} (held)"
             _ => {
                 let partner = match r.second:
-                    Some(x) => f" + {x.name()} VIII"
+                    Some(x) => f" + {x.name()} {roman(MAX_WEAPON_LEVEL)}"
                     None => ""
                 let key = if key_held: f"{r.key.name()} held" else: f"needs {r.key.name()}"
-                return f"{r.result.name()} at VIII{partner}, {key}"
+                return f"{r.result.name()} at {roman(MAX_WEAPON_LEVEL)}{partner}, {key}"
             }
     ""
 

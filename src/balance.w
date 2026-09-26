@@ -62,7 +62,7 @@ fn kills_once(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i3
         let _ = kills_before
         let _ = hp_before
         arcs += g.arc_count
-    if weapon == .Arc and seed == 0 and level == 8: print(f"  arc bolts alive per tick, summed: {arcs}")
+    if weapon == .Arc and seed == 0 and level == 5: print(f"  arc bolts alive per tick, summed: {arcs}")
     (g.kills * 60 / (seconds as i32), hp_killed)
 
 fn main:
@@ -70,17 +70,17 @@ fn main:
     let seconds = 90.0
     let density = 160
     print(f"kills per minute against the minute-{minute as i32} swarm at density {density}, one weapon, no passives")
-    print("weapon       L1     L4     L8")
+    print("weapon       L1     L3     L5")
     for i in 0..BASE_WEAPON_COUNT:
         let w = weapon_at(i)
         let (a, _) = kills_for(w, 1, minute, seconds, density)
-        let (b, _) = kills_for(w, 4, minute, seconds, density)
-        let (c, _) = kills_for(w, 8, minute, seconds, density)
+        let (b, _) = kills_for(w, 3, minute, seconds, density)
+        let (c, _) = kills_for(w, 5, minute, seconds, density)
         print(f"{w.name()}   {a}   {b}   {c}")
-    print("merged       L1     L8")
+    print("merged       L1     L5")
     for i in BASE_WEAPON_COUNT..WEAPON_COUNT:
         let w = weapon_at(i)
         let (a, _) = kills_for(w, 1, 14.0, seconds, 260)
-        let (c, _) = kills_for(w, 8, 14.0, seconds, 260)
+        let (c, _) = kills_for(w, 5, 14.0, seconds, 260)
         print(f"{w.name()}   {a}   {c}")
     0

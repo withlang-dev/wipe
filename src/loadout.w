@@ -12,7 +12,11 @@ impl Eq for Weapon
 
 pub const WEAPON_COUNT: i32 = 20
 pub const BASE_WEAPON_COUNT: i32 = 8
-pub const MAX_WEAPON_LEVEL: i32 = 8
+// Five levels to a maxed weapon: a merge is six to eleven picks, reachable
+// in most runs that aim for it and not in every run.
+pub const MAX_WEAPON_LEVEL: i32 = 5
+// The stat curves were written for eight levels; level V reads curve VIII.
+pub const CURVE_TOP: i32 = 8
 
 pub fn weapon_at(index: i32) -> Weapon:
     match index:
@@ -276,7 +280,8 @@ fn step(level: i32, every: i32, from: i32) -> i32:
 pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStats:
     // A merged weapon starts from its components at their maximum and grows
     // from there: merging must never make a build weaker.
-    let level = if weapon.is_merged(): MAX_WEAPON_LEVEL + (merged_level - 1) / 2 else: merged_level
+    let curve = 1 + ((merged_level - 1) * (CURVE_TOP - 1) + (MAX_WEAPON_LEVEL - 2)) / (MAX_WEAPON_LEVEL - 1)
+    let level = if weapon.is_merged(): CURVE_TOP + (merged_level - 1) / 2 else: curve
     let l = level as f64
     var s = WeaponStats {}
     // Every family's damage grows with its level so a weapon taken at

@@ -85,7 +85,7 @@ fn boost_uat:
     // A ready recipe leads the next boost and merging consumes the components.
     g.build = Build { unlocked_weapons: g.build.unlocked_weapons, unlocked_passives: g.build.unlocked_passives }
     g.build.add_weapon(.Cannon)
-    for _ in 0..7: g.build.upgrade_weapon(.Cannon)
+    for _ in 1..MAX_WEAPON_LEVEL: g.build.upgrade_weapon(.Cannon)
     g.build.add_passive(.FireRate)
     g.gain_xp(1000)
     g.tick(Controls {}, 1.0 / 120.0)
@@ -103,6 +103,29 @@ fn boost_uat:
     assert(g.rerolls == 0)
     while g.phase == .Boost: g.choose(0)
     assert(g.phase == .Running)
+
+fn merges_uat:
+    // Two ready recipes sharing the Orbit: both are offered, not just the first.
+    var g = Game.new()
+    g.build = Build { unlocked_weapons: g.build.unlocked_weapons, unlocked_passives: g.build.unlocked_passives }
+    g.build.add_weapon(.Orbit)
+    g.build.add_weapon(.Nova)
+    for _ in 1..MAX_WEAPON_LEVEL:
+        g.build.upgrade_weapon(.Orbit)
+        g.build.upgrade_weapon(.Nova)
+    g.build.add_passive(.Area)
+    g.gain_xp(g.xp_next)
+    g.tick(Controls {}, 1.0 / 120.0)
+    var corona = false
+    var pulsar = false
+    for i in 0..g.offer_count:
+        match g.offers[i].pick:
+            .Merge(w) => {
+                if w == Weapon.Corona: corona = true
+                if w == Weapon.Pulsar: pulsar = true
+            }
+            _ => ()
+    assert(corona and pulsar)
 
 fn timeline_uat:
     var g = Game.new()
@@ -219,6 +242,7 @@ fn main:
     movement_uat()
     combat_uat()
     boost_uat()
+    merges_uat()
     timeline_uat()
     ships_uat()
     stage_uat()

@@ -47,6 +47,9 @@ pub type Rules {
     speed_scale: f64 = 1.0,
     // A dead center: a circle at the arena's middle that nothing enters.
     void_radius: f64 = 0.0,
+    // Offer weights: an upgrade to an owned weapon or passive against a new card at 1.
+    upgrade_weight: f64 = 3.0,
+    passive_upgrade_weight: f64 = 1.5,
 }
 
 extend Rules:
