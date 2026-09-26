@@ -223,19 +223,20 @@ Plus cooldown, armor, luck, and gold gain as unlockables.
 
 ### Merges
 
-A merge is a recipe: two specific powerups, both at max level, plus the
-recipe's key item held in a slot. Once all three are true, the merged
-skill appears as a guaranteed option in the next boost, taking one of the
-three choices. Picking it consumes the two components into one merged
-weapon, named, visually distinct, and much stronger. Not picking it keeps
-it in every following boost until it is picked.
+A merge is a recipe, and the rule is Vampire Survivors': the weapon
+components at max level, the key passive merely held at any level. Once
+the recipe is complete, the merged skill appears as a guaranteed option in
+the next boost, taking one of the three choices. Picking it consumes the
+weapon components into one merged weapon, named, visually distinct, and
+much stronger. Not picking it keeps it in every following boost until it is
+picked.
 
 Two recipe shapes:
 
-- **Evolution**: a weapon at max plus a passive at max, keyed by that
-  passive. The weapon evolves; the passive stays.
-- **Union**: two weapons at max, keyed by a passive at any level. The two
-  become one, which frees a weapon slot, the strongest reward in a run.
+- **Evolution**: one weapon at max, keyed by a passive held at any level.
+  The weapon evolves; the passive stays.
+- **Union**: two weapons at max, keyed by a passive held at any level. The
+  two become one, which frees a weapon slot, the strongest reward in a run.
 
 Every launch weapon has exactly one evolution; four unions exist at launch.
 Recipes are hidden until first discovered, then listed in the unlock panel
