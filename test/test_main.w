@@ -91,7 +91,13 @@ fn boost_uat:
     g.tick(Controls {}, 1.0 / 120.0)
     assert(g.phase == .Boost and g.offers[0].pick.is_merge())
     g.choose(0)
-    assert(g.merge_event and g.build.weapon_level(.Railgun) == 1 and g.build.weapon_level(.Cannon) == 0)
+    assert(g.merge_event and g.build.weapon_level(.Railgun) == MAX_WEAPON_LEVEL and g.build.weapon_level(.Cannon) == 0)
+    // A merge is final, and what went into it never comes back.
+    for p in g.build.candidates():
+        match p:
+            .NewWeapon(w) => assert(w != Weapon.Cannon)
+            .UpgradeWeapon(w) => assert(w != Weapon.Railgun and w != Weapon.Cannon)
+            _ => ()
     // Queued levels chain boosts; skip spends a skip.
     assert(g.phase == .Boost)
     g.skips = 1
@@ -190,6 +196,17 @@ fn abandon_uat:
     g.abandon()
     assert(g.credits == banked)
 
+fn beacon_uat:
+    // Orbit blades and Nova rings break beacons, not only bullets.
+    for w in [Weapon.Orbit, Weapon.Nova]:
+        var g = Game.new(Rules { minimum_start: 0.0 })
+        g.spawn_timer = 1.0e9
+        g.build.weapons[0] = WeaponSlot { weapon: w, level: 1 }
+        g.beacon_count = 1
+        g.beacons[0] = Beacon { pos: add(g.player, V2 { x: 90.0 }), alive: true }
+        for _ in 0..(120 * 6): g.tick(Controls {}, 1.0 / 120.0)
+        assert(not g.beacons[0].alive and g.pickup_count >= 1)
+
 fn stage_uat:
     // The Ring's dead center holds the ship, enemies, and bolts out.
     var g = Game.new(Stage.Ring.rules())
@@ -247,6 +264,7 @@ fn main:
     timeline_uat()
     ships_uat()
     stage_uat()
+    beacon_uat()
     abandon_uat()
     capacity_uat()
     determinism_uat()

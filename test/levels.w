@@ -1,10 +1,11 @@
-//! expect-stdout: UAT passed: every weapon and merge level improves a stat
+//! expect-stdout: UAT passed: every weapon level improves a stat
 use loadout
-// Every level-up card must change something: a merge's level II once read
-// the same stats as its level I.
+// Every level-up card must change something: a level that changes nothing
+// is a wasted pick.
 fn main:
     var dead = 0
-    for i in 0..WEAPON_COUNT:
+    // Merges are final and have no levels; every base weapon level counts.
+    for i in 0..BASE_WEAPON_COUNT:
         let w = weapon_at(i)
         var prev = weapon_stats(w, 1, Mods {})
         for level in 2..(MAX_WEAPON_LEVEL + 1):
@@ -15,4 +16,4 @@ fn main:
                 dead += 1
             prev = s
     assert(dead == 0)
-    print("UAT passed: every weapon and merge level improves a stat")
+    print("UAT passed: every weapon level improves a stat")

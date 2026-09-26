@@ -205,7 +205,7 @@ extend Ship:
                 // The middle game: an extra shard and two more bounces.
                 m.rebound += 3
                 m.count += 1
-                m.damage *= 1.12
+                m.damage *= 1.06
                 m.area *= 1.2 * (1.0 + 0.01 * l)
             }
             .Halo => {
@@ -220,13 +220,13 @@ extend Ship:
                 // The late killer: damage compounds with every level, and
                 // every weapon cycles faster.
                 m.damage *= 1.35 * (1.0 + 0.025 * l)
-                m.cooldown *= 0.72
+                m.cooldown *= 0.66
             }
             .Sapper => {
                 // The card promised +40% area; it was never applied.
                 // Peaks early: the bonus fades as the run goes on.
                 m.area *= 1.5
-                m.cooldown *= 0.62 * (1.0 + 0.09 * clamp(l - 18.0, 0.0, 30.0))
+                m.cooldown *= 0.62 * (1.0 + 0.14 * clamp(l - 16.0, 0.0, 30.0))
                 m.max_health += 3
             }
             .Phase => {

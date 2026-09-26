@@ -281,9 +281,8 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     // A merged weapon starts from its components at their maximum and grows
     // from there: merging must never make a build weaker.
     let curve = 1 + ((merged_level - 1) * (CURVE_TOP - 1) + (MAX_WEAPON_LEVEL - 2)) / (MAX_WEAPON_LEVEL - 1)
-    // Every merge level is a step: I reads the components' maximum, each
-    // level after it one step further along the same curve.
-    let level = if weapon.is_merged(): CURVE_TOP + (merged_level - 1) else: curve
+    // A merge is final: fixed stats two steps past its components' maximum.
+    let level = if weapon.is_merged(): CURVE_TOP + 2 else: curve
     let l = level as f64
     var s = WeaponStats {}
     // Every family's damage grows with its level so a weapon taken at
@@ -489,7 +488,8 @@ extend Build:
         if let Some(second) = r.second: self.remove_weapon(second)
         for i in 0..SLOT_COUNT:
             if self.weapons[i].level > 0 and self.weapons[i].weapon == r.first:
-                self.weapons[i] = WeaponSlot { weapon: result, level: 1 }
+                // Merges are final and read as fully leveled.
+                self.weapons[i] = WeaponSlot { weapon: result, level: MAX_WEAPON_LEVEL }
                 self.merges_this_run += 1
                 return
 
@@ -531,6 +531,15 @@ extend Build:
             .Merge(_) => {}
 
     // Every legal pick, merges first. The caller shuffles and takes three.
+    // True when a merge that consumed this weapon is in the build.
+    pub fn merged_away(self: &Self, w: Weapon) -> bool:
+        for r in recipes():
+            if self.weapon_level(r.result) == 0: continue
+            if r.first == w: return true
+            if let Some(second) = r.second:
+                if second == w: return true
+        false
+
     pub fn candidates(self: &Self) -> Vec[Pick]:
         var out: Vec[Pick] = Vec.new()
         for m in self.ready_merges(): out.push(.Merge(result: m))
@@ -538,15 +547,14 @@ extend Build:
         for i in 0..BASE_WEAPON_COUNT:
             let w = weapon_at(i)
             if self.banished_weapons[i] or not self.unlocked_weapons[i]: continue
+            // A weapon that went into a merge is spent for the run.
+            if self.merged_away(w): continue
             if let Some(f) = self.forbidden_weapon:
                 if f == w: continue
             let level = self.weapon_level(w)
             if level == 0 and free_weapon: out.push(.NewWeapon(weapon: w))
             else if level > 0 and level < MAX_WEAPON_LEVEL: out.push(.UpgradeWeapon(weapon: w))
-        // Merged weapons also level.
-        for s in self.weapons:
-            if s.level > 0 and s.weapon.is_merged() and s.level < MAX_WEAPON_LEVEL:
-                out.push(.UpgradeWeapon(weapon: s.weapon))
+        // Merged weapons are final: never offered as upgrades.
         let free_passive = self.passive_count() < SLOT_COUNT
         for i in 0..PASSIVE_COUNT:
             let p = passive_at(i)

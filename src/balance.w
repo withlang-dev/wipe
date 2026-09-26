@@ -77,10 +77,9 @@ fn main:
         let (b, _) = kills_for(w, 3, minute, seconds, density)
         let (c, _) = kills_for(w, 5, minute, seconds, density)
         print(f"{w.name()}   {a}   {b}   {c}")
-    print("merged       L1     L5")
+    print("merged (final, no levels)")
     for i in BASE_WEAPON_COUNT..WEAPON_COUNT:
         let w = weapon_at(i)
         let (a, _) = kills_for(w, 1, 14.0, seconds, 260)
-        let (c, _) = kills_for(w, 5, 14.0, seconds, 260)
-        print(f"{w.name()}   {a}   {c}")
+        print(f"{w.name()}   {a}")
     0

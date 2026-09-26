@@ -366,7 +366,8 @@ components at max level, the key passive merely held at any level. Once
 the recipe is complete, the merged skill appears as a guaranteed option in
 the next boost, taking one of the three choices. Picking it consumes the
 weapon components into one merged weapon, named, visually distinct, and
-much stronger. Not picking it keeps it in every following boost until it is
+much stronger. A merge is final: it is not leveled further, and the weapons
+that went into it are never offered again that run. Not picking it keeps it in every following boost until it is
 picked.
 
 Two recipe shapes:

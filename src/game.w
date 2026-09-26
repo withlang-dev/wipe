@@ -927,6 +927,7 @@ extend Game:
                 self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos }
                 self.arc_count += 1
             let _ = self.damage_enemy(target, damage, direction(sub(pos, origin)))
+            self.break_beacons_on_segment(origin, pos, 8.0)
             origin = pos
 
     fn detonate_mine(mut self: Self, index: i32):
@@ -937,10 +938,12 @@ extend Game:
         self.burst(m.pos, V2 {}, 18, .Gold, 1.6)
         self.trauma = limit(self.trauma + 0.08, 0.0, 0.4)
         let _ = self.damage_area(m.pos, m.radius, m.damage)
+        self.break_beacons_near(m.pos, m.radius)
         if m.chains: self.arc_chain(m.pos, 3, 200.0, m.damage / 2 + 1)
 
     fn fire_beam(mut self: Self, from: V2, heading: V2, stats: WeaponStats):
         let to = add(from, scale(heading, stats.radius))
+        self.break_beacons_on_segment(from, to, 12.0)
         if self.beam_count < BEAM_CAP:
             self.beams[self.beam_count] = Beam { a: from, b: to, width: 10.0 + stats.damage as f64 }
             self.beam_count += 1
@@ -984,6 +987,7 @@ extend Game:
                         let angle = phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
                         let _ = self.damage_area(blade, 30.0, stats.damage, false, 0.3)
+                        self.break_beacons_near(blade, 16.0)
                         if stats.ring_on_orbit and self.build.weapons[slot].timer <= 0.0 and not pulsed:
                             pulsed = true
                             self.spawn_wave(blade, WeaponStats { radius: 90.0, damage: stats.damage })
@@ -1756,6 +1760,11 @@ extend Game:
                 if d - reach <= wave.radius and d + reach >= previous:
                     if not self.damage_enemy(i, wave.damage, direction(sub(e.pos, wave.pos))): i += 1
                 else: i += 1
+            // The ring's edge breaks any beacon it crosses.
+            for k in 0..self.beacon_count:
+                if not self.beacons[k].alive: continue
+                let d = sqrt(length2(sub(self.beacons[k].pos, wave.pos)))
+                if d - 20.0 <= wave.radius and d + 20.0 >= previous: self.break_beacon(k)
             if wave.life <= 0.0:
                 self.wave_count -= 1
                 self.waves[w] = self.waves[self.wave_count]
@@ -1825,17 +1834,35 @@ extend Game:
             while b < self.bullet_count:
                 let bullet: Bullet = self.bullets[b]
                 if not bullet.hostile and length2(sub(bullet.pos, beacon.pos)) < 26.0 * 26.0:
-                    beacon.alive = false
-                    beacon.respawn = self.rules.beacon_respawn
-                    self.pulse(beacon.pos, 90.0, .Gold)
-                    self.burst(beacon.pos, V2 {}, 30, .Gold, 1.5)
-                    let kind = self.random_pickup(true)
-                    self.drop_pickup(beacon.pos, kind)
+                    self.beacons[i] = beacon
+                    self.break_beacon(i)
+                    beacon = self.beacons[i]
                     self.bullet_count -= 1
                     self.bullets[b] = self.bullets[self.bullet_count]
                     break
                 b += 1
             self.beacons[i] = beacon
+
+    // A beacon breaks, drops a pickup, and respawns elsewhere later.
+    fn break_beacon(mut self: Self, i: i32):
+        if not self.beacons[i].alive: return
+        let pos: V2 = self.beacons[i].pos
+        self.beacons[i].alive = false
+        self.beacons[i].respawn = self.rules.beacon_respawn
+        self.pulse(pos, 90.0, .Gold)
+        self.burst(pos, V2 {}, 30, .Gold, 1.5)
+        let kind = self.random_pickup(true)
+        self.drop_pickup(pos, kind)
+
+    // Every weapon breaks beacons, not only bullets: blades, rings, beams,
+    // blasts, and lightning all hit what they touch.
+    fn break_beacons_near(mut self: Self, pos: V2, radius: f64):
+        for i in 0..self.beacon_count:
+            if self.beacons[i].alive and length2(sub(self.beacons[i].pos, pos)) <= (radius + 20.0) * (radius + 20.0): self.break_beacon(i)
+
+    fn break_beacons_on_segment(mut self: Self, a: V2, b: V2, width: f64):
+        for i in 0..self.beacon_count:
+            if self.beacons[i].alive and segment_hit(a, b, self.beacons[i].pos, width + 20.0): self.break_beacon(i)
 
     fn freeze_enemies(mut self: Self, seconds: f64):
         self.enemies_frozen = seconds
