@@ -114,9 +114,9 @@ extend Ship:
             .Dart => "+25% move speed, +20% projectile speed"
             .Hull => "+50% max health, +1 armor"
             .Prism => "Shards bounce twice more, +20% area"
-            .Halo => "+60% magnet, cores worth +25% XP"
-            .Needle => "+35% damage, lance pierces everything"
-            .Sapper => "+40% area, mines chain-detonate"
+            .Halo => "+60% magnet, +1 orbit blade, cores worth +25% XP"
+            .Needle => "+35% damage, lance pierce doubled"
+            .Sapper => "+40% area, -15% cooldowns, mines chain-detonate"
             .Phase => "Invulnerable 2 s on every level-up"
             .Null => "Starts at level 5 with 3 weapons, +30% credits"
 
@@ -205,9 +205,14 @@ extend Ship:
             .Halo => {
                 m.magnet *= 1.6 * (1.0 + 0.02 * l)
                 m.xp *= 1.25
+                m.count += 1
             }
             .Needle => { m.damage *= 1.35 * (1.0 + 0.01 * l + 0.05 * (level / 10) as f64) }
-            .Sapper => { m.cooldown *= 1.0 - 0.01 * l }
+            .Sapper => {
+                // The card promised +40% area; it was never applied.
+                m.area *= 1.4
+                m.cooldown *= 0.85 * (1.0 - 0.01 * l)
+            }
             .Phase => {
                 m.max_health = 1
                 m.invuln_bonus = 2.0 + 0.1 * (level / 5) as f64

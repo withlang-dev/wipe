@@ -45,10 +45,11 @@ fn combat_uat:
     g.enemies[0].age = 1.0
     g.enemies[0].speed = 0.0
     g.tick(Controls {}, 1.0 / 120.0)
-    assert(g.health == 8 and g.hurt_event and g.hits_taken == 1 and g.combo == 0)
+    // The first ninety seconds hit half as hard.
+    assert(g.health == 9 and g.hurt_event and g.hits_taken == 1 and g.combo == 0)
     g.enemy_count = 0
     // Death names its killer and records the health before the hit.
-    g.health = 2
+    g.health = 1
     g.invulnerable = 0.0
     g.freeze = 0.0
     let _ = g.place_enemy(g.player, .Spinner)
@@ -57,7 +58,7 @@ fn combat_uat:
     g.tick(Controls {}, 1.0 / 120.0)
     assert(g.phase == .Over and g.death_event and not g.cleared)
     let killer: Kind = g.killer.unwrap()
-    assert(killer == Kind.Spinner and g.health_before == 2)
+    assert(killer == Kind.Spinner and g.health_before == 1)
     let ended: f64 = g.elapsed
     for _ in 0..60: g.tick(Controls { motion: V2 { x: 1.0 } }, 1.0 / 120.0)
     near(g.elapsed, ended)

@@ -162,6 +162,15 @@ WIPE_SAVE_DIR=/tmp/wipe-play ./out/bin/play 10
 WIPE_PLAY_VETERAN=1 WIPE_SAVE_DIR=/tmp/wipe-vet ./out/bin/play 8
 ```
 
+The `balance` executable measures every weapon and merge alone against
+the same minute-eight swarm and prints kills per minute by level, so a
+weapon that is too strong or too weak reads as a number:
+
+```sh
+with build :balance
+./out/bin/balance
+```
+
 The `tour` executable walks every screen against a scratch save and writes
 one PNG per screen to `out/tour/`:
 
@@ -213,7 +222,7 @@ an automated fixture, not a human playthrough or a hardware certification.
   icons, the boost overlay, render passes and bloom.
 - `src/shaders.w`: owned shaders and the narrow typed GPU-uniform boundary.
 - `src/audio.w`: owned sound/music resources and per-frame playback.
-- `src/uat.w`, `src/play.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
+- `src/uat.w`, `src/play.w`, `src/balance.w`, `src/tour.w`, `src/gallery.w`, `src/audio_uat.w`, `src/controller_uat.w`, `test/`:
   acceptance and measurement.
 
 The original procedural WAV assets and shader sources are checked in. See

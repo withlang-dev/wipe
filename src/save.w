@@ -273,9 +273,17 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
     else if g.elapsed > s.best_time[ship]:
         s.best_time[ship] = g.elapsed
         new_best = true
+    // Holding a merged weapon counts as holding its components: merging the
+    // Cannon must not lock the player out of "survive holding the Cannon".
     for slot in 0..SLOT_COUNT:
         let w: WeaponSlot = g.build.weapons[slot]
-        if w.level > 0 and w.weapon.is_base() and g.elapsed > s.held[w.weapon.index()]: s.held[w.weapon.index()] = g.elapsed
+        if w.level == 0: continue
+        if w.weapon.is_base():
+            if g.elapsed > s.held[w.weapon.index()]: s.held[w.weapon.index()] = g.elapsed
+        else if let Some(r) = recipe_for(w.weapon):
+            if g.elapsed > s.held[r.first.index()]: s.held[r.first.index()] = g.elapsed
+            if let Some(second) = r.second:
+                if g.elapsed > s.held[second.index()]: s.held[second.index()] = g.elapsed
     for i in 0..WEAPON_COUNT:
         let taken: bool = g.launch.taken_weapons[i]
         if taken: s.taken_weapons[i] = true

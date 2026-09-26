@@ -83,6 +83,8 @@ pub type App {
     metrics: Metrics,
     death_timer: f64 = 0.0,
     quit: bool = false, quit_hold: f64 = 0.0,
+    // Escape on the title asks once: backing out of menus must not quit.
+    quit_armed: f64 = 0.0,
     input: Input = Input {}, menu: MenuState = MenuState {},
     debug: bool = false, frame_ms: f64 = 16.67,
     // Presentation sound cues for the audio layer.
@@ -268,6 +270,12 @@ extend App:
 
     // One frame from the devices: sample, then step.
     pub fn update(mut self: Self, pad: PadFrame, dt: f64):
+        // Alt-tabbing out of a run pauses it: input is ignored while the
+        // window is unfocused, so an unpaused run would be lost unseen.
+        if not IsWindowFocused() and self.screen == .Run and self.game.phase != .Over:
+            self.screen = .Pause
+            self.pause_cursor = 0
+            self.confirm_abandon = false
         let m = self.menu.sample(pad)
         // Aim is resolved against the ship's position on screen.
         let screen_player = sub(self.game.player, self.game.view_origin())
@@ -301,12 +309,15 @@ extend App:
             if self.attract.minute() > 6.0 or self.attract.phase == .Over: self.attract.reset()
 
     fn update_title(mut self: Self, m: MenuInput, dt: f64):
+        self.quit_armed = limit(self.quit_armed - dt, 0.0, 2.0)
         if m.confirm:
             if unlocked_ship_count(&self.save) > 1 or stage_unlocked(.Corridor, &self.save): self.go(.Select)
             else: self.launch_as(.Claw)
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
-        else if m.escape: self.quit = true
+        else if m.escape:
+            if self.quit_armed > 0.0: self.quit = true
+            else: self.quit_armed = 2.0
         // On a pad, quitting is a one second hold of B.
         if m.back_held and not m.escape_held:
             self.quit_hold += dt
@@ -346,13 +357,12 @@ extend App:
 
     fn update_run(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
         let g = &self.game
-        if g.phase == .Boost:
-            self.update_boost(m)
-        else if m.start and g.phase == .Running:
+        if m.start and (g.phase == .Running or (g.phase == .Boost and g.cache_reveal <= 0.0)):
             self.screen = .Pause
             self.pause_cursor = 0
             self.confirm_abandon = false
             return
+        if g.phase == .Boost: self.update_boost(m)
         self.game.clear_events()
         var steps = 0
         var accumulator = limit(dt, 0.0, 0.1)
@@ -552,7 +562,8 @@ extend App:
             if self.save.best_time[i] > best: best = self.save.best_time[i]
         let footer = f"BEST {stamp(best)}   ·   RUNS {commas(self.save.runs)}   ·   KILLS {commas(self.save.kills)}   ·   CREDITS {commas(self.save.credits)}   ·   v0.2"
         centered(footer, 690, 14, white(0.55))
-        centered("ESC  QUIT     HOLD B ON A CONTROLLER", 716, 10, white(0.3))
+        if self.quit_armed > 0.0: centered("PRESS ESC AGAIN TO QUIT", 716, 14, magenta(1.0))
+        else: centered("ESC ESC  QUIT     HOLD B ON A CONTROLLER", 716, 10, white(0.3))
         if self.quit_hold > 0.0: DrawRectangle(540, 734, (200.0 * self.quit_hold) as i32, 3, magenta(0.9))
         self.notice_line()
 

@@ -24,7 +24,7 @@ pub type Rules {
     level_stop: f64 = 0.10,
     merge_stop: f64 = 0.22,
     boss_stop: f64 = 0.13,
-    magnet_radius: f64 = 90.0,
+    magnet_radius: f64 = 110.0,
     core_speed: f64 = 520.0,
     core_merge_age: f64 = 3.0,
     combo_window: f64 = 2.0,

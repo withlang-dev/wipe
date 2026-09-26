@@ -126,7 +126,9 @@ to the cap counts as a clear.
 
 **Endless.** Once a ship has cleared, endless is offered for that ship: the
 timeline loops from minute 10 with every enemy stat and spawn count scaled
-up per loop, no Null, and the run ends only in death. Endless is where
+up per loop, compounding so no build outlives it, no Null, and the run
+ends only in death. Endless pays about a third of the credit rate: it is the long tail,
+not the fastest way to fill the shop. Endless is where
 long-session players live once the roster is open, and it is where the
 performance ceiling is actually reached. Bests and credits are tracked
 separately for endless; unlock conditions count only capped runs.
@@ -529,9 +531,9 @@ the game, and the reason a player who has cleared a run starts another.
 | Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Half max health | Survive 5:00 |
 | Hull | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
 | Prism | Shard | Shards bounce twice more; +20% area | +1% area per level | −15% damage | Kill 200 enemies with bounced shards |
-| Halo | Orbit | +60% magnet, cores worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
-| Needle | Lance | +35% damage, lance pierces everything | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
-| Sapper | Mines | +40% area, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
+| Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
+| Needle | Lance | +35% damage, lance pierce doubled | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
+| Sapper | Mines | +40% area, −15% cooldowns, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
 | Phase | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
 | Null | Shear (unique) | Starts at level 5 with 3 weapons; +30% credits | +1% credits per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 

@@ -200,7 +200,7 @@ pub fn passive_condition(p: Passive) -> Condition:
         .Luck => .Caches(count: 10)
         .Credit => .Banked(credits: 5000)
         .Rebound => .BouncedKills(count: 50)
-        .Overclock => .Clear
+        .Overclock => .Bosses(count: 8)
         _ => .Start
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)

@@ -64,10 +64,18 @@ fn fly(g: &Game) -> Controls:
         let d = sub(g.pickups[i].pos, g.player)
         let d2 = length2(d)
         if d2 > 1.0: push = add(push, scale(d, 1.0 / sqrt(d2) * 0.25))
+    // Like a player: when nothing is close, go and sweep up the nearest core.
+    let threatened = nearest < 200.0 * 200.0
+    var core_target = -1
+    var core_best = 700.0 * 700.0
     for i in 0..g.core_count:
-        let d = sub(g.cores[i].pos, g.player)
-        let d2 = length2(d)
-        if d2 < 320.0 * 320.0 and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * 25.0))
+        let d2 = length2(sub(g.cores[i].pos, g.player))
+        if d2 < core_best:
+            core_best = d2
+            core_target = i
+    if core_target >= 0:
+        let toward = direction(sub(g.cores[core_target].pos, g.player))
+        push = add(push, scale(toward, if threatened: 0.3 else: 1.2))
     push = add(push, scale(sub(g.center(), g.player), 0.0007))
     // The driver speaks screen space for aim, like the mouse.
     Controls { motion: movement(scale(push, 3.0)), aim }
@@ -152,6 +160,21 @@ fn main:
     var last_screen: Screen = wipe.screen
     var last_level = 0
     var last_boss = false
+    // Pacing: level-up times, boost overlays, chained overlays, boss fights.
+    var level_times: Vec[f64] = Vec.new()
+    var boost_opens = 0
+    var boost_seconds = 0.0
+    var chained = 0
+    var last_boost_close = -10.0
+    var was_boost = false
+    var boss_started = 0.0
+    var boss_fights: Vec[f64] = Vec.new()
+    var run_seconds = 0.0
+    var caches = 0
+    var gap_sum: [f64; 5] = [0.0; 5]
+    var gap_count: [i32; 5] = [0; 5]
+    var first_level_sum = 0.0
+    var first_level_runs = 0
     var shots = 0
     log.note(f"start: screen {screen_name(wipe.screen)} (fresh save launches straight into a run)")
     while runs_done < runs_target and p.frame < 60 * 60 * 200:
@@ -300,12 +323,38 @@ fn main:
                 over_since = -1.0
             if wipe.screen == .Run and last_screen != .Pause:
                 p.paused_once = false
+                level_times = Vec.new()
+                last_boss = false
                 let mode = if wipe.game.launch.endless: " ENDLESS" else: ""
                 log.note(f"  launch: {wipe.game.launch.ship.name()} on {wipe.stage.name()}{mode}, best to beat {stamp(wipe.game.launch.best_time)}")
                 last_level = wipe.game.level
             last_screen = wipe.screen
         if wipe.screen == .Run:
             let g = &wipe.game
+            let boosting = g.phase == .Boost
+            if boosting:
+                boost_seconds += DT
+                if not was_boost:
+                    boost_opens += 1
+                    // Another overlay within half a second of the last one closing.
+                    if clock - last_boost_close < 0.5: chained += 1
+                    if g.boost_source == .LevelUp:
+                        let t: f64 = g.elapsed
+                        if level_times.len() == 0:
+                            first_level_sum += t
+                            first_level_runs += 1
+                        else:
+                            let gap = t - level_times[level_times.len() - 1]
+                            let band = if t < 120.0: 0 else if t < 300.0: 1 else if t < 600.0: 2 else if t < 900.0: 3 else: 4
+                            gap_sum[band] += gap
+                            gap_count[band] += 1
+                        level_times.push(t)
+                    else: caches += 1
+            else if was_boost: last_boost_close = clock
+            was_boost = boosting
+            if g.phase == .Running: run_seconds += DT
+            if g.boss_alive and not last_boss: boss_started = g.elapsed
+            if not g.boss_alive and last_boss and g.bosses_killed > 0: boss_fights.push(g.elapsed - boss_started)
             if g.phase == .Over and over_since < 0.0: over_since = clock
             if g.level > last_level and g.phase == .Boost:
                 if g.level <= 3 or g.level % 10 == 0: log.note(f"    level {g.level} at {stamp(g.elapsed)}")
@@ -347,6 +396,16 @@ fn main:
             let name = f"out/play/{shots:03}-{screen_name(wipe.screen)}.png"
             TakeScreenshot(name)
             shots += 1
+    log.note("pacing:")
+    if first_level_runs > 0: log.note(f"  first level-up: mean {(first_level_sum / first_level_runs as f64) as i32} s into a run")
+    let bands = ["0-2 min", "2-5 min", "5-10 min", "10-15 min", "15-20 min"]
+    for b in 0..5:
+        if gap_count[b] > 0: log.note(f"  level-up gap {bands[b]}: mean {(gap_sum[b] / gap_count[b] as f64) as i32} s over {gap_count[b]} level-ups")
+    let share = if run_seconds > 0.0: boost_seconds * 100.0 / (run_seconds + boost_seconds) else: 0.0
+    log.note(f"  card overlays: {boost_opens}, {chained} opened within half a second of the last, {share as i32}% of run time spent choosing, caches {caches}")
+    var fight_total = 0.0
+    for f in boss_fights: fight_total += f
+    if boss_fights.len() > 0: log.note(f"  boss fights: {boss_fights.len()}, mean {(fight_total / boss_fights.len() as f64) as i32} s")
     log.note(f"playtest: {runs_done} runs, {p.frame / 60} s of play, {p.boost_seen} cards taken, rerolls {p.rerolls_used}, skips {p.skips_used}, banishes {p.banishes_used}, shop visits {p.shop_visits}, collection visits {p.collection_visits}")
     let worst_hundredths = (worst_tick * 100.0) as i32
     log.note(f"worst app step during a run: {worst_hundredths / 100}.{worst_hundredths % 100} ms")

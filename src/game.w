@@ -109,16 +109,20 @@ extend Kind:
             .Boss => 60.0
             .Null => 90.0
             _ => 14.0
+    // Health grows with the square of the minute so the back half of a run
+    // outpaces a build that has stopped growing: linear growth let a
+    // twelve-minute build walk through the last eight.
     fn base_hp(self: &Self, minute: f64) -> i32:
         let m = minute
+        let curve = m * 0.8 + m * m * 0.045
         match self:
-            .Block => (1.0 + m * 0.7) as i32
-            .Spinner => (3.0 + m * 0.9) as i32
-            .Dart => (1.0 + m * 0.35) as i32
-            .Weaver => (2.0 + m * 0.6) as i32
-            .Skimmer => (2.0 + m * 0.6) as i32
-            .Well => (24.0 + m * 4.0) as i32
-            .Boss => (200.0 + m * 80.0) as i32
+            .Block => (1.0 + curve) as i32
+            .Spinner => (3.0 + curve * 1.3) as i32
+            .Dart => (1.0 + curve * 0.5) as i32
+            .Weaver => (2.0 + curve * 0.9) as i32
+            .Skimmer => (2.0 + curve * 0.9) as i32
+            .Well => (24.0 + curve * 6.0) as i32
+            .Boss => (200.0 + m * 90.0 + m * m * 6.0) as i32
             .Null => 6000
     fn contact_damage(self: &Self, minute: f64) -> i32:
         let scaled = (minute / 4.0) as i32
@@ -339,8 +343,24 @@ extend Game:
     pub fn table_minute(self: &Self) -> f64:
         let m = self.minute()
         if self.launch.endless and m >= 20.0: 10.0 + ((m - 10.0) % 10.0) else: m
+    // Endless compounds per ten-minute loop: a linear ramp let a finished
+    // build outlive it indefinitely (a Sapper ran 99 minutes).
+    fn loop_scale(self: &Self, per_loop: f64) -> f64:
+        var scale_by = 1.0
+        for _ in 0..self.endless_loop: scale_by *= per_loop
+        scale_by
+
     fn difficulty(self: &Self) -> f64:
-        1.0 + self.mods.overclock + (self.endless_loop as f64) * 0.35
+        (1.0 + self.mods.overclock) * self.loop_scale(1.9)
+
+    // The first ninety seconds hit half as hard: a run should not end
+    // before the player has seen a level-up.
+    fn contact(self: &Self, kind: Kind) -> i32:
+        let full = kind.contact_damage(self.table_minute()) + self.endless_loop * 2
+        if self.elapsed < 90.0 and kind != .Null:
+            let half = full / 2
+            if half < 1: 1 else: half
+        else: full
     pub fn boss_minute(self: &Self) -> Option[f64]:
         let minutes = self.rules.boss_minutes()
         if self.boss_index < 3: Some(minutes[self.boss_index]) else: None
@@ -825,10 +845,10 @@ extend Game:
             _ => ()
 
     // Apply damage to one enemy; returns true when it died.
-    pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false) -> bool:
+    pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12) -> bool:
         self.enemies[index].hp -= damage
         self.enemies[index].flash = 0.05
-        self.enemies[index].hit_cd = 0.12
+        self.enemies[index].hit_cd = cooldown
         let pos: V2 = self.enemies[index].pos
         if self.enemies[index].kind != .Boss and self.enemies[index].kind != .Null:
             self.enemies[index].pos = add(pos, scale(impact, 4.0))
@@ -840,7 +860,7 @@ extend Game:
         false
 
     // Enemies within a radius, each hit once per cooldown. Returns hits.
-    fn damage_area(mut self: Self, pos: V2, radius: f64, damage: i32, bounced: bool = false) -> i32:
+    fn damage_area(mut self: Self, pos: V2, radius: f64, damage: i32, bounced: bool = false, cooldown: f64 = 0.12) -> i32:
         var hits = 0
         var i = 0
         while i < self.enemy_count:
@@ -848,7 +868,7 @@ extend Game:
             let reach = radius + e.kind.radius() * e.size
             if e.hit_cd <= 0.0 and length2(sub(e.pos, pos)) <= reach * reach:
                 hits += 1
-                if not self.damage_enemy(i, damage, direction(sub(e.pos, pos)), bounced): i += 1
+                if not self.damage_enemy(i, damage, direction(sub(e.pos, pos)), bounced, cooldown): i += 1
             else: i += 1
         hits
 
@@ -937,7 +957,7 @@ extend Game:
                     for b in 0..stats.count:
                         let angle = phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
-                        let _ = self.damage_area(blade, 20.0, stats.damage)
+                        let _ = self.damage_area(blade, 18.0, stats.damage, false, 0.4)
                         if stats.ring_on_orbit and self.build.weapons[slot].timer <= 0.0 and not pulsed:
                             pulsed = true
                             self.spawn_wave(blade, WeaponStats { radius: 90.0, damage: stats.damage })
@@ -984,7 +1004,12 @@ extend Game:
                             let assisted = length2(toward) > 0.01 and (length2(travel) < 0.01 or travel.x * toward.x + travel.y * toward.y > 0.5)
                             let heading2 = if assisted: toward else if length2(travel) > 0.01: travel else: V2 { x: 1.0 }
                             self.build.weapons[slot].timer = stats.cooldown
-                            self.fire_beam(self.player, heading2, stats)
+                            // The Needle's card: its lance pierces twice as deep.
+                            // Piercing everything scaled with the swarm itself and
+                            // let an endless Needle run for an hour.
+                            var beam = stats
+                            if self.launch.ship == .Needle: beam.pierce *= 2
+                            self.fire_beam(self.player, heading2, beam)
                             self.shot_event = true
                         }
                         .Dropped => {
@@ -1036,7 +1061,8 @@ extend Game:
         self.gain_xp(value)
         // The combo multiplies credits up to triple at x100 and no further.
         let combo_bonus = limit(self.combo as f64, 0.0, 100.0) / 50.0
-        self.credit_energy += 0.012 * (1.0 + combo_bonus) * self.mods.credit * (value as f64)
+        let endless_rate = if self.launch.endless: 0.35 else: 1.0
+        self.credit_energy += 0.012 * (1.0 + combo_bonus) * self.mods.credit * (value as f64) * endless_rate
         if self.credit_energy >= 1.0:
             let whole = self.credit_energy as i32
             self.credit_energy -= whole as f64
@@ -1200,7 +1226,9 @@ extend Game:
         self.cleared = cleared
         self.phase = .Over
         // The run's credits: kills, minutes, and the best combo, banked whatever happened.
-        let bonus = (self.kills as f64 / 10.0 + self.minute() * 5.0 + self.best_combo as f64 / 4.0) * self.mods.credit
+        // Endless pays half: it is the long tail, not the fastest way to fill the shop.
+        let rate = if self.launch.endless: 0.35 else: 1.0
+        let bonus = (self.kills as f64 / 10.0 + self.minute() * 5.0 + self.best_combo as f64 / 4.0) * self.mods.credit * rate
         self.credits += bonus as i32
 
     // ----- the tick ----------------------------------------------------------
@@ -1302,7 +1330,7 @@ extend Game:
         // Ordinary spawns, thinned in a breather and clamped to the budget.
         self.spawn_timer -= dt
         if self.spawn_timer <= 0.0:
-            var rate = self.rules.spawn_rate(self.table_minute()) * self.rules.spawn_scale * (1.0 + self.mods.overclock) * (1.0 + (self.endless_loop as f64) * 0.3)
+            var rate = self.rules.spawn_rate(self.table_minute()) * self.rules.spawn_scale * (1.0 + self.mods.overclock) * self.loop_scale(1.3)
             if self.breather > 0.0: rate *= 0.25
             if self.null_alive: rate *= 0.5
             self.spawn_timer += 1.0 / rate
@@ -1396,7 +1424,7 @@ extend Game:
                         enemy.timer -= dt
                         if enemy.timer <= 0.0 and distance < 620.0 and self.on_screen(enemy.pos, -20.0) and self.bullet_count < BULLET_CAP:
                             enemy.timer = 2.4
-                            self.bullets[self.bullet_count] = Bullet { pos: enemy.pos, vel: scale(toward, 190.0), life: 4.0, damage: enemy.kind.contact_damage(self.table_minute()), hostile: true, weapon: .Cannon }
+                            self.bullets[self.bullet_count] = Bullet { pos: enemy.pos, vel: scale(toward, 190.0), life: 4.0, damage: self.contact(enemy.kind), hostile: true, weapon: .Cannon }
                             self.bullet_count += 1
                     }
                     .Skimmer => {
@@ -1823,7 +1851,7 @@ extend Game:
             if enemy.age < self.rules.spawn_grace: continue
             let reach = self.rules.contact_radius + (enemy.kind.radius() - 14.0) * enemy.size
             if length2(sub(enemy.pos, self.player)) < reach * reach:
-                self.hurt(enemy.kind, enemy.elite, enemy.kind.contact_damage(self.table_minute()))
+                self.hurt(enemy.kind, enemy.elite, self.contact(enemy.kind))
                 break
         if self.phase == .Running and self.health > 0 and (self.pending_levels > 0 or self.pending_cache_items > 0): self.resume()
 

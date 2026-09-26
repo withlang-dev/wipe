@@ -568,11 +568,17 @@ The tree implements M1, M2, and most of M3:
   screen with the near-miss layer, the collection, session metrics
 - the save exactly as §13 states it
 
+Tuning is checked by the play driver and the balance bench rather than
+by hand. As of this pass, a fresh account's first run dies around ten
+minutes, the first clear comes around run four, level-ups start at fifteen
+seconds and stretch to about fifty late, boss fights last about half a
+minute, every base weapon at level eight kills 750 to 1,400 enemies a
+minute against the bench swarm, merges 1,500 to 3,700, and endless ends
+between half an hour and an hour for the strongest builds.
+
 Not yet built: the diamond and cross stage shapes, M4 (Steamworks,
 achievements, Deck acceptance; the SDK is an external dependency not yet
-approved), and the stretch lists, which the spec gates on a balanced pool. Tuning has been checked only with a headless bot, whose
-first deaths land between five and seven minutes; the done conditions
-that name playtesters are still open.
+approved), and the stretch lists, which the spec gates on a balanced pool. The done conditions that name human playtesters are still open.
 
 ## Compiler issues found while building it
 

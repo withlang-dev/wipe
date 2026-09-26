@@ -273,76 +273,86 @@ impl Copy for WeaponStats
 fn step(level: i32, every: i32, from: i32) -> i32:
     if level < from: 0 else: (level - from) / every + 1
 
-pub fn weapon_stats(weapon: Weapon, level: i32, mods: Mods) -> WeaponStats:
+pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStats:
+    // A merged weapon starts from its components at their maximum and grows
+    // from there: merging must never make a build weaker.
+    let level = if weapon.is_merged(): MAX_WEAPON_LEVEL + (merged_level - 1) / 2 else: merged_level
     let l = level as f64
     var s = WeaponStats {}
+    // Every family's damage grows with its level so a weapon taken at
+    // minute two still matters at minute twelve; single-target families hit
+    // harder per shot than area families, which hit many.
     match weapon.family():
         .Aimed => {
-            s.cooldown = 1.0 / (7.0 * (1.0 + (l - 1.0) * 0.08))
-            s.damage = 1 + step(level, 3, 4)
+            s.cooldown = 1.0 / (7.0 * (1.0 + (l - 1.0) * 0.06))
+            s.damage = 2 + level / 2
             s.count = 1 + step(level, 2, 3)
             s.speed = 940.0
             s.lifetime = 1.6
         }
         .Orbiting => {
             s.cooldown = 0.25
-            s.count = 3 + step(level, 2, 3)
+            s.count = 3 + step(level, 3, 3)
             s.radius = 80.0 + l * 6.0
-            s.damage = 2 + step(level, 4, 5)
+            s.damage = 2 + level / 2
         }
         .Ring => {
-            s.cooldown = 2.4 - (l - 1.0) * 0.14
-            s.radius = 140.0 + l * 15.0
-            s.damage = 2 + step(level, 4, 4)
+            s.cooldown = 2.6 - (l - 1.0) * 0.14
+            s.radius = 130.0 + l * 12.0
+            s.damage = 1 + level / 2
         }
         .Homing => {
-            s.cooldown = 0.95 - (l - 1.0) * 0.06
-            s.count = 1 + step(level, 2, 3)
-            s.speed = 520.0
-            s.damage = 1 + step(level, 4, 4)
+            s.cooldown = 0.6 - (l - 1.0) * 0.03
+            s.count = 2 + step(level, 2, 3)
+            s.speed = 620.0
+            s.damage = 6 + level * 2
             s.lifetime = 2.4
             s.homing = true
         }
         .Beam => {
-            s.cooldown = 0.85 - (l - 1.0) * 0.05
+            s.cooldown = 0.85 - (l - 1.0) * 0.04
             s.radius = 420.0 + l * 30.0
-            s.damage = 2 + step(level, 2, 3)
+            s.damage = 3 + level
             s.pierce = 3 + level
         }
         .Dropped => {
-            s.cooldown = 1.5 - (l - 1.0) * 0.1
-            s.radius = 90.0 + l * 8.0
-            s.damage = 3 + step(level, 2, 3)
-            s.max_active = 6 + step(level, 2, 2)
+            s.cooldown = 2.0 - (l - 1.0) * 0.1
+            s.radius = 60.0 + l * 7.0
+            s.damage = 2 + level
+            s.max_active = 3 + step(level, 2, 2)
         }
         .Chain => {
-            s.cooldown = 1.6 - (l - 1.0) * 0.09
-            s.chain = 3 + step(level, 2, 2)
-            s.radius = 220.0
-            s.damage = 1 + step(level, 3, 3)
+            s.cooldown = 0.9 - (l - 1.0) * 0.05
+            s.chain = 4 + step(level, 2, 2)
+            s.radius = 330.0
+            s.damage = 5 + level * 3 / 2
         }
         .Bouncing => {
-            s.cooldown = 0.85 - (l - 1.0) * 0.05
-            s.count = 2 + step(level, 2, 3)
+            s.cooldown = 0.8 - (l - 1.0) * 0.04
+            s.count = 2 + step(level, 3, 3)
             s.bounces = 2 + step(level, 4, 4)
-            s.speed = 600.0
-            s.damage = 1 + step(level, 8, 6)
+            s.speed = 640.0
+            s.damage = 3 + level / 2
+            s.pierce = 1 + level / 4
             s.lifetime = 2.6
         }
-    // Merged weapons are the family with its numbers pushed and a flag.
+    // Merged weapons are the family with its numbers pushed and a flag. A
+    // merge is roughly double its maxed components, not an order of
+    // magnitude: the Railgun pierced everything at triple damage and
+    // out-killed every other weapon five to one.
     match weapon:
-        .Railgun => { s.pierce = 99; s.damage *= 3; s.speed *= 1.5 }
-        .Corona => { s.count *= 2; s.radius *= 1.5; s.damage *= 2 }
-        .Supernova => { s.radius *= 1.6; s.damage *= 2; s.cooldown *= 0.6 }
-        .Swarm => { s.count = s.count * 2 + 2; s.damage *= 2; s.cooldown *= 0.55; s.speed *= 1.3 }
-        .Pike => { s.pierce = 99; s.damage *= 3; s.radius *= 1.6 }
-        .Minefield => { s.cooldown *= 0.4; s.damage *= 2; s.max_active *= 2; s.chains_on_hit = true }
-        .Storm => { s.chain *= 2; s.radius *= 1.5; s.damage *= 2 }
-        .Shatter => { s.bounces += 3; s.damage *= 2; s.splits = true }
-        .Tracer => { s.homing = true; s.damage *= 2; s.count += 1 }
+        .Railgun => { s.count = 2; s.pierce = 4; s.damage = s.damage * 3 / 2; s.speed *= 1.3 }
+        .Corona => { s.count += 4; s.radius *= 1.4; s.damage *= 2 }
+        .Supernova => { s.radius *= 1.15; s.damage = s.damage * 5 / 4; s.cooldown *= 0.9 }
+        .Swarm => { s.count = s.count * 3 / 2 + 1; s.damage = s.damage * 3 / 2; s.cooldown *= 0.8; s.speed *= 1.3 }
+        .Pike => { s.pierce += 6; s.damage = s.damage * 3 / 2; s.radius *= 1.4 }
+        .Minefield => { s.cooldown *= 0.7; s.damage = s.damage * 3 / 2; s.max_active += 4; s.chains_on_hit = true }
+        .Storm => { s.chain *= 2; s.radius *= 1.4; s.damage = s.damage * 3 / 2; s.cooldown *= 0.8 }
+        .Shatter => { s.bounces += 2; s.damage = s.damage * 3 / 2; s.pierce += 1; s.splits = true }
+        .Tracer => { s.homing = true; s.damage = s.damage * 3 / 2; s.count += 1 }
         .Pulsar => { s.count += 2; s.damage *= 2; s.ring_on_orbit = true }
-        .Grid => { s.damage *= 2; s.max_active += 4; s.chains_on_hit = true }
-        .Refractor => { s.pierce = 99; s.damage *= 2; s.shatters = true }
+        .Grid => { s.damage = s.damage * 3 / 2; s.max_active += 3; s.chains_on_hit = true }
+        .Refractor => { s.pierce += 6; s.damage *= 2; s.shatters = true }
         _ => ()
     // Passives and shop ranks apply on top.
     s.damage = ((s.damage as f64) * mods.damage + 0.5) as i32
