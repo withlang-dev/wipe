@@ -10,6 +10,16 @@ magenta spinners, blue darts, cyan weavers) that share one behavior, one-hit
 kills, automatic fire, and immediate retry. Kills score 100 times a
 multiplier that rapid kills build and idle time decays.
 
+## Specs
+
+The recruiting prototype spec is complete and signed off; this tree is its
+result. What comes next is in [docs/wipe-survival-mvp.md](docs/wipe-survival-mvp.md)
+(the MVP: is the game fun in the first 60 seconds?) and
+[docs/wipe-survival-v1.md](docs/wipe-survival-v1.md) (the first complete
+demo-ready version). [docs/wipe-survival-implementation-notes.md](docs/wipe-survival-implementation-notes.md)
+carries the engineering notes for both; its `&mut` signatures predate D27 and
+must be respelled before use.
+
 ## Build and play
 
 Requires the With compiler, raylib 6.0, and SDL3 3.4.14 (the Conan package is

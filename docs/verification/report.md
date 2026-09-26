@@ -1,8 +1,10 @@
 # WIPE acceptance record
 
 Recorded 2026-09-25 UTC. This is a working prototype with measured desktop
-evidence. The full specification is **not yet signed off**: physical controller
-acceptance, Steam Deck performance, and subjective audio approval remain open.
+evidence. The recruiting prototype spec was **signed off on 2026-09-25**; the
+hands-on items below (physical controller acceptance, Steam Deck performance,
+subjective audio approval) stay recorded as the open checks they were, and the
+MVP spec picks up from here.
 
 ## Build and functional acceptance
 
