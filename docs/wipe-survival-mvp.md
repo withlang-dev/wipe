@@ -376,7 +376,88 @@ Rules:
 
 ---
 
-## 14. Juice / Feedback — MVP
+## 14. Retention Design — MVP
+
+The goal, combo, upgrade bar, and death screen are one system with one job:
+end every run with an open loop the player wants to close. The levers below
+come from the psychology under monetized progression systems (Zachow,
+*Patterns and Psychology of Video Game Monetization*, 2023), with the money
+removed and the author's ethical line kept: low psychological complexity,
+transparent and predetermined progression, no manufactured scarcity.
+
+### Open loops
+
+The engine is the Zeigarnik effect: an unfinished task is remembered and
+pulls the player back. Battle passes calibrate their reward spacing so that
+where playtesters naturally stop, they are most of the way to the next
+reward. WIPE calibrates the same way, with numbers rather than adjectives:
+
+- The median run ends between 70% and 90% of the current goal tier. Lower
+  reads as impossible; higher closes the loop.
+- The next unlock costs about 1.3 runs' worth of points: never affordable at
+  the moment of death, always close.
+- The death screen always leaves at least two loops open: goal progress and
+  next-unlock progress. It also shows the upgrade bar's fill at death
+  ("next upgrade was 4s away"), a third loop at no cost.
+- Unlock silhouettes: an arsenal panel shows unlocked upgrades beside greyed,
+  unnamed slots. Set completion is its own pull, and 6–8 upgrades are enough
+  to make the grid feel incomplete.
+
+### Predetermined, never random
+
+Cross-run rewards are a visible ladder with the next item always shown.
+Every reward is guaranteed at a known point. The 1-of-3 upgrade offer is the
+only randomness in the game, because there it is the gameplay, not the
+reward for effort. No reward for effort is ever drawn from a pool.
+
+### Cadence
+
+Front-load novelty, then stretch it. A real unlock lands in each of the first
+two or three runs, then unlocks space out on a growing schedule, roughly runs
+1, 2, 4, 7, 11. Novelty carries the first session; open loops carry the rest.
+
+### Honest near-misses
+
+"ALMOST (94%)" works because it is true. Thresholds are never bent to
+manufacture proximity; that is the slot-machine mechanism, and players feel
+it. The 85% threshold reports real proximity only.
+
+### Points as an economy
+
+Points are the faucet; unlocks and stat boosts are the sinks; prestige is the
+sink that converts a liquid balance into a terminal rank. A balance should
+never sit idle: if a player has points banked and nothing within reach, the
+ladder is mispriced. Points stay plain integers with plain prices; no
+intermediate currency.
+
+### Prestige and sunk cost
+
+Resetting stat boosts feels like losing invested hours. At the moment of the
+offer, the death screen states what is kept (every unlock), and the prestige
+rank badge is the most visible permanent element on the HUD.
+
+### Not used
+
+- Limited-time content or artificial scarcity, including a streak that
+  punishes a missed day. Wrong tool for a single-player arcade game.
+- Any currency abstraction between points and unlocks.
+- Randomized reward delivery of any kind.
+
+### Measurement
+
+The calibration above cannot be tuned blind. The debug overlay logs four
+numbers per session, to the console, with nothing persisted:
+
+- runs per session
+- retries within 3 seconds of death
+- fraction of deaths that showed a near-miss
+- fraction of deaths that showed an unlock within 30% of affordable
+
+Tuning is a loop: playtest, read the four numbers, move thresholds.
+
+---
+
+## 15. Juice / Feedback — MVP
 
 Combat feedback:
 
@@ -403,7 +484,7 @@ Requirements:
 
 ---
 
-## 15. Performance Target — MVP
+## 16. Performance Target — MVP
 
 The engine should support:
 
@@ -424,7 +505,7 @@ Development debug overlay is required:
 
 ---
 
-## 16. UI — MVP
+## 17. UI — MVP
 
 In-run HUD:
 
@@ -455,7 +536,7 @@ No menus, settings, inventory, map, or extra screens.
 
 ---
 
-## 17. First 60 Seconds Target
+## 18. First 60 Seconds Target
 
 ### 0–10 seconds
 
@@ -481,7 +562,7 @@ Desired player thought:
 
 ---
 
-## 18. MVP Success Criteria
+## 19. MVP Success Criteria
 
 After 3 minutes, a developer should think:
 
@@ -504,7 +585,7 @@ Design success:
 
 ---
 
-## 19. Explicitly Not MVP
+## 20. Explicitly Not MVP
 
 Do not add these until the MVP loop feels good:
 
