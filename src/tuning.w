@@ -32,7 +32,7 @@ pub type Rules {
     lookahead: f64 = 120.0,
     camera_ease: f64 = 6.0,
     // Timeline first-appearance minutes.
-    dart_minute: f64 = 0.66,
+    dart_minute: f64 = 1.0,
     spinner_minute: f64 = 5.0,
     weaver_minute: f64 = 5.0,
     skimmer_minute: f64 = 8.0,
@@ -50,11 +50,13 @@ pub type Rules {
     // Offer weights: an upgrade to an owned weapon or passive against a new card at 1.
     upgrade_weight: f64 = 5.0,
     new_weapon_weight: f64 = 2.5,
+    // Lightning (Arc, Storm) damage multiplier, for tuning it up or down live.
+    lightning_damage: f64 = 1.0,
     // Chance a kill drops a Repair pickup.
     repair_drop_chance: f64 = 0.0025,
     new_passive_weight: f64 = 0.6,
     // The floor of enemies alive at the start of a run (see minimum_alive).
-    minimum_start: f64 = 20.0,
+    minimum_start: f64 = 22.0,
     passive_upgrade_weight: f64 = 0.8,
 }
 
@@ -196,6 +198,7 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ "upgrade_weight " ++ num(r.upgrade_weight) ++ "\n"
     out = out ++ "new_weapon_weight " ++ num(r.new_weapon_weight) ++ "\n"
     out = out ++ "repair_drop_chance " ++ num(r.repair_drop_chance) ++ "\n"
+    out = out ++ "lightning_damage " ++ num(r.lightning_damage) ++ "\n"
     out = out ++ "new_passive_weight " ++ num(r.new_passive_weight) ++ "\n"
     out = out ++ "minimum_start " ++ num(r.minimum_start) ++ "\n"
     out = out ++ "passive_upgrade_weight " ++ num(r.passive_upgrade_weight) ++ "\n"
@@ -245,6 +248,7 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "upgrade_weight": out.upgrade_weight = value
     else if key == "new_weapon_weight": out.new_weapon_weight = value
     else if key == "repair_drop_chance": out.repair_drop_chance = value
+    else if key == "lightning_damage": out.lightning_damage = value
     else if key == "new_passive_weight": out.new_passive_weight = value
     else if key == "minimum_start": out.minimum_start = value
     else if key == "passive_upgrade_weight": out.passive_upgrade_weight = value

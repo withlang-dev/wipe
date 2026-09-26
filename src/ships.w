@@ -117,7 +117,7 @@ extend Ship:
             .Halo => "+60% magnet, +1 orbit blade, cores worth +25% XP"
             .Needle => "+35% damage, faster cooldowns, lance pierce doubled"
             .Sapper => "+50% area, faster cooldowns, mines chain-detonate"
-            .Phase => "Phases out on a rhythm, +2 lightning bolts, invulnerable 3 s on level-up"
+            .Phase => "Phases out on a rhythm, +1 lightning bolt, invulnerable 3 s on level-up"
             .Null => "Starts at level 5 with three weapons at III, +30% credits"
 
     pub fn growth(self: &Self) -> str:
@@ -234,7 +234,6 @@ extend Ship:
                 m.invuln_bonus = 3.0 + 0.1 * (level / 5) as f64
                 // Strongest in the middle game; the edge fades with level.
                 m.cooldown *= 0.8
-                m.count += 2
                 m.damage *= clamp(1.9 - 0.035 * l, 0.8, 1.9)
             }
             .Null => {

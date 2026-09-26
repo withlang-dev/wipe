@@ -61,7 +61,8 @@ An unavailable audio device permits silent play.
 | Retry as a newly unlocked ship | Tab | RB |
 | Stage, tabs, shop sort | Q, E | LB, RB |
 | Pause (volume, deadzone) | Escape in a run | Start |
-| Quit | Escape on the title | Hold B on the title |
+| Leave the run for the title | Escape or Q in pause | Quit to title in pause |
+| Quit | Escape or Q on the title | Hold B on the title |
 | Performance overlay and session metrics | F1 | — |
 | Fill the arena to the stress budget | F3 | — |
 

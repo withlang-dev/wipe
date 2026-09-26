@@ -46,6 +46,8 @@ pub type MenuInput {
     back_held: bool = false, any: bool = false,
     // Escape itself, for the title's quit, and the debug toggle.
     escape: bool = false, escape_held: bool = false, debug: bool = false,
+    // The Q key itself: quit from the title, leave a run from pause.
+    q: bool = false,
 }
 impl Copy for MenuInput
 
@@ -123,6 +125,7 @@ extend MenuState:
         self.last_mouse = m.mouse
         m.click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
         m.escape = IsKeyPressed(KEY_ESCAPE)
+        m.q = IsKeyPressed(KEY_Q)
         m.escape_held = IsKeyDown(KEY_ESCAPE)
         m.debug = IsKeyPressed(KEY_F1)
         m.any = m.confirm or m.back or m.shop or m.collection or m.click or m.start or GetKeyPressed() != 0

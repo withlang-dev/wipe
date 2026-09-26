@@ -102,7 +102,7 @@ extend Weapon:
             .Seeker => "Homing bolts at the nearest enemy."
             .Lance => "Piercing beams forward and back along the movement."
             .Mines => "Dropped on the path, detonating on contact."
-            .Arc => "Lightning strikes random enemies about once a second. More bolts and longer chains as it levels."
+            .Arc => "Lightning from the ship strikes a random enemy each second, and anything in its path. More bolts, then chains, as it levels."
             .Shard => "Fragments that ricochet off the arena walls."
             .Railgun => "Cannon evolved: three heavy bolts that pierce three."
             .Corona => "Orbit evolved: a wide, dense ring of blades."
@@ -333,12 +333,17 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.max_active = 5 + step(level, 2, 2)
         }
         .Chain => {
-            // One bolt at I, two at III, three at V; chains from II.
-            s.cooldown = 1.0 - (l - 1.0) * 0.04
-            s.count = 1 + (level - 1) / 3
-            s.chain = (level - 1) / 2
+            // Bolts and chains by level, as designed: I one bolt; II two;
+            // III two, each chaining once; IV two, chaining twice; V three,
+            // chaining twice. A merge (Storm) is its own row below.
+            let lv = if weapon.is_merged(): MAX_WEAPON_LEVEL else: merged_level
+            let bolts = [1, 2, 2, 2, 3]
+            let chains = [0, 0, 1, 2, 2]
+            s.count = bolts[lv - 1]
+            s.chain = chains[lv - 1]
+            s.cooldown = 1.0
             s.radius = 230.0
-            s.damage = 6 + level * 2
+            s.damage = 4 + level
         }
         .Bouncing => {
             s.cooldown = 0.55 - (l - 1.0) * 0.03
@@ -373,7 +378,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     s.cooldown *= mods.cooldown
     if weapon.family() == .Aimed: s.cooldown *= mods.cannon_rate
     if s.cooldown < 0.03: s.cooldown = 0.03
-    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting or weapon.family() == .Chain:
+    // Lightning bolts are the Arc's level table, not projectiles: each carries
+    // its chain, so the Projectiles passive would multiply the weapon.
+    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting:
         s.count += mods.count
     s.radius *= mods.area
     s.speed *= mods.proj_speed

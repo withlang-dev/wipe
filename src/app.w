@@ -340,9 +340,8 @@ extend App:
         if m.confirm: self.go(.Select)
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
-        else if m.escape:
-            if self.quit_armed > 0.0: self.quit = true
-            else: self.quit_armed = 2.0
+        // Escape and Q leave the game from the title: one press.
+        else if m.escape or m.q: self.quit = true
         // On a pad, quitting is a one second hold of B.
         if m.back_held and not m.escape_held:
             self.quit_hold += dt
@@ -460,6 +459,14 @@ extend App:
                 self.save.deadzone = limit(self.save.deadzone + step * 0.5, 0.05, 0.5)
                 self.input.deadzone = self.save.deadzone
             self.ui_move = true
+        // Escape and Q head for the title, banking the run; the pad's B and
+        // Start resume.
+        if m.escape or m.q:
+            self.rec.event("a")
+            self.game.abandon()
+            self.finish_run()
+            self.go(.Title)
+            return
         if m.back or m.start:
             self.persist()
             self.screen = .Run
@@ -487,7 +494,8 @@ extend App:
                 _ => ()
 
     fn update_results(mut self: Self, m: MenuInput):
-        if m.confirm: self.retry(self.results.ship)
+        if m.escape: self.go(.Title)
+        else if m.confirm: self.retry(self.results.ship)
         else if m.tab and self.results.new_ships.len() > 0: self.retry(self.results.new_ships[0])
         else if m.back: self.go(.Select)
         else if m.shop: self.go(.Shop)
@@ -663,8 +671,7 @@ extend App:
             if self.save.best_time[i] > best: best = self.save.best_time[i]
         let footer = f"BEST {stamp(best)}   ·   RUNS {commas(self.save.runs)}   ·   KILLS {commas(self.save.kills)}   ·   CREDITS {commas(self.save.credits)}   ·   v0.2"
         centered(footer, 690, 14, white(0.55))
-        if self.quit_armed > 0.0: centered("PRESS ESC AGAIN TO QUIT", 716, 14, magenta(1.0))
-        else: centered("ESC ESC  QUIT     HOLD B ON A CONTROLLER", 716, 10, white(0.3))
+        centered("ESC / Q  QUIT     HOLD B ON A CONTROLLER", 716, 10, white(0.3))
         if self.quit_hold > 0.0: DrawRectangle(540, 734, (200.0 * self.quit_hold) as i32, 3, magenta(0.9))
         self.notice_line()
 
@@ -738,7 +745,7 @@ extend App:
             let selected = i == self.pause_cursor
             centered(items[i].clone(), 300 + i * 44, 20, if selected: white(1.0) else: white(0.45))
             if selected: DrawRectangle(470, 300 + i * 44 + 26, 340, 2, cyan(0.8))
-        centered("[B / START] RESUME", 520, 12, white(0.5))
+        centered("[B / START] RESUME     [ESC / Q] TITLE", 520, 12, white(0.5))
 
     fn draw_results(self: &Self, clock: f64):
         let r = &self.results

@@ -99,7 +99,7 @@ extend Kind:
         match self:
             .Block => 0.0
             .Spinner => 12.0
-            .Dart => 60.0
+            .Dart => 40.0
             .Weaver => -16.0
             .Skimmer => 20.0
             .Well => -60.0
@@ -197,7 +197,8 @@ pub type Pickup { pos: V2 = V2 {}, kind: PickupKind = .Credits, age: f64 = 0.0 }
 pub type Beacon { pos: V2 = V2 {}, alive: bool = true, respawn: f64 = 0.0 }
 pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bool = false, age: f64 = 0.0 }
 pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0 }
-pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3 }
+// A lightning stroke. The seed fixes its jagged shape for its lifetime.
+pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3, seed: u32 = 0 }
 pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.125, total: f64 = 0.125 }
 pub type Particle {
     pos: V2 = V2 {}, vel: V2 = V2 {},
@@ -908,13 +909,23 @@ extend Game:
         }
         self.bullet_count += 1
 
+    // Damage everything along a lightning stroke that has not just been hit.
+    fn strike_line(mut self: Self, a: V2, b: V2, damage: i32):
+        self.break_beacons_on_segment(a, b, 8.0)
+        var i = 0
+        while i < self.enemy_count:
+            let e: Enemy = self.enemies[i]
+            if e.hit_cd <= 0.0 and segment_hit(a, b, e.pos, 10.0 + e.kind.radius() * e.size):
+                if not self.damage_enemy(i, damage, direction(sub(b, a))): i += 1
+            else: i += 1
+
     // A random enemy in view, not struck in the last moment; -1 when none.
     fn random_visible_enemy(mut self: Self) -> i32:
         if self.enemy_count == 0: return -1
         for _ in 0..16:
             let i = (self.random() * (self.enemy_count as f64 - 0.001)) as i32
             let e: Enemy = self.enemies[i]
-            if e.hit_cd <= 0.0 and self.on_screen(e.pos, -20.0): return i
+            if e.hit_cd <= 0.0 and self.on_screen(e.pos, -20.0) and length2(sub(e.pos, self.player)) < 560.0 * 560.0: return i
         -1
 
     fn arc_chain(mut self: Self, from: V2, chain: i32, range: f64, damage: i32):
@@ -924,7 +935,7 @@ extend Game:
             if target < 0: break
             let pos: V2 = self.enemies[target].pos
             if self.arc_count < ARC_CAP:
-                self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos }
+                self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos, seed: self.rng }
                 self.arc_count += 1
             let _ = self.damage_enemy(target, damage, direction(sub(pos, origin)))
             self.break_beacons_on_segment(origin, pos, 8.0)
@@ -1062,18 +1073,23 @@ extend Game:
                             // each chaining on to its neighbors.
                             self.build.weapons[slot].timer = stats.cooldown
                             var struck = 0
-                            for b in 0..stats.count:
-                                // The first bolt always strikes the closest threat.
-                                let near = if b == 0: self.nearest_enemy(self.player, 420.0, true) else: -1
-                                let target = if near >= 0: near else: self.random_visible_enemy()
+                            let zap = ((stats.damage as f64) * self.rules.lightning_damage + 0.5) as i32
+                            let zap_damage = if zap < 1: 1 else: zap
+                            // The Phase carries one extra bolt.
+                            let bolts = stats.count + (if self.launch.ship == .Phase: 1 else: 0)
+                            for _ in 0..bolts:
+                                let target = self.random_visible_enemy()
                                 if target < 0: break
                                 let pos: V2 = self.enemies[target].pos
+                                let from = add(self.player, scale(direction(sub(pos, self.player)), 16.0))
                                 if self.arc_count < ARC_CAP:
-                                    self.arcs[self.arc_count] = ArcBolt { a: add(pos, V2 { x: (self.random() - 0.5) * 120.0, y: -560.0 }), b: pos }
+                                    self.arcs[self.arc_count] = ArcBolt { a: from, b: pos, seed: self.rng }
                                     self.arc_count += 1
                                 self.pulse(pos, 44.0, .Violet)
-                                let _ = self.damage_enemy(target, stats.damage, V2 { y: 1.0 })
-                                if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, stats.damage * 2 / 3 + 1)
+                                let _ = self.damage_enemy(target, zap_damage, V2 { y: 1.0 })
+                                // Anyone unlucky enough to be in the way is struck too.
+                                self.strike_line(from, pos, zap_damage)
+                                if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, zap_damage * 2 / 3 + 1)
                                 struck += 1
                             if struck > 0: self.zap_event = true
                         }
@@ -1482,7 +1498,8 @@ extend Game:
                             if enemy.timer <= 0.0 and self.on_screen(enemy.pos, -20.0):
                                 enemy.state = 1
                                 enemy.timer = 1.0
-                                enemy.vel = scale(toward, enemy.speed * 2.6)
+                                // A rush a little slower than the ship: dodgeable, not escapable by standing.
+                                enemy.vel = scale(toward, enemy.speed * 1.6)
                             else: velocity = scale(toward, enemy.speed * 0.5)
                         else:
                             velocity = enemy.vel

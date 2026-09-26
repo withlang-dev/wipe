@@ -389,6 +389,62 @@ pub type Camera { origin: V2 = V2 {}, shake: V2 = V2 {} }
 impl Copy for Camera
 pub fn to_screen(cam: Camera, p: V2) -> V2: add(sub(p, cam.origin), cam.shake)
 
+// A tiny generator so a bolt's shape is fixed by its seed.
+type Jitter { state: u32 }
+extend Jitter:
+    fn next(mut self: Self) -> f64:
+        self.state = self.state *% 1664525 +% 1013904223
+        (self.state % 65536) as f64 / 65535.0 * 2.0 - 1.0
+
+// Midpoint displacement: split every segment, push the midpoint sideways by
+// a share of the segment's length, repeat. The result zigzags at every scale.
+fn zigzag(a: V2, b: V2, rough: f64, depth: i32, seed: u32) -> Vec[V2]:
+    var jit = Jitter { state: seed }
+    var points: Vec[V2] = Vec.new()
+    points.push(a)
+    points.push(b)
+    var spread = sqrt(length2(sub(b, a))) * rough
+    for _ in 0..depth:
+        var next: Vec[V2] = Vec.new()
+        for k in 0..(points.len() as i32 - 1):
+            let p: V2 = points[k]
+            let q: V2 = points[k + 1]
+            let side = perpendicular(direction(sub(q, p)))
+            let mid = add(scale(add(p, q), 0.5), scale(side, jit.next() * spread))
+            next.push(p)
+            next.push(mid)
+        next.push(points[points.len() as i32 - 1])
+        points = next
+        spread *= 0.55
+    points
+
+fn polyline(points: &Vec[V2], width: f64, color: Color):
+    for k in 0..(points.len() as i32 - 1): line(points[k], points[k + 1], width, color)
+
+fn draw_lightning(a: V2, b: V2, seed: u32, remaining: f64):
+    let main = zigzag(a, b, 0.22, 5, seed)
+    // The glow, then the stroke, then the white-hot core.
+    polyline(&main, 11.0 * remaining + 2.0, blue(0.10 * remaining))
+    polyline(&main, 4.0, violet(0.75 * remaining))
+    polyline(&main, 1.6, white(remaining))
+    // Forks: thin branches peeling off the main stroke.
+    var jit = Jitter { state: seed ^ 0x5bd1e995 }
+    let n = main.len() as i32
+    let heading = direction(sub(b, a))
+    let length = sqrt(length2(sub(b, a)))
+    for f in 0..4:
+        let at = 3 + ((jit.next() * 0.5 + 0.5) * (n as f64 - 6.0)) as i32
+        if at < 1 or at >= n - 1: continue
+        let from: V2 = main[at]
+        let turn = jit.next() * 0.9
+        let dir = V2 { x: heading.x * cos(turn) - heading.y * sin(turn), y: heading.x * sin(turn) + heading.y * cos(turn) }
+        let reach = length * (0.12 + 0.18 * (jit.next() * 0.5 + 0.5))
+        let fork = zigzag(from, add(from, scale(dir, reach)), 0.3, 3, seed +% (f as u32) *% 7919)
+        polyline(&fork, 2.0, violet(0.5 * remaining))
+        polyline(&fork, 0.9, white(0.8 * remaining))
+    circle(b, 5.0 * remaining, white(remaining))
+    circle(b, 12.0 * remaining, violet(0.25 * remaining))
+
 fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     let arena_origin = to_screen(cam, V2 {})
     let arena = Rectangle { x: arena_origin.x as f32, y: arena_origin.y as f32, width: g.rules.arena_width as f32, height: g.rules.arena_height as f32 }
@@ -551,25 +607,11 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         line(a, e, 3.0 * remaining + 1.0, white(remaining))
         circle(a, 8.0 * remaining, white(remaining))
         circle(e, 5.0 * remaining, red(remaining))
-    // Arcs: jagged lightning.
+    // Lightning: a jagged stroke with forks, a white-hot core in a blue-violet glow.
     for i in 0..g.arc_count:
         let bolt: ArcBolt = g.arcs[i]
         let remaining = bolt.life / bolt.total
-        let a = to_screen(cam, bolt.a)
-        let e = to_screen(cam, bolt.b)
-        let delta = sub(e, a)
-        let side = perpendicular(direction(delta))
-        var last = a
-        for k in 1..6:
-            let t = k as f64 / 6.0
-            let jag = sin(clock * 60.0 + k as f64 * 2.3 + bolt.a.x) * 9.0 * (1.0 - remaining * 0.5)
-            let next = if k == 6: e else: add(add(a, scale(delta, t)), scale(side, jag))
-            line(last, next, 9.0, violet(0.14 * remaining))
-            line(last, next, 3.0, violet(0.9 * remaining))
-            line(last, next, 1.4, white(remaining))
-            last = next
-        line(last, e, 3.0, violet(0.9 * remaining))
-        circle(e, 4.0 * remaining, white(remaining))
+        draw_lightning(to_screen(cam, bolt.a), to_screen(cam, bolt.b), bolt.seed, remaining)
     // Orbit blades are positions on a ring around the ship.
     for slot in 0..SLOT_COUNT:
         let s: WeaponSlot = g.build.weapons[slot]
@@ -846,7 +888,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     let counts = f"KILLS {commas(g.kills)}     REROLL {g.rerolls}   SKIP {g.skips}   BANISH {g.banishes}   REBOOT {g.reboots}"
     label(counts, (WIDTH - MeasureText(counts, 10)) / 2, HEIGHT - 32, 10, white(0.5))
     if hud.show_hints and g.elapsed < 8.0:
-        let hint = "MOVE  WASD / LEFT STICK     AIM  MOUSE / RIGHT STICK     AUTO-FIRE     ESC  PAUSE"
+        let hint = "MOVE  WASD / LEFT STICK     AIM  MOUSE / RIGHT STICK     AUTO-FIRE     ESC  PAUSE, ESC AGAIN FOR TITLE"
         label(hint, (WIDTH - MeasureText(hint, 10)) / 2, HEIGHT - 16, 10, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
     // Banner.
     if g.banner.life > 0.0:

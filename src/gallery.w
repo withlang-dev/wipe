@@ -211,5 +211,13 @@ fn main:
     off.drop_pickup(add(off.player, V2 { x: 100.0, y: 600.0 }), PickupKind.Freeze)
     off = step(off, 0.2, V2 { x: 1.0 })
     shot(&renderer, &off, 80.0, "60-offscreen-pickups")
+    // Lightning mid-strike: bolts from the ship, forking, chaining on.
+    var zap = staged()
+    zap.build.weapons[0] = WeaponSlot { weapon: .Arc, level: 5 }
+    zap = surround(zap, 18, 300.0, Kind.Block)
+    for i in 0..zap.enemy_count: zap.enemies[i].hp = 400
+    zap.build.weapons[0].timer = 0.0
+    zap = step(zap, 0.04, V2 { x: 1.0 })
+    shot(&renderer, &zap, 90.0, "61-lightning")
     print("gallery done")
     0

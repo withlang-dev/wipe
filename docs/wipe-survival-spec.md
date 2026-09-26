@@ -101,7 +101,8 @@ Steam Deck first; desktop is the development platform.
 | Boost: reroll, skip, banish | R, K, N | X, Y, LB |
 | Retry as the new ship | Tab | RB |
 | Pause | Escape in a run | Start |
-| Quit | Escape on the title | Hold B on the title |
+| Leave the run for the title | Escape or Q in pause | Quit to title in pause |
+| Quit | Escape or Q on the title | Hold B on the title |
 
 Requirements: radial deadzone on both sticks, centered aim retains the last
 direction, mouse movement takes aim back from the pad, gameplay input ignored
@@ -338,7 +339,7 @@ Launch roster, eight weapons:
 | Seeker | Homing bolts at the nearest enemy. |
 | Lance | Piercing beam in the movement direction. |
 | Mines | Dropped on the path, detonating on contact. |
-| Arc | Lightning strikes random enemies about once a second, the first bolt on the closest threat. One bolt at I, three at V; chains to neighbors from II. |
+| Arc | Every second, lightning from the ship strikes a random enemy and anything in its path. I: one bolt. II: two. III: two, each chaining once. IV: two, chaining twice. V: three, chaining twice. Bolts are not projectiles. |
 | Shard | Bouncing fragments that ricochet off arena walls. |
 
 ### Passives
@@ -535,7 +536,7 @@ the game, and the reason a player who has cleared a run starts another.
 | Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +1 blade every 6 levels, +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
 | Needle | Lance | +35% damage, −20% cooldowns, lance pierce doubled | +3% damage per level | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
 | Sapper | Mines | +50% area, −28% cooldowns, +3 max health, mines chain-detonate | The cooldown edge fades after level 18 | Only 4 weapon slots | Complete two merges in one run |
-| Phase | Arc | Phases out for 1.5 s every 5 s; +2 lightning bolts; 3 s invulnerable on every level-up; −20% cooldowns | The rhythm slows and a +90% damage edge fades with level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
+| Phase | Arc | Phases out for 1.5 s every 5 s; +1 lightning bolt; 3 s invulnerable on every level-up; −20% cooldowns | The rhythm slows and a +90% damage edge fades with level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
 | Null | Nova | Starts at level 5 with three weapons at level III; +30% credits; +3 max health | +1% credits per level | −25% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 
 ### Ship profiles
@@ -561,21 +562,14 @@ route. A run has three phases:
 | Phase | Even | Strong | Weak | Level-up invulnerability chains through the middle game; one hit kills, and late levels come slowly. |
 | Null | Strong | Even | Weak | Starts at level 5 with three weapons; no merges and less XP let it fade late. |
 
-Each rating is a measured band for the careful playtest bot over sixteen
-seeds (`runs profile 16`), and `test/targets.w` holds every ship inside its
-bands:
-
-| Phase | Measured as | Strong | Even | Weak |
-|---|---|---|---|---|
-| Opening | runs past 2:00 | 14 or more | 12 or more | 8 or more |
-| Middle | runs past 10:00 | 9 or more | 5 to 13 | 3 to 12 |
-| Late | runs past 15:00 | 3 or more | 1 to 9 | 6 or fewer |
-
-The bands overlap because the bot resolves shape coarsely: it plays every
-ship the same way, perfectly aimed and never greedy. Recorded human runs
-(`runs calibrate`) are the finer check. Every weapon at level V kills 600
-to 1,500 enemies a minute against the balance bench's swarm, and every
-merge 1,100 to 3,600.
+The ratings are design intent, measured with the careful playtest bot
+(`runs profile 16`) and, more finely, against recorded human runs (`runs
+calibrate`). Ships are not guaranteed to survive: a weak phase is allowed
+to be genuinely weak. `test/targets.w` guards only the extremes, failing
+when a ship collapses in the opening (fewer than 6 of 16 bot runs past
+2:00, the signature of a bug) or runs away late (more than 12 of 16 past
+15:00). Every weapon at level V kills 600 to 1,500 enemies a minute against
+the balance bench's swarm, and every merge 1,100 to 3,600.
 
 A standing-still Claw dies in 15 to 45 seconds: measured against Vampire
 Survivors (10 to 13 seconds on an upgraded profile), then eased after
