@@ -115,6 +115,7 @@ extend Kind:
     fn base_hp(self: &Self, minute: f64) -> i32:
         let m = minute
         let curve = m * 0.8 + m * m * 0.045
+        // Opening enemies die to one hit; the pressure is their number.
         match self:
             .Block => (1.0 + curve) as i32
             .Spinner => (3.0 + curve * 1.3) as i32
@@ -122,18 +123,18 @@ extend Kind:
             .Weaver => (2.0 + curve * 0.9) as i32
             .Skimmer => (2.0 + curve * 0.9) as i32
             .Well => (24.0 + curve * 6.0) as i32
-            .Boss => (200.0 + m * 90.0 + m * m * 6.0) as i32
+            .Boss => (500.0 + m * 200.0 + m * m * 12.0) as i32
             .Null => 6000
     fn contact_damage(self: &Self, minute: f64) -> i32:
         let scaled = (minute / 4.0) as i32
         match self:
-            .Block => 2 + scaled
-            .Spinner => 3 + scaled
-            .Dart => 1 + scaled
-            .Weaver => 2 + scaled
-            .Skimmer => 2 + scaled
-            .Well => 3 + scaled
-            .Boss => 4 + scaled
+            .Block => 3 + scaled
+            .Spinner => 4 + scaled
+            .Dart => 3 + scaled
+            .Weaver => 3 + scaled
+            .Skimmer => 3 + scaled
+            .Well => 4 + scaled
+            .Boss => 6 + scaled
             .Null => 1000
     // XP a core from this kind carries.
     fn core_value(self: &Self) -> i32:
@@ -266,7 +267,7 @@ pub type Game {
     invulnerable: f64 = 0.0, muzzle: f64 = 0.0,
     trauma: f64 = 0.0, flash: f64 = 0.0, freeze: f64 = 0.0, kill_energy: f64 = 0.0,
     enemies_frozen: f64 = 0.0, breather: f64 = 0.0,
-    spawn_timer: f64 = 0.7, next_elite: f64 = 180.0,
+    spawn_timer: f64 = 0.7, next_elite: f64 = 180.0, refill_timer: f64 = 0.0,
     boss_index: i32 = 0, boss_alive: bool = false,
     null_alive: bool = false, cleared: bool = false, endless_loop: i32 = 0,
     event_index: i32 = 0, event_telegraph: f64 = 0.0, event_side: i32 = 0,
@@ -353,14 +354,10 @@ extend Game:
     fn difficulty(self: &Self) -> f64:
         (1.0 + self.mods.overclock) * self.loop_scale(1.9)
 
-    // The first ninety seconds hit half as hard: a run should not end
-    // before the player has seen a level-up.
+    // Three or four touches end a fresh ship: the swarm is dangerous
+    // because there is so much of it.
     fn contact(self: &Self, kind: Kind) -> i32:
-        let full = kind.contact_damage(self.table_minute()) + self.endless_loop * 2
-        if self.elapsed < 90.0 and kind != .Null:
-            let half = full / 2
-            if half < 1: 1 else: half
-        else: full
+        kind.contact_damage(self.table_minute()) + self.endless_loop * 2
     pub fn boss_minute(self: &Self) -> Option[f64]:
         let minutes = self.rules.boss_minutes()
         if self.boss_index < 3: Some(minutes[self.boss_index]) else: None
@@ -423,6 +420,7 @@ extend Game:
         self.enemies_frozen = 0.0
         self.breather = 0.0
         self.spawn_timer = 0.7
+        self.refill_timer = 0.0
         self.next_elite = self.rules.first_elite
         self.boss_index = 0
         self.boss_alive = false
@@ -642,10 +640,16 @@ extend Game:
         self.enemy_count += 1
         true
 
+    // Spawns arrive in small clusters from one direction, so the swarm
+    // closes from somewhere and standing still gets the ship surrounded.
     pub fn spawn_enemy(mut self: Self):
         let Some(pos) = self.spawn_point() else return
         let kind = self.pick_kind()
-        let _ = self.place_enemy(pos, kind)
+        let size = 1 + (self.random() * 3.0) as i32
+        for k in 0..size:
+            let angle = self.random() * 6.283185307
+            let at = if k == 0: pos else: add(pos, V2 { x: cos(angle) * 28.0, y: sin(angle) * 28.0 })
+            let _ = self.place_enemy(self.clamp_to_arena(at, 8.0), kind)
 
     fn spawn_elite(mut self: Self):
         let Some(pos) = self.spawn_point() else return
@@ -950,14 +954,15 @@ extend Game:
             match s.weapon.family():
                 .Orbiting => {
                     // Blades are positions on a ring; each hits once per cooldown.
-                    let turn = dt * (2.6 + 0.2 * s.level as f64)
+                    // Fast enough that one blade sweeps the ring before a chaser crosses it.
+                    let turn = dt * 6.0
                     self.build.weapons[slot].phase += turn
                     let phase: f64 = self.build.weapons[slot].phase
                     var pulsed = false
                     for b in 0..stats.count:
                         let angle = phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
-                        let _ = self.damage_area(blade, 18.0, stats.damage, false, 0.4)
+                        let _ = self.damage_area(blade, 30.0, stats.damage, false, 0.3)
                         if stats.ring_on_orbit and self.build.weapons[slot].timer <= 0.0 and not pulsed:
                             pulsed = true
                             self.spawn_wave(blade, WeaponStats { radius: 90.0, damage: stats.damage })
@@ -1009,7 +1014,10 @@ extend Game:
                             // let an endless Needle run for an hour.
                             var beam = stats
                             if self.launch.ship == .Needle: beam.pierce *= 2
+                            // Forward and back, like a whip's two sides: a ship
+                            // retreating from the swarm still strikes it.
                             self.fire_beam(self.player, heading2, beam)
+                            self.fire_beam(self.player, scale(heading2, -1.0), beam)
                             self.shot_event = true
                         }
                         .Dropped => {
@@ -1365,6 +1373,16 @@ extend Game:
             if self.minute() >= table[self.event_index].minute:
                 self.event_telegraph = 2.0
                 self.event_side = (self.random() * 3.999) as i32
+        // Vampire Survivors' model: the arena is kept at a minimum number
+        // of enemies, filled from just off screen, so standing still is
+        // fatal within seconds and clearing buys only a moment. A trickle
+        // of ordinary spawns rides on top.
+        if self.breather <= 0.0 and not self.null_alive:
+            let floor = (self.rules.minimum_alive(self.table_minute()) * self.rules.spawn_scale * (1.0 + self.mods.overclock) * self.loop_scale(1.3)) as i32
+            self.refill_timer -= dt
+            if self.enemy_count < floor and self.refill_timer <= 0.0 and self.enemy_count < ENEMY_CAP - 64:
+                self.refill_timer = 0.12
+                self.spawn_enemy()
         // Ordinary spawns, thinned in a breather and clamped to the budget.
         self.spawn_timer -= dt
         if self.spawn_timer <= 0.0:

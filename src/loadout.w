@@ -100,7 +100,7 @@ extend Weapon:
             .Orbit => "Blades circle the ship."
             .Nova => "A ring burst around the ship."
             .Seeker => "Homing bolts at the nearest enemy."
-            .Lance => "A piercing beam along the movement direction."
+            .Lance => "Piercing beams forward and back along the movement."
             .Mines => "Dropped on the path, detonating on contact."
             .Arc => "Lightning that chains between nearby enemies."
             .Shard => "Fragments that ricochet off the arena walls."
@@ -289,7 +289,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     // harder per shot than area families, which hit many.
     match weapon.family():
         .Aimed => {
-            s.cooldown = 1.0 / (7.0 * (1.0 + (l - 1.0) * 0.06))
+            // A modest start that grows: at level one the Cannon cannot keep up
+            // with the opening swarm alone.
+            s.cooldown = 1.0 / (4.5 * (1.0 + (l - 1.0) * 0.12))
             s.damage = 2 + level / 2
             s.count = 1 + step(level, 2, 3)
             s.speed = 940.0
@@ -297,9 +299,10 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         }
         .Orbiting => {
             s.cooldown = 0.25
-            s.count = 3 + step(level, 3, 3)
-            s.radius = 80.0 + l * 6.0
-            s.damage = 2 + level / 2
+            // One blade at level I, one more each level: five at V.
+            s.count = if weapon.is_merged(): MAX_WEAPON_LEVEL else: merged_level
+            s.radius = 75.0 + l * 6.0
+            s.damage = 3 + level / 2
         }
         .Ring => {
             s.cooldown = 2.6 - (l - 1.0) * 0.14
@@ -315,16 +318,17 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.homing = true
         }
         .Beam => {
-            s.cooldown = 0.85 - (l - 1.0) * 0.04
+            s.cooldown = 0.55 - (l - 1.0) * 0.025
             s.radius = 420.0 + l * 30.0
-            s.damage = 3 + level
-            s.pierce = 3 + level
+            // Two beams, forward and back, so each hits for less.
+            s.damage = 1 + level / 2
+            s.pierce = 2 + level / 2
         }
         .Dropped => {
-            s.cooldown = 2.0 - (l - 1.0) * 0.1
-            s.radius = 60.0 + l * 7.0
+            s.cooldown = 1.1 - (l - 1.0) * 0.06
+            s.radius = 85.0 + l * 7.0
             s.damage = 2 + level
-            s.max_active = 3 + step(level, 2, 2)
+            s.max_active = 5 + step(level, 2, 2)
         }
         .Chain => {
             s.cooldown = 0.9 - (l - 1.0) * 0.05
@@ -333,7 +337,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.damage = 5 + level * 3 / 2
         }
         .Bouncing => {
-            s.cooldown = 0.8 - (l - 1.0) * 0.04
+            s.cooldown = 0.55 - (l - 1.0) * 0.03
             s.count = 2 + step(level, 3, 3)
             s.bounces = 2 + step(level, 4, 4)
             s.speed = 640.0

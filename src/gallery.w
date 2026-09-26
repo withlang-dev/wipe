@@ -20,7 +20,7 @@ fn shot(renderer: &Renderer, g: &Game, clock: f64, name: &str, cursor: i32 = 0):
 
 // A game with no spawns, a ring of still targets, and a chosen loadout.
 fn staged(ship: Ship = .Claw) -> Game:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     var launch = Launch { ship }
     for i in 0..BASE_WEAPON_COUNT: launch.unlocked_weapons[i] = true
     for i in 0..PASSIVE_COUNT: launch.unlocked_passives[i] = true

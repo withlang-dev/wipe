@@ -13,7 +13,7 @@ pub type Rules {
     cannon_interval: f64 = 1.0 / 7.0,
     bullet_speed: f64 = 940.0,
     bullet_lifetime: f64 = 1.6,
-    enemy_speed: f64 = 83.0,
+    enemy_speed: f64 = 110.0,
     enemy_speed_variation: f64 = 32.0,
     spawn_grace: f64 = 0.15,
     bullet_hit_radius: f64 = 17.0,
@@ -32,7 +32,7 @@ pub type Rules {
     lookahead: f64 = 120.0,
     camera_ease: f64 = 6.0,
     // Timeline first-appearance minutes.
-    dart_minute: f64 = 2.0,
+    dart_minute: f64 = 0.66,
     spinner_minute: f64 = 5.0,
     weaver_minute: f64 = 5.0,
     skimmer_minute: f64 = 8.0,
@@ -49,6 +49,8 @@ pub type Rules {
     void_radius: f64 = 0.0,
     // Offer weights: an upgrade to an owned weapon or passive against a new card at 1.
     upgrade_weight: f64 = 3.0,
+    // The floor of enemies alive at the start of a run (see minimum_alive).
+    minimum_start: f64 = 24.0,
     passive_upgrade_weight: f64 = 1.5,
 }
 
@@ -56,14 +58,20 @@ extend Rules:
     // Spawns per second at a minute of the run. The curve is gentle for two
     // minutes, then climbs so the view fills at fifteen minutes.
     pub fn spawn_rate(self: &Self, minute: f64) -> f64:
-        if minute < 2.0: 1.1 + minute * 0.2
-        else: 1.5 + (minute - 2.0) * 0.9
+        // Clusters average two enemies, so these are cluster rates. The
+        // minimum_alive floor carries the opening; this is the trickle.
+        if minute < 2.0: 0.6 + minute * 0.3
+        else: 1.2 + (minute - 2.0) * 0.5
+
+    // Enemies kept alive: sixteen at the start, rising each minute.
+    pub fn minimum_alive(self: &Self, minute: f64) -> f64:
+        self.minimum_start + minute * 10.0 + minute * minute * 0.6
 
     // XP a level needs: early levels every thirty seconds, late ones every
     // minute or two against a rising kill rate.
     pub fn xp_for_level(self: &Self, level: i32) -> i32:
         let l = (level - 1) as f64
-        (9.0 + l * 10.0 + l * l * 2.2) as i32
+        (22.0 + l * 16.0 + l * l * 3.0) as i32
 
     // Bosses at five, ten, and fifteen minutes.
     pub fn boss_minutes(self: &Self) -> [f64; 3]: [5.0, 10.0, 15.0]
@@ -80,7 +88,7 @@ impl Copy for Event
 // kind_index follows game.kind_at: 0 Block, 1 Spinner, 2 Dart, 3 Weaver.
 pub fn events() -> [Event; 12]:
     [
-        Event { minute: 2.5, formation: .Sweep, kind_index: 0, count: 18 },
+        Event { minute: 0.75, formation: .Ring, kind_index: 0, count: 16 },
         Event { minute: 4.0, formation: .Ring, kind_index: 2, count: 20 },
         Event { minute: 6.0, formation: .Sweep, kind_index: 0, count: 28 },
         Event { minute: 7.5, formation: .Spiral, kind_index: 1, count: 22 },

@@ -8,7 +8,7 @@ fn near(actual: f64, expected: f64):
     assert(actual > expected - 0.001 and actual < expected + 0.001)
 
 fn movement_uat:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     let start: V2 = g.player
     g.tick(Controls { motion: V2 { x: 1.0, y: 1.0 }, aim: V2 { x: 0.0, y: -1.0 } }, 0.1)
     near(sqrt(length2(sub(g.player, start))), 26.5)
@@ -28,7 +28,7 @@ fn movement_uat:
 fn combat_uat:
     assert(segment_hit(V2 {}, V2 { x: 100.0 }, V2 { x: 50.0, y: 3.0 }, 5.0))
     assert(not segment_hit(V2 {}, V2 { x: 100.0 }, V2 { x: 50.0, y: 6.0 }, 5.0))
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     let _ = g.place_enemy(add(g.player, V2 { x: 40.0 }), .Dart)
     g.enemies[0].age = 1.0
     g.enemies[0].speed = 0.0
@@ -45,8 +45,8 @@ fn combat_uat:
     g.enemies[0].age = 1.0
     g.enemies[0].speed = 0.0
     g.tick(Controls {}, 1.0 / 120.0)
-    // The first ninety seconds hit half as hard.
-    assert(g.health == 9 and g.hurt_event and g.hits_taken == 1 and g.combo == 0)
+    // A Block's touch costs three of ten.
+    assert(g.health == 7 and g.hurt_event and g.hits_taken == 1 and g.combo == 0)
     g.enemy_count = 0
     // Death names its killer and records the health before the hit.
     g.health = 1
@@ -70,7 +70,7 @@ fn combat_uat:
     assert(g.bullet_count == 1 and g.shot_event)
 
 fn boost_uat:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     // The first level's XP; the boost pauses the world.
     g.gain_xp(g.xp_next)
     g.tick(Controls {}, 1.0 / 120.0)
@@ -106,7 +106,7 @@ fn boost_uat:
 
 fn merges_uat:
     // Two ready recipes sharing the Orbit: both are offered, not just the first.
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     g.build = Build { unlocked_weapons: g.build.unlocked_weapons, unlocked_passives: g.build.unlocked_passives }
     g.build.add_weapon(.Orbit)
     g.build.add_weapon(.Nova)
@@ -128,13 +128,13 @@ fn merges_uat:
     assert(corona and pulsar)
 
 fn timeline_uat:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     g.elapsed = 299.9
     for _ in 0..30: g.tick(Controls {}, 1.0 / 120.0)
     assert(g.boss_alive and g.boss_event or g.boss_alive)
     assert(g.boss_index == 1)
     // Elites arrive on schedule and carry a cache.
-    var h = Game.new()
+    var h = Game.new(Rules { minimum_start: 0.0 })
     h.elapsed = 239.9
     for _ in 0..30: h.tick(Controls {}, 1.0 / 120.0)
     var elites = 0
@@ -142,7 +142,7 @@ fn timeline_uat:
         if h.enemies[i].elite: elites += 1
     assert(elites == 1)
     // The cap spawns the Null and marks the run cleared.
-    var n = Game.new()
+    var n = Game.new(Rules { minimum_start: 0.0 })
     n.elapsed = 1199.99
     n.boss_index = 3
     for _ in 0..10: n.tick(Controls {}, 1.0 / 120.0)
@@ -152,7 +152,7 @@ fn timeline_uat:
         if n.enemies[i].kind == .Null: found = true
     assert(found)
     // Endless never spawns the Null.
-    var e = Game.new()
+    var e = Game.new(Rules { minimum_start: 0.0 })
     var launch = Launch {}
     for i in 0..8: launch.unlocked_weapons[i] = true
     for i in 0..8: launch.unlocked_passives[i] = true
@@ -164,7 +164,7 @@ fn timeline_uat:
     assert(not e.cleared and not e.null_alive)
 
 fn ships_uat:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     var launch = Launch { ship: .Hull }
     for i in 0..8: launch.unlocked_weapons[i] = true
     for i in 0..8: launch.unlocked_passives[i] = true
@@ -180,7 +180,7 @@ fn ships_uat:
 
 fn abandon_uat:
     // Abandoning banks the same end-of-run credits a death does.
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     g.kills = 200
     g.elapsed = 120.0
     g.abandon()
@@ -205,7 +205,7 @@ fn stage_uat:
     near(g.zoom(), 1.0)
 
 fn capacity_uat:
-    var g = Game.new()
+    var g = Game.new(Rules { minimum_start: 0.0 })
     g.stress()
     assert(g.enemy_count == 350)
     for _ in 0..3000: g.spawn_enemy()
@@ -216,7 +216,7 @@ fn capacity_uat:
     assert(g.core_count <= CORE_CAP)
     for _ in 0..30: g.tick(Controls {}, 1.0 / 120.0)
     // Aged cores on the floor merge into one larger core.
-    var m = Game.new()
+    var m = Game.new(Rules { minimum_start: 0.0 })
     m.drop_core(V2 { x: 200.0, y: 200.0 }, 1)
     m.drop_core(V2 { x: 220.0, y: 200.0 }, 2)
     for _ in 0..(120 * 4): m.tick(Controls {}, 1.0 / 120.0)
@@ -227,8 +227,8 @@ fn capacity_uat:
     assert(total == 1)
 
 fn determinism_uat:
-    var a = Game.new()
-    var b = Game.new()
+    var a = Game.new(Rules { minimum_start: 0.0 })
+    var b = Game.new(Rules { minimum_start: 0.0 })
     for i in 0..600:
         let controls = Controls { motion: V2 { x: sin(i as f64 * 0.05), y: cos(i as f64 * 0.03) }, aim: V2 { x: cos(i as f64 * 0.1), y: sin(i as f64 * 0.1) } }
         a.tick(controls, 1.0 / 120.0)

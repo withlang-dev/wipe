@@ -911,7 +911,7 @@ pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i3
     let a = weapon_stats(after, after_level, mods)
     let f = after.family()
     rows.push(stat_row("Damage", has_before, f"{b.damage}", f"{a.damage}"))
-    if f == .Orbiting: rows.push(stat_row("Hits/s", has_before, "2.5", "2.5"))
+    if f == .Orbiting: rows.push(stat_row("Hits/s", has_before, "3.3", "3.3"))
     else: rows.push(stat_row("Rate/s", has_before, fmt1(1.0 / b.cooldown), fmt1(1.0 / a.cooldown)))
     let cn = count_name(f)
     if cn.len() > 0:
@@ -929,8 +929,8 @@ pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i3
 fn amount(x: f64) -> str: if x < 10.0: fmt1(x) else: f"{x as i32}"
 
 fn output(f: Family, s: WeaponStats) -> f64:
-    let rate = if f == .Orbiting: 2.5 else: 1.0 / s.cooldown
-    let n = if f == .Chain: s.chain else if f == .Dropped: 1 else if f == .Ring or f == .Beam: 1 else: s.count
+    let rate = if f == .Orbiting: 3.3 else: 1.0 / s.cooldown
+    let n = if f == .Chain: s.chain else if f == .Beam: 2 else if f == .Dropped or f == .Ring: 1 else: s.count
     (s.damage as f64) * rate * (n as f64)
 
 fn stat_row(name: &str, has_before: bool, before: str, after: str) -> StatRow:

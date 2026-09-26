@@ -245,7 +245,7 @@ fn main:
                 }
                 .Pause => {
                     // Once, abandon the run from here: down to the fourth item, A twice.
-                    if runs_done == 2 and not p.abandoned:
+                    if runs_done >= 2 and not p.abandoned:
                         if wipe.pause_cursor != 3: m.down = true
                         else:
                             m.confirm = true
