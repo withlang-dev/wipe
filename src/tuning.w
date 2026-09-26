@@ -27,7 +27,7 @@ pub type Rules {
     magnet_radius: f64 = 110.0,
     core_speed: f64 = 520.0,
     core_merge_age: f64 = 3.0,
-    combo_window: f64 = 2.0,
+    combo_window: f64 = 1.0,
     // Camera lookahead toward the aim direction, in pixels.
     lookahead: f64 = 120.0,
     camera_ease: f64 = 6.0,
@@ -47,6 +47,8 @@ pub type Rules {
     speed_scale: f64 = 1.0,
     // A dead center: a circle at the arena's middle that nothing enters.
     void_radius: f64 = 0.0,
+    // Which stage's walls this arena has (Stage.index).
+    layout: i32 = 0,
     // Offer weights: an upgrade to an owned weapon or passive against a new card at 1.
     upgrade_weight: f64 = 5.0,
     new_weapon_weight: f64 = 2.5,
@@ -79,7 +81,8 @@ extend Rules:
     // minute or two against a rising kill rate.
     pub fn xp_for_level(self: &Self, level: i32) -> i32:
         let l = (level - 1) as f64
-        (22.0 + l * 16.0 + l * l * 3.0) as i32
+        // About a third more XP per level than before: fewer, heavier level-ups.
+        (29.0 + l * 21.0 + l * l * 4.0) as i32
 
     // Bosses at five, ten, and fifteen minutes.
     pub fn boss_minutes(self: &Self) -> [f64; 3]: [5.0, 10.0, 15.0]
@@ -110,20 +113,37 @@ pub fn events() -> [Event; 12]:
         Event { minute: 19.0, formation: .Ring, kind_index: 2, count: 56 },
     ]
 
-// Stages are arena shapes with a rule modifier. Geometry is level design,
-// and in an abstract game it costs no art.
-pub enum Stage { | Field | Corridor | Shaft | Ring }
+// A solid block inside the arena: ships, enemies, cores, and shots stop at
+// it. Stages are built from them.
+pub type Wall { x: f64 = 0.0, y: f64 = 0.0, w: f64 = 0.0, h: f64 = 0.0 }
+impl Copy for Wall
+
+// Stages are arena shapes with walls and a rule modifier. Geometry is level
+// design, and in an abstract game it costs no art. Indices are stable:
+// recordings name stages by them.
+pub enum Stage { | Field | Corridor | Shaft | Ring | Pillars | Maze | Expanse | Cross | Gridlock }
 impl Copy for Stage
 impl Eq for Stage
 
-pub const STAGE_COUNT: i32 = 4
+pub const STAGE_COUNT: i32 = 9
 
 pub fn stage_at(index: i32) -> Stage:
     match index:
         0 => .Field
         1 => .Corridor
         2 => .Shaft
-        _ => .Ring
+        3 => .Ring
+        4 => .Pillars
+        5 => .Maze
+        6 => .Expanse
+        7 => .Cross
+        _ => .Gridlock
+
+// Select-screen order: arenas, mazes, open, lanes.
+pub fn stage_order() -> [Stage; 9]:
+    [Stage.Field, Stage.Pillars, Stage.Ring, Stage.Cross, Stage.Maze, Stage.Gridlock, Stage.Expanse, Stage.Corridor, Stage.Shaft]
+
+fn wall(x: f64, y: f64, w: f64, h: f64) -> Wall: Wall { x, y, w, h }
 
 extend Stage:
     pub fn index(self: &Self) -> i32:
@@ -132,24 +152,101 @@ extend Stage:
             .Corridor => 1
             .Shaft => 2
             .Ring => 3
+            .Pillars => 4
+            .Maze => 5
+            .Expanse => 6
+            .Cross => 7
+            .Gridlock => 8
     pub fn name(self: &Self) -> str:
         match self:
             .Field => "Field"
             .Corridor => "Corridor"
             .Shaft => "Shaft"
             .Ring => "Ring"
+            .Pillars => "Pillars"
+            .Maze => "Maze"
+            .Expanse => "Expanse"
+            .Cross => "Cross"
+            .Gridlock => "Gridlock"
+    pub fn kind(self: &Self) -> str:
+        match self:
+            .Field => "ARENA"
+            .Pillars => "ARENA"
+            .Ring => "ARENA"
+            .Cross => "ARENA"
+            .Maze => "MAZE"
+            .Gridlock => "MAZE"
+            .Expanse => "OPEN"
+            .Corridor => "LANE"
+            .Shaft => "LANE"
     pub fn describe(self: &Self) -> str:
         match self:
             .Field => "The open rectangle. Four seconds to any wall."
             .Corridor => "A horizontal corridor. Every fight is a sweep. +30% spawns."
             .Shaft => "A vertical shaft. Nowhere to circle. +20% enemy speed."
             .Ring => "A ring around a dead center. Every chase curves. +15% spawns."
+            .Pillars => "An arena broken by six pillars: cover, and corners to be caught in."
+            .Maze => "Walled corridors. The swarm comes around corners; dead ends are deadly."
+            .Expanse => "Vast and open, a few rocks. Room to run, and nothing to stop the swarm."
+            .Cross => "A plus-shaped hall. Four arms, one crossing where everything meets."
+            .Gridlock => "City blocks and streets. Enemies flood the avenues."
+    // True where enemies need a path around walls rather than a straight
+    // chase: every stage with walls, or a ship could hide behind one.
+    pub fn needs_paths(self: &Self) -> bool: self.walls().len() > 0
     pub fn rules(self: &Self) -> Rules:
         match self:
             .Field => Rules {}
-            .Corridor => Rules { arena_width: 3600.0, arena_height: 720.0, spawn_scale: 1.3 }
-            .Shaft => Rules { arena_width: 900.0, arena_height: 2600.0, speed_scale: 1.2 }
-            .Ring => Rules { arena_width: 2000.0, arena_height: 2000.0, void_radius: 420.0, spawn_scale: 1.15 }
+            .Corridor => Rules { arena_width: 3600.0, arena_height: 720.0, spawn_scale: 1.3, layout: 1 }
+            .Shaft => Rules { arena_width: 900.0, arena_height: 2600.0, speed_scale: 1.2, layout: 2 }
+            .Ring => Rules { arena_width: 2000.0, arena_height: 2000.0, void_radius: 420.0, spawn_scale: 1.15, layout: 3 }
+            .Pillars => Rules { arena_width: 2400.0, arena_height: 1600.0, layout: 4 }
+            .Maze => Rules { arena_width: 3000.0, arena_height: 2000.0, layout: 5 }
+            .Expanse => Rules { arena_width: 3800.0, arena_height: 2800.0, spawn_scale: 1.2, layout: 6 }
+            .Cross => Rules { arena_width: 2600.0, arena_height: 2600.0, layout: 7 }
+            .Gridlock => Rules { arena_width: 3200.0, arena_height: 2200.0, layout: 8 }
+    pub fn walls(self: &Self) -> Vec[Wall]:
+        var out: Vec[Wall] = Vec.new()
+        match self:
+            .Pillars => {
+                for cx in [600.0, 1200.0, 1800.0]:
+                    for cy in [480.0, 1120.0]: out.push(wall(cx - 75.0, cy - 75.0, 150.0, 150.0))
+            }
+            .Maze => {
+                // Vertical baffles with staggered gaps, tied by short runs.
+                out.push(wall(400.0, 0.0, 40.0, 700.0))
+                out.push(wall(400.0, 1000.0, 40.0, 1000.0))
+                out.push(wall(800.0, 300.0, 40.0, 1400.0))
+                out.push(wall(800.0, 300.0, 400.0, 40.0))
+                out.push(wall(1200.0, 700.0, 40.0, 1300.0))
+                out.push(wall(1200.0, 700.0, 300.0, 40.0))
+                out.push(wall(1650.0, 0.0, 40.0, 500.0))
+                out.push(wall(1650.0, 1300.0, 40.0, 400.0))
+                out.push(wall(1650.0, 1300.0, 550.0, 40.0))
+                out.push(wall(2050.0, 300.0, 40.0, 700.0))
+                out.push(wall(2050.0, 300.0, 400.0, 40.0))
+                out.push(wall(2050.0, 1650.0, 40.0, 350.0))
+                out.push(wall(2450.0, 0.0, 40.0, 1000.0))
+                out.push(wall(2450.0, 1300.0, 40.0, 450.0))
+            }
+            .Expanse => {
+                for p in [(500.0, 400.0), (1500.0, 700.0), (2700.0, 450.0), (3200.0, 1500.0), (900.0, 1900.0), (2100.0, 2200.0), (3300.0, 2400.0), (600.0, 1200.0)]:
+                    let (x, y) = p
+                    out.push(wall(x, y, 110.0, 110.0))
+            }
+            .Cross => {
+                let arm = 850.0
+                out.push(wall(0.0, 0.0, arm, arm))
+                out.push(wall(2600.0 - arm, 0.0, arm, arm))
+                out.push(wall(0.0, 2600.0 - arm, arm, arm))
+                out.push(wall(2600.0 - arm, 2600.0 - arm, arm, arm))
+            }
+            .Gridlock => {
+                for i in 0..5:
+                    for j in 0..4:
+                        out.push(wall(220.0 + i as f64 * 580.0, 220.0 + j as f64 * 520.0, 360.0, 300.0))
+            }
+            _ => ()
+        out
 
 // ----- live tuning ------------------------------------------------------------
 
@@ -161,6 +258,7 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ "arena_height " ++ num(r.arena_height) ++ "\n"
     out = out ++ "player_speed " ++ num(r.player_speed) ++ "\n"
     out = out ++ f"max_health {r.max_health}\n"
+    out = out ++ f"layout {r.layout}\n"
     out = out ++ "run_cap " ++ num(r.run_cap) ++ "\n"
     out = out ++ "cannon_interval " ++ num(r.cannon_interval) ++ "\n"
     out = out ++ "bullet_speed " ++ num(r.bullet_speed) ++ "\n"
@@ -248,6 +346,7 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "upgrade_weight": out.upgrade_weight = value
     else if key == "new_weapon_weight": out.new_weapon_weight = value
     else if key == "repair_drop_chance": out.repair_drop_chance = value
+    else if key == "layout": out.layout = value as i32
     else if key == "lightning_damage": out.lightning_damage = value
     else if key == "new_passive_weight": out.new_passive_weight = value
     else if key == "minimum_start": out.minimum_start = value

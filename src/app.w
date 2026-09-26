@@ -14,7 +14,7 @@ use std.fs
 use std.process.env
 
 // The screens of spec §11. One confirm, one back, everywhere.
-pub enum Screen { | Title | Select | Run | Pause | Results | Shop | Collection }
+pub enum Screen { | Title | Select | Maps | Run | Pause | Results | Shop | Collection }
 impl Copy for Screen
 impl Eq for Screen
 
@@ -46,7 +46,7 @@ extend Tab:
             .Passives => "PASSIVES"
             .Merges => "MERGES"
             .Registry => "REGISTRY"
-            .Stages => "STAGES"
+            .Stages => "MAPS"
     fn count(self: &Self) -> i32:
         match self:
             .Ships => SHIP_COUNT
@@ -323,7 +323,8 @@ extend App:
             .Results => self.update_results(m)
             .Shop => self.update_shop(m)
             .Collection => self.update_collection(m)
-        if self.screen == .Title or self.screen == .Select or self.screen == .Shop or self.screen == .Collection:
+            .Maps => self.update_maps(m)
+        if self.screen == .Title or self.screen == .Select or self.screen == .Maps or self.screen == .Shop or self.screen == .Collection:
             // The attract simulation keeps flying behind the menus.
             self.attract_frame += 1
             let flight = pilot(&self.attract, self.attract_frame)
@@ -357,13 +358,6 @@ extend App:
             self.ship_cursor = wrap(self.ship_cursor + (if m.right: 1 else: -1), SHIP_COUNT)
             self.ui_move = true
         let cursor_ship = ship_at(self.ship_cursor)
-        if m.lb or m.rb:
-            var next = self.stage.index()
-            for _ in 0..STAGE_COUNT:
-                next = wrap(next + (if m.rb: 1 else: -1), STAGE_COUNT)
-                if stage_unlocked(stage_at(next), &self.save): break
-            self.stage = stage_at(next)
-            self.ui_move = true
         if (m.up or m.down) and self.save.cleared[cursor_ship.index()]:
             self.endless = not self.endless
             self.ui_move = true
@@ -371,17 +365,18 @@ extend App:
             for i in 0..SHIP_COUNT:
                 let (x, y) = select_card_origin(i)
                 if inside(m.mouse, x, y, 112, 112):
-                    if self.ship_cursor == i and ship_unlocked(ship_at(i), &self.save): self.launch_as(ship_at(i))
+                    if self.ship_cursor == i and ship_unlocked(ship_at(i), &self.save): self.pick_ship(ship_at(i))
                     self.ship_cursor = i
                     return
-        if m.confirm and ship_unlocked(cursor_ship, &self.save): self.launch_as(cursor_ship)
+        if m.confirm and ship_unlocked(cursor_ship, &self.save): self.pick_ship(cursor_ship)
         else if m.back: self.go(.Title)
         else if m.shop: self.go(.Shop)
         else if m.collection: self.go(.Collection)
 
     fn update_run(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
         let g = &self.game
-        if m.start and (g.phase == .Running or (g.phase == .Boost and g.cache_reveal <= 0.0)):
+        // Pause only from play: the level-up cards must be answered.
+        if m.start and g.phase == .Running:
             self.screen = .Pause
             self.pause_cursor = 0
             self.confirm_abandon = false
@@ -577,6 +572,7 @@ extend App:
                     .Select => self.draw_select(clock)
                     .Shop => self.draw_shop(clock)
                     .Collection => self.draw_collection(clock)
+                    .Maps => self.draw_maps(clock)
                     _ => ()
                 if self.debug:
                     let info = self.debug_info()
@@ -675,12 +671,77 @@ extend App:
         if self.quit_hold > 0.0: DrawRectangle(540, 734, (200.0 * self.quit_hold) as i32, 3, magenta(0.9))
         self.notice_line()
 
+    // Ship chosen: on to the map.
+    fn pick_ship(mut self: Self, ship: Ship):
+        self.ship = ship
+        self.stage_cursor = 0
+        let order = stage_order()
+        for k in 0..STAGE_COUNT:
+            if order[k] == self.stage: self.stage_cursor = k
+        self.go(.Maps)
+
+    fn update_maps(mut self: Self, m: MenuInput):
+        let order = stage_order()
+        if m.left or m.right:
+            self.stage_cursor = wrap(self.stage_cursor + (if m.right: 1 else: -1), STAGE_COUNT)
+            self.ui_move = true
+        if m.up or m.down:
+            self.stage_cursor = wrap(self.stage_cursor + (if m.down: 5 else: -5), STAGE_COUNT)
+            self.ui_move = true
+        if m.click:
+            for k in 0..STAGE_COUNT:
+                let (x, y) = map_card_origin(k)
+                if inside(m.mouse, x, y, 220, 170):
+                    if self.stage_cursor == k and stage_unlocked(order[k], &self.save):
+                        self.stage = order[k]
+                        self.launch_as(self.ship)
+                        return
+                    self.stage_cursor = k
+        let chosen = order[self.stage_cursor]
+        if m.confirm and stage_unlocked(chosen, &self.save):
+            self.stage = chosen
+            self.launch_as(self.ship)
+        else if m.back: self.go(.Select)
+
+    fn draw_maps(self: &Self, clock: f64):
+        neon("SELECT MAP", 40, 24, 30, cyan(1.0))
+        self.credits_corner()
+        label(f"SHIP  {self.ship.name().to_upper()}", 44, 62, 14, white(0.6))
+        let order = stage_order()
+        for k in 0..STAGE_COUNT:
+            let stage = order[k]
+            let (x, y) = map_card_origin(k)
+            let open = stage_unlocked(stage, &self.save)
+            let selected = k == self.stage_cursor
+            DrawRectangle(x, y, 220, 170, ink(0.9))
+            DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 220.0, height: 170.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: cyan(0.35))
+            if open:
+                draw_stage_preview(stage, x + 16, y + 14, 188, 104, true)
+                centered_at(stage.name().to_upper(), x + 110, y + 126, 16, white(1.0))
+                centered_at(stage.kind(), x + 110, y + 148, 11, magenta(0.8))
+            else:
+                mystery(V2 { x: (x + 110) as f64, y: (y + 66) as f64 }, 48, white(0.3))
+                centered_at("LOCKED", x + 110, y + 138, 12, white(0.35))
+        let stage = order[self.stage_cursor]
+        let open = stage_unlocked(stage, &self.save)
+        let py = 580
+        if open:
+            neon(stage.name().to_upper(), 60, py, 26, white(1.0))
+            label(stage.kind(), 60 + MeasureText(stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
+            label(stage.describe(), 60, py + 40, 16, white(0.8))
+        else:
+            neon("LOCKED", 60, py, 26, white(0.6))
+            let c = stage_condition(stage)
+            label(c.describe(), 60, py + 40, 16, white(0.9))
+            let f = fraction(c, &self.save)
+            DrawRectangle(60, py + 70, 400, 8, white(0.15))
+            DrawRectangle(60, py + 70, (400.0 * f) as i32, 8, gold(0.9))
+        let _ = clock
+        centered("[A] LAUNCH     [B] BACK", 730, 14, white(0.7))
+
     fn draw_select(self: &Self, clock: f64):
         neon("SELECT SHIP", 40, 24, 30, cyan(1.0))
         self.credits_corner()
-        if stage_unlocked(.Corridor, &self.save):
-            neon(f"STAGE  {self.stage.name()}", 40, 64, 16, magenta(1.0))
-            label("[LB / RB]", 40 + MeasureText(f"STAGE  {self.stage.name()}", 16) + 12, 67, 10, white(0.5))
         for i in 0..SHIP_COUNT:
             let ship = ship_at(i)
             let (x, y) = select_card_origin(i)
@@ -906,11 +967,8 @@ extend App:
                 }
                 .Registry => draw_enemy(kind_at(i), center, 18.0, clock, 0.0, V2 { x: 0.0, y: -1.0 }, paint(kind_at(i).tint(), alpha), 0.85)
                 .Stages => {
-                    let rules = stage_at(i).rules()
-                    let w = 100.0 * limit(rules.arena_width / 3600.0, 0.2, 1.0)
-                    let h = 60.0 * limit(rules.arena_height / 2600.0, 0.2, 1.0)
-                    DrawRectangleLines((center.x - w / 2.0) as i32, (center.y - h / 2.0) as i32, w as i32, h as i32, if open: cyan(1.0) else: white(0.2))
-                    if rules.void_radius > 0.0: ring(center, h * rules.void_radius / rules.arena_height, if open: cyan(1.0) else: white(0.2))
+                    if open: draw_stage_preview(stage_at(i), x + 20, y + 12, 100, 60, true)
+                    else: mystery(center, 30, white(0.3))
                 }
             centered_at(if open: self.entry_name(self.tab, i) else: "LOCKED", x + 70, y + 80, 12, if open: white(0.9) else: white(0.3))
         // Detail panel.
@@ -1033,3 +1091,10 @@ fn pick_label(p: Pick) -> str:
         .NewPassive(x) => "+" ++ x.name()
         .UpgradePassive(x) => x.name()
         .Merge(w) => "=" ++ w.name()
+
+fn map_card_origin(k: i32) -> (i32, i32):
+    let row = k / 5
+    let col = k % 5
+    let count = if row == 0: 5 else: 4
+    let x0 = (WIDTH - (count * 220 + (count - 1) * 16)) / 2
+    (x0 + col * 236, 100 + row * 190)

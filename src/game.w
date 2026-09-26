@@ -213,7 +213,18 @@ pub type Pulse {
     remnant: Option[Kind] = None,
 }
 // Floating text spawned by pickups and level-ups.
-pub enum PopupKind { | Credits(value: i32) | Level(level: i32) | Pickup(kind: PickupKind) | Xp(value: i32) }
+pub enum PopupKind { | Credits(value: i32) | Level(level: i32) | Pickup(kind: PickupKind) | Xp(value: i32) | ComboTier(tenths: i32) }
+
+// Combo tiers: the combo count where each begins, and the credit
+// multiplier it pays, in tenths. Shown on the HUD and called out on reaching.
+pub const COMBO_TIERS: [i32; 5] = [0, 10, 25, 50, 100]
+pub const COMBO_PAY: [i32; 5] = [10, 15, 20, 25, 30]
+
+pub fn combo_tier(combo: i32) -> i32:
+    var tier = 0
+    for i in 0..5:
+        if combo >= COMBO_TIERS[i]: tier = i
+    tier
 impl Copy for PopupKind
 pub type Popup { pos: V2 = V2 {}, life: f64 = 0.0, total: f64 = 0.9, kind: PopupKind = .Xp(value: 0) }
 // One centered banner at a time: the loudest moments name themselves.
@@ -306,6 +317,12 @@ pub type Game {
     arcs: Vec[ArcBolt],
     waves: Vec[Shockwave],
     rng: u32 = 1234567,
+    // The stage's walls, and for maze stages a distance field on the enemy
+    // grid toward the ship, rebuilt a few times a second.
+    walls: Vec[Wall],
+    flow: Vec[i32],
+    flow_timer: f64 = 0.0,
+    uses_paths: bool = false,
     shot_event: bool = false, hit_event: bool = false,
     kill_event: bool = false, hurt_event: bool = false, death_event: bool = false,
     level_event: bool = false, merge_event: bool = false, boss_event: bool = false,
@@ -330,6 +347,8 @@ pub fn Game.new(rules: Rules = Rules {}) -> Game:
         beams: storage(Beam {}, BEAM_CAP),
         arcs: storage(ArcBolt {}, ARC_CAP),
         waves: storage(Shockwave {}, SHOCKWAVE_CAP),
+        walls: Vec.new(),
+        flow: storage(-1, CELL_COUNT),
     }
     // A default launch has every launch weapon and passive so tests and the
     // acceptance harness run a full loadout without an account.
@@ -466,6 +485,10 @@ extend Game:
         self.beam_count = 0
         self.arc_count = 0
         self.wave_count = 0
+        let stage = stage_at(self.rules.layout)
+        self.walls = stage.walls()
+        self.uses_paths = stage.needs_paths()
+        self.flow_timer = 0.0
         for _ in 0..self.rules.beacon_count: self.place_beacon()
         self.clear_events()
 
@@ -530,23 +553,112 @@ extend Game:
 
     // Inside the walls and outside the dead center, if the stage has one.
     pub fn clamp_to_arena(self: &Self, pos: V2, inset: f64) -> V2:
-        let boxed = V2 {
+        var p = V2 {
             x: limit(pos.x, inset, self.rules.arena_width - inset),
             y: limit(pos.y, inset, self.rules.arena_height - inset),
         }
-        if self.rules.void_radius <= 0.0: return boxed
-        let delta = sub(boxed, self.center())
-        let reach = self.rules.void_radius + inset
-        if length2(delta) >= reach * reach: return boxed
-        let away = if length2(delta) > 0.01: direction(delta) else: V2 { x: 1.0 }
-        add(self.center(), scale(away, reach))
+        if self.rules.void_radius > 0.0:
+            let delta = sub(p, self.center())
+            let reach = self.rules.void_radius + inset
+            if length2(delta) < reach * reach:
+                let away = if length2(delta) > 0.01: direction(delta) else: V2 { x: 1.0 }
+                p = add(self.center(), scale(away, reach))
+        // Out of any wall, by the shortest way: things slide along faces.
+        for _ in 0..2:
+            for w in self.walls:
+                let x0 = w.x - inset
+                let y0 = w.y - inset
+                let x1 = w.x + w.w + inset
+                let y1 = w.y + w.h + inset
+                if p.x > x0 and p.x < x1 and p.y > y0 and p.y < y1:
+                    // The shortest way out that stays inside the arena: a wall
+                    // against the arena edge only opens toward the interior.
+                    let big = 1.0e12
+                    let left = if x0 >= inset: p.x - x0 else: big
+                    let right = if x1 <= self.rules.arena_width - inset: x1 - p.x else: big
+                    let up = if y0 >= inset: p.y - y0 else: big
+                    let down = if y1 <= self.rules.arena_height - inset: y1 - p.y else: big
+                    let lr = if left < right: left else: right
+                    let ud = if up < down: up else: down
+                    let least = if lr < ud: lr else: ud
+                    if least >= big: continue
+                    if least == left: p.x = x0
+                    else if least == right: p.x = x1
+                    else if least == up: p.y = y0
+                    else: p.y = y1
+        p
+
+    pub fn in_wall(self: &Self, pos: V2) -> bool:
+        for w in self.walls:
+            if pos.x > w.x and pos.x < w.x + w.w and pos.y > w.y and pos.y < w.y + w.h: return true
+        false
+
+    // The wall a point is inside, as its index; -1 when none.
+    fn wall_at(self: &Self, pos: V2) -> i32:
+        for i in 0..self.walls.len() as i32:
+            let w: Wall = self.walls[i]
+            if pos.x > w.x and pos.x < w.x + w.w and pos.y > w.y and pos.y < w.y + w.h: return i
+        -1
+
+    // Breadth-first distances from the ship's cell over open cells: enemies
+    // walk downhill to come around walls.
+    fn rebuild_flow(mut self: Self):
+        for c in 0..CELL_COUNT: self.flow[c] = -1
+        var queue: Vec[i32] = Vec.new()
+        let start = cell_index(self.player)
+        self.flow[start] = 0
+        queue.push(start)
+        var head = 0
+        let cols = limit(self.rules.arena_width / CELL_SIZE as f64 + 1.0, 1.0, CELL_COLS as f64) as i32
+        let rows = limit(self.rules.arena_height / CELL_SIZE as f64 + 1.0, 1.0, CELL_ROWS as f64) as i32
+        while head < queue.len() as i32:
+            let c: i32 = queue[head]
+            head += 1
+            let cx = c % CELL_COLS
+            let cy = c / CELL_COLS
+            let here: i32 = self.flow[c]
+            for d in 0..4:
+                let nx = cx + (if d == 0: 1 else if d == 1: -1 else: 0)
+                let ny = cy + (if d == 2: 1 else if d == 3: -1 else: 0)
+                if nx < 0 or ny < 0 or nx >= cols or ny >= rows: continue
+                let n = ny * CELL_COLS + nx
+                if self.flow[n] >= 0: continue
+                let center = V2 { x: (nx as f64 + 0.5) * CELL_SIZE as f64, y: (ny as f64 + 0.5) * CELL_SIZE as f64 }
+                if self.in_wall(center): continue
+                self.flow[n] = here + 1
+                queue.push(n)
+
+    // Which way an enemy should go: straight at the ship, or downhill on
+    // the flow field when a wall is in the way.
+    fn path_toward(self: &Self, from: V2) -> V2:
+        let straight = direction(sub(self.player, from))
+        if not self.uses_paths: return straight
+        let c = cell_index(from)
+        let here: i32 = self.flow[c]
+        if here <= 1: return straight
+        let cx = c % CELL_COLS
+        let cy = c / CELL_COLS
+        var best = here
+        var goal = V2 {}
+        var found = false
+        for dy in -1..2:
+            for dx in -1..2:
+                let nx = cx + dx
+                let ny = cy + dy
+                if nx < 0 or ny < 0 or nx >= CELL_COLS or ny >= CELL_ROWS: continue
+                let d: i32 = self.flow[ny * CELL_COLS + nx]
+                if d >= 0 and d < best:
+                    best = d
+                    goal = V2 { x: (nx as f64 + 0.5) * CELL_SIZE as f64, y: (ny as f64 + 0.5) * CELL_SIZE as f64 }
+                    found = true
+        if found: direction(sub(goal, from)) else: straight
 
     pub fn in_void(self: &Self, pos: V2) -> bool:
         self.rules.void_radius > 0.0 and length2(sub(pos, self.center())) < self.rules.void_radius * self.rules.void_radius
 
     pub fn in_arena(self: &Self, pos: V2, margin: f64) -> bool:
         let boxed = pos.x >= -margin and pos.x <= self.rules.arena_width + margin and pos.y >= -margin and pos.y <= self.rules.arena_height + margin
-        boxed and not self.in_void(pos)
+        boxed and not self.in_void(pos) and not self.in_wall(pos)
 
     // The camera rectangle, clamped inside the arena.
     pub fn view_origin(self: &Self) -> V2:
@@ -594,7 +706,7 @@ extend Game:
             if self.in_arena(pos, -8.0): return Some(pos)
         // The camera shows the whole arena along some axis: any far corner.
         let pos = V2 { x: 8.0 + self.random() * (self.rules.arena_width - 16.0), y: 8.0 + self.random() * (self.rules.arena_height - 16.0) }
-        if length2(sub(pos, self.player)) > 420.0 * 420.0: Some(pos) else: None
+        if length2(sub(pos, self.player)) > 420.0 * 420.0 and not self.in_wall(pos): Some(pos) else: None
 
     pub fn place_beacon(mut self: Self):
         if self.beacon_count >= BEACON_CAP: return
@@ -1118,14 +1230,18 @@ extend Game:
     pub fn collect_core(mut self: Self, value: i32):
         self.cores_collected += 1
         self.core_event = true
+        let before = combo_tier(self.combo)
         self.combo += 1
         if self.combo > self.best_combo: self.best_combo = self.combo
+        let tier = combo_tier(self.combo)
+        if tier > before: self.popup(add(self.player, V2 { y: -34.0 }), .ComboTier(tenths: COMBO_PAY[tier]))
         self.combo_timer = self.rules.combo_window
         self.gain_xp(value)
-        // The combo multiplies credits up to triple at x100 and no further.
-        let combo_bonus = limit(self.combo as f64, 0.0, 100.0) / 50.0
+        // The combo pays credits by tier: x1.5 at 10, x2 at 25, x2.5 at 50,
+        // x3 at 100.
+        let pay = COMBO_PAY[combo_tier(self.combo)] as f64 / 10.0
         let endless_rate = if self.launch.endless: 0.35 else: 1.0
-        self.credit_energy += 0.012 * (1.0 + combo_bonus) * self.mods.credit * (value as f64) * endless_rate
+        self.credit_energy += 0.018 * pay * self.mods.credit * (value as f64) * endless_rate
         if self.credit_energy >= 1.0:
             let whole = self.credit_energy as i32
             self.credit_energy -= whole as f64
@@ -1462,7 +1578,7 @@ extend Game:
                 self.enemies[e] = enemy
                 continue
             let to_player = sub(self.player, enemy.pos)
-            let toward = direction(to_player)
+            let toward = self.path_toward(enemy.pos)
             let distance = sqrt(length2(to_player))
             var separation = V2 {}
             if enemy.kind != .Boss and enemy.kind != .Null and enemy.kind != .Well:
@@ -1660,7 +1776,7 @@ extend Game:
             if bullet.hostile:
                 bullet.pos = add(bullet.pos, scale(bullet.vel, dt))
                 bullet.life -= dt
-                var gone = bullet.life <= 0.0 or not self.in_arena(bullet.pos, 0.0)
+                var gone = bullet.life <= 0.0 or not self.in_arena(bullet.pos, 0.0) or self.in_wall(bullet.pos)
                 if segment_hit(previous, bullet.pos, self.player, 16.0):
                     self.hurt(.Weaver, false, bullet.damage)
                     gone = true
@@ -1703,6 +1819,18 @@ extend Game:
                         let side = perpendicular(direction(bullet.vel))
                         self.bullets[self.bullet_count] = Bullet { pos: bullet.pos, vel: add(scale(bullet.vel, 0.9), scale(side, 180.0)), life: bullet.life, damage: bullet.damage, bounces: bullet.bounces, bounced: true, weapon: bullet.weapon }
                         self.bullet_count += 1
+                else: spent = true
+            // Walls: a bolt bounces off the face it crossed, or is spent.
+            let hit_wall = if spent: -1 else: self.wall_at(bullet.pos)
+            if hit_wall >= 0:
+                if bullet.bounces > 0:
+                    bullet.bounces -= 1
+                    bullet.bounced = true
+                    let w: Wall = self.walls[hit_wall]
+                    let from_side = previous.x <= w.x or previous.x >= w.x + w.w
+                    if from_side: bullet.vel.x = -bullet.vel.x else: bullet.vel.y = -bullet.vel.y
+                    bullet.pos = previous
+                    self.pulse(bullet.pos, 24.0, .Gold)
                 else: spent = true
             if not spent and self.in_void(bullet.pos):
                 if bullet.bounces > 0:
@@ -1980,6 +2108,11 @@ extend Game:
         self.fire_weapons(input.motion, dt)
         self.step_timeline(dt)
         self.rebuild_grid()
+        if self.uses_paths:
+            self.flow_timer -= dt
+            if self.flow_timer <= 0.0:
+                self.flow_timer = 0.25
+                self.rebuild_flow()
         self.step_enemies(dt)
         // Enemies moved, died, and were eaten: the grid is rebuilt for bullets.
         // Bullet kills swap-remove, so the walk below also skips any index

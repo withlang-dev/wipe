@@ -336,7 +336,8 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // Bolts and chains by level, as designed: I one bolt; II two;
             // III two, each chaining once; IV two, chaining twice; V three,
             // chaining twice. A merge (Storm) is its own row below.
-            let lv = if weapon.is_merged(): MAX_WEAPON_LEVEL else: merged_level
+            let raw = if weapon.is_merged(): MAX_WEAPON_LEVEL else: merged_level
+            let lv = if raw < 1: 1 else if raw > MAX_WEAPON_LEVEL: MAX_WEAPON_LEVEL else: raw
             let bolts = [1, 2, 2, 2, 3]
             let chains = [0, 0, 1, 2, 2]
             s.count = bolts[lv - 1]
@@ -393,7 +394,11 @@ impl Copy for WeaponSlot
 pub type PassiveSlot { passive: Passive = .Damage, level: i32 = 0 }
 impl Copy for PassiveSlot
 
+// Storage for slots; how many a run may fill is below.
 pub const SLOT_COUNT: i32 = 6
+// Four weapons and four passives: fewer, heavier choices.
+pub const WEAPON_SLOTS: i32 = 4
+pub const PASSIVE_SLOTS: i32 = 4
 
 // What a boost card offers.
 pub enum Pick { | NewWeapon(weapon: Weapon) | UpgradeWeapon(weapon: Weapon) | NewPassive(passive: Passive) | UpgradePassive(passive: Passive) | Merge(result: Weapon) }
@@ -419,7 +424,7 @@ extend Pick:
 pub type Build {
     weapons: [WeaponSlot; 6] = [WeaponSlot {}; 6],
     passives: [PassiveSlot; 6] = [PassiveSlot {}; 6],
-    weapon_slots: i32 = 6,
+    weapon_slots: i32 = WEAPON_SLOTS,
     banished_weapons: [bool; 20] = [false; 20],
     banished_passives: [bool; 14] = [false; 14],
     // Weapons and passives this account may be offered.
@@ -562,7 +567,7 @@ extend Build:
             if level == 0 and free_weapon: out.push(.NewWeapon(weapon: w))
             else if level > 0 and level < MAX_WEAPON_LEVEL: out.push(.UpgradeWeapon(weapon: w))
         // Merged weapons are final: never offered as upgrades.
-        let free_passive = self.passive_count() < SLOT_COUNT
+        let free_passive = self.passive_count() < PASSIVE_SLOTS
         for i in 0..PASSIVE_COUNT:
             let p = passive_at(i)
             if self.banished_passives[i] or not self.unlocked_passives[i]: continue

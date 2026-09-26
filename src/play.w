@@ -205,9 +205,6 @@ fn main:
                     else if wipe.ship_cursor != target:
                         m.right = true
                         p.wait = 0.15
-                    else if log_veteran and p.ship_rotation % 3 == 1 and wipe.stage.index() != (p.ship_rotation / 3) % STAGE_COUNT:
-                        m.rb = true
-                        p.wait = 0.15
                     else if log_veteran and p.ship_rotation % 4 == 2 and not wipe.endless:
                         m.down = true
                         p.wait = 0.15
@@ -215,6 +212,19 @@ fn main:
                         m.confirm = true
                         p.ship_rotation += 1
                         p.wait = 0.5
+                }
+                .Maps => {
+                    // Rotate through the maps, one per run, among those open.
+                    let order = stage_order()
+                    let target = runs_done % STAGE_COUNT
+                    let want = order[target]
+                    let here = order[wipe.stage_cursor]
+                    if wipe.stage_cursor != target and stage_unlocked(want, &wipe.save):
+                        m.right = true
+                        p.wait = 0.1
+                    else if stage_unlocked(here, &wipe.save): m.confirm = true
+                    else: m.right = true
+                    p.wait = 0.2
                 }
                 .Run => {
                     let g = &wipe.game
@@ -426,6 +436,7 @@ fn main:
 
 fn screen_name(s: Screen) -> str:
     match s:
+        .Maps => "maps"
         .Title => "title"
         .Select => "select"
         .Run => "run"

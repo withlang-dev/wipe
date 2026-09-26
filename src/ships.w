@@ -140,7 +140,7 @@ extend Ship:
             .Prism => "Weak first minute"
             .Halo => "Cannot take the Cannon"
             .Needle => "Cannot aim: no Cannon, the right stick does nothing"
-            .Sapper => "Only 4 weapon slots"
+            .Sapper => "Only 3 weapon slots"
             .Phase => "Max health 1. Reboots do not work"
             .Null => "-25% XP gain. Cannot merge"
 
@@ -160,8 +160,8 @@ extend Ship:
 
     pub fn weapon_slots(self: &Self) -> i32:
         match self:
-            .Sapper => 4
-            _ => 6
+            .Sapper => WEAPON_SLOTS - 1
+            _ => WEAPON_SLOTS
 
     pub fn forbidden_weapon(self: &Self) -> Option[Weapon]:
         match self:

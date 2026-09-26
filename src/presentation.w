@@ -452,6 +452,14 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     DrawRectangleLinesEx(arena, 9.0, cyan(0.08))
     DrawRectangleLinesEx(arena, 3.0, cyan(0.55 + 0.1 * sin(clock * 2.0)))
     DrawRectangleLinesEx(arena, 1.0, white(0.6))
+    // Walls: dark blocks with the same glowing containment edge.
+    for w in g.walls:
+        let at = to_screen(cam, V2 { x: w.x, y: w.y })
+        let rect = Rectangle { x: at.x as f32, y: at.y as f32, width: w.w as f32, height: w.h as f32 }
+        DrawRectangleRec(rect, ink(0.94))
+        DrawRectangleLinesEx(rect, 7.0, cyan(0.08))
+        DrawRectangleLinesEx(rect, 2.5, cyan(0.55 + 0.1 * sin(clock * 2.0 + w.x * 0.01)))
+        DrawRectangleLinesEx(rect, 1.0, white(0.5))
     if g.rules.void_radius > 0.0:
         let void_center = to_screen(cam, g.center())
         circle(void_center, g.rules.void_radius, ink(0.9))
@@ -718,6 +726,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             .Level(l) => centered_at(f"LEVEL {l}", pos.x as i32, pos.y as i32 - 30, 22, lime(alpha))
             .Pickup(k) => centered_at(k.name(), pos.x as i32, pos.y as i32 - 8, 14, white(alpha))
             .Xp(v) => centered_at(f"{v}", pos.x as i32, pos.y as i32 - 8, 12, cyan(alpha))
+            .ComboTier(t) => centered_at(f"CREDITS x{t / 10}.{t % 10}", pos.x as i32, pos.y as i32 - 12, 20, gold(alpha))
     // Event telegraph: a glow on the side the formation arrives from.
     if g.event_telegraph > 0.0:
         // Never fades out: a pulse between strong and stronger, chevrons
@@ -830,10 +839,18 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     DrawRectangleLines(22, 50, 96, 8, white(0.25))
     label(f"{g.health}/{g.max_health}", 124, 49, 10, bar_color)
     if g.combo > 1:
-        let size = if g.combo >= 50: 34 else if g.combo >= 20: 30 else: 26
-        neon(f"x{g.combo}", 180, 16, size, if g.combo >= 50: gold(1.0) else: cyan(1.0))
+        // The combo, its credit multiplier, the drain of its window, and the
+        // way to the next tier.
+        let tier = combo_tier(g.combo)
+        let color = if tier >= 3: gold(1.0) else if tier >= 1: lime(1.0) else: cyan(1.0)
+        neon(f"x{g.combo}", 180, 14, 28, color)
+        let pay = COMBO_PAY[tier]
+        label(f"CREDITS x{pay / 10}.{pay % 10}", 180 + MeasureText(f"x{g.combo}", 28) + 12, 16, 12, color)
+        if tier < 4:
+            let next = COMBO_TIERS[tier + 1]
+            label(f"x{next} NEXT", 180 + MeasureText(f"x{g.combo}", 28) + 12, 32, 10, white(0.5))
         let fade = limit(g.combo_timer / g.rules.combo_window, 0.0, 1.0)
-        DrawRectangle(180, 48, (60.0 * fade) as i32, 3, cyan(0.8))
+        DrawRectangle(180, 46, (90.0 * fade) as i32, 4, color)
     // Timer with the best-time marker.
     let timer_color = if g.best_crossed: gold(1.0) else: white(1.0)
     let time_text = if g.best_flare > 0.0 and (clock * 4.0) as i32 % 2 == 0: "NEW BEST" else: stamp(g.elapsed)
@@ -874,7 +891,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
                 DrawRectangle(px, HEIGHT - 10, 3, 3, if pip < s.level: white(0.9) else: white(0.12))
         x += 46.0
     x = WIDTH as f64 - 30.0
-    for slot in 0..SLOT_COUNT:
+    for slot in 0..PASSIVE_SLOTS:
         let s: PassiveSlot = g.build.passives[slot]
         let pos = V2 { x, y: HEIGHT as f64 - 30.0 }
         DrawRectangleLines((x - 18.0) as i32, HEIGHT - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
@@ -926,6 +943,21 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
 
 // The boost overlay: three or four cards over the frozen world.
 // ----- card information -----------------------------------------------------
+
+// A stage's shape in a box: bounds, walls, and the dead center, scaled to fit.
+pub fn draw_stage_preview(stage: Stage, x: i32, y: i32, w: i32, h: i32, open: bool):
+    let rules = stage.rules()
+    let fit = if rules.arena_width / w as f64 > rules.arena_height / h as f64: w as f64 / rules.arena_width else: h as f64 / rules.arena_height
+    let pw = rules.arena_width * fit
+    let ph = rules.arena_height * fit
+    let ox = x as f64 + (w as f64 - pw) / 2.0
+    let oy = y as f64 + (h as f64 - ph) / 2.0
+    let edge = if open: cyan(0.9) else: white(0.2)
+    DrawRectangleLinesEx(Rectangle { x: ox as f32, y: oy as f32, width: pw as f32, height: ph as f32 }, 1.5, edge)
+    for wall in stage.walls():
+        DrawRectangle((ox + wall.x * fit) as i32, (oy + wall.y * fit) as i32, (wall.w * fit + 1.0) as i32, (wall.h * fit + 1.0) as i32, if open: cyan(0.45) else: white(0.12))
+    if rules.void_radius > 0.0:
+        circle(V2 { x: ox + pw / 2.0, y: oy + ph / 2.0 }, rules.void_radius * fit, if open: cyan(0.45) else: white(0.12))
 
 pub fn boost_card_rect(i: i32, count: i32) -> (i32, i32, i32, i32):
     let card_w = 260
@@ -1058,7 +1090,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         .LevelUp => f"LEVEL {g.level - g.pending_levels}"
         .Cache => "CACHE"
     centered(title, 96, 30, if g.boost_source == .Cache: gold(1.0) else: lime(1.0))
-    let slots = f"WEAPONS {g.build.weapon_count()}/{g.build.weapon_slots}     PASSIVES {g.build.passive_count()}/{SLOT_COUNT}"
+    let slots = f"WEAPONS {g.build.weapon_count()}/{g.build.weapon_slots}     PASSIVES {g.build.passive_count()}/{PASSIVE_SLOTS}"
     centered(slots, 132, 12, white(0.6))
     if g.cache_reveal > 0.0:
         // The ceremony: icons spin through a window and slow into the reveal.
@@ -1152,19 +1184,8 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
             label(r.before.clone(), x + card_w - 126, row_y, 17, white(0.5))
             neon(r.after.clone(), x + card_w - 66, row_y, 17, if changed: lime(1.0) else: white(0.8))
             row_y += 26
-        let hint = merge_hint(&g.build, o.pick, g.launch.taken_weapons)
-        if hint.len() > 0:
-            DrawRectangle(x + 14, y + card_h - 58, card_w - 28, 1, white(0.15))
-            var hint_line = ""
-            var hint_y = y + card_h - 50
-            for word in hint.split(" "):
-                let trial = if hint_line.len() == 0: word.clone() else: hint_line ++ " " ++ word
-                if MeasureText(trial, 12) > card_w - 24 and hint_line.len() > 0:
-                    centered_at(hint_line, cx, hint_y, 12, gold(0.85))
-                    hint_y += 15
-                    hint_line = word.clone()
-                else: hint_line = trial
-            if hint_line.len() > 0: centered_at(hint_line, cx, hint_y, 12, gold(0.85))
+        // No merge hints: recipes are the player's to find, and are listed
+        // in the collection once found.
         centered_at(f"{i + 1}", cx, y + card_h - 18, 12, white(0.4))
     let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / K] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
     label(controls, (WIDTH - MeasureText(controls, 14)) / 2, 660, 14, white(0.7))

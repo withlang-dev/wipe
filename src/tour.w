@@ -62,6 +62,10 @@ fn main:
     wipe.ship_cursor = 5
     clock = frames(&wipe, &renderer, 3, clock)
     TakeScreenshot("out/tour/3-select-locked.png")
+    wipe.screen = .Maps
+    wipe.stage_cursor = 4
+    clock = frames(&wipe, &renderer, 3, clock)
+    TakeScreenshot("out/tour/3b-maps.png")
     // A run: a minute of scripted flight, then a boost.
     wipe.launch_as(.Claw)
     wipe.game.launch.best_time = 1152.0

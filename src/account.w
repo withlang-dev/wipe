@@ -211,6 +211,11 @@ pub fn stage_condition(stage: Stage) -> Condition:
         .Corridor => .Clear
         .Shaft => .Bosses(count: 10)
         .Ring => .Elites(count: 50)
+        .Pillars => .Start
+        .Maze => .Start
+        .Gridlock => .Start
+        .Expanse => .Start
+        .Cross => .Level(level: 30)
 
 pub fn stage_unlocked(stage: Stage, s: &Save) -> bool: met(stage_condition(stage), s)
 

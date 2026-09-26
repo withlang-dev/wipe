@@ -71,12 +71,12 @@ fn main:
         early.clear_events()
         early.tick(Controls { aim: V2 { x: cos(i as f64 * 0.2), y: sin(i as f64 * 0.2) } }, 1.0 / 120.0)
     shot(&renderer, &early, 20.0, "01-early-combat")
-    // 2. Every weapon at level 6, and four merged weapons.
+    // 2. Every weapon at its maximum level, and four merged weapons.
     let showcase = [Weapon.Cannon, Weapon.Orbit, Weapon.Nova, Weapon.Seeker, Weapon.Lance, Weapon.Mines, Weapon.Arc, Weapon.Shard, Weapon.Railgun, Weapon.Corona, Weapon.Storm, Weapon.Shatter]
     var n = 2
     for w in showcase:
         var g = staged()
-        g.build.weapons[0] = WeaponSlot { weapon: w, level: 6 }
+        g.build.weapons[0] = WeaponSlot { weapon: w, level: MAX_WEAPON_LEVEL }
         g = surround(g, 14, 260.0, Kind.Block)
         g = surround(g, 10, 150.0, Kind.Spinner)
         g = step(g, 1.0, V2 { x: 0.8, y: -0.6 })
@@ -219,5 +219,14 @@ fn main:
     zap.build.weapons[0].timer = 0.0
     zap = step(zap, 0.04, V2 { x: 1.0 })
     shot(&renderer, &zap, 90.0, "61-lightning")
+    // Walled maps mid-fight.
+    for st in [Stage.Gridlock, Stage.Maze]:
+        var walled = Game.new(st.rules())
+        walled.rules.contact_radius = 0.0
+        walled.elapsed = 300.0
+        walled.boss_index = 3
+        walled = step(walled, 20.0, V2 { x: 1.0 })
+        let name = f"62-map-{st.name()}"
+        shot(&renderer, &walled, 95.0, name)
     print("gallery done")
     0

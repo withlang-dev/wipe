@@ -277,8 +277,9 @@ Every kill drops a core. Cores are collected by proximity, with a magnet radius
 that is a stat. Cores do double duty, which is where the two games meet:
 
 - collecting fills the level-up bar
-- collecting extends the combo; the combo decays after about two seconds
-  without a core, resets on damage, and multiplies credits earned
+- collecting extends the combo; the combo breaks after one second without a
+  core or on any damage, and pays credits in tiers the HUD shows: x1.5 at
+  10, x2 at 25, x2.5 at 50, x3 at 100, each called out when reached
 
 Uncollected cores merge into larger cores after a few seconds so the floor
 never fills with clutter.
@@ -325,7 +326,7 @@ targeted build possible. Choosing resumes play immediately.
 
 ### Weapons
 
-Six weapon slots. Every weapon fires automatically; the player never manages
+Four weapon slots. Every weapon fires automatically; the player never manages
 fire. The base weapon is the aimed cannon: bullets follow the aim exactly.
 Others fire on their own logic, so the aim stick stays about the cannon.
 
@@ -344,7 +345,7 @@ Launch roster, eight weapons:
 
 ### Passives
 
-Six passive slots. Launch roster, eight passives: damage, fire rate,
+Four passive slots. Launch roster, eight passives: damage, fire rate,
 projectile count, area, projectile speed, magnet, move speed, max health.
 Plus cooldown, armor, luck, credit gain, rebound, and overclock as
 unlockables.
@@ -384,8 +385,8 @@ with their components. Merges are the late-run hook and the collection's
 centerpiece: a player who knows a recipe plays the run to reach it.
 
 Build variety comes from slot pressure and recipes, not from a synergy rule
-system. Six weapons and six passives against eight and twelve options is
-enough to make every run's build a decision.
+system. Four weapons and four passives against eight and fourteen options
+make every run's build a decision.
 
 ### Health
 
@@ -535,7 +536,7 @@ the game, and the reason a player who has cleared a run starts another.
 | Prism | Shard | +1 shard, shards bounce three more times, +20% area, +10% damage | +1% area per level | Weak first minute | Kill 200 enemies with bounced shards |
 | Halo | Orbit | +60% magnet, +1 orbit blade, cores worth +25% XP | +1 blade every 6 levels, +2% magnet per level | Cannot take the Cannon | Collect 5,000 cores, lifetime |
 | Needle | Lance | +35% damage, −20% cooldowns, lance pierce doubled | +3% damage per level | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x3,000 |
-| Sapper | Mines | +50% area, −28% cooldowns, +3 max health, mines chain-detonate | The cooldown edge fades after level 18 | Only 4 weapon slots | Complete two merges in one run |
+| Sapper | Mines | +50% area, −28% cooldowns, +3 max health, mines chain-detonate | The cooldown edge fades after level 18 | Only 3 weapon slots | Complete two merges in one run |
 | Phase | Arc | Phases out for 1.5 s every 5 s; +1 lightning bolt; 3 s invulnerable on every level-up; −20% cooldowns | The rhythm slows and a +90% damage edge fades with level | Max health 1; reboots do not work | Clear a 20-minute run with no reboot |
 | Null | Nova | Starts at level 5 with three weapons at level III; +30% credits; +3 max health | +1% credits per level | −25% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
 
@@ -823,9 +824,8 @@ Purpose: one decision, fast, with the world frozen behind it.
 Three cards, four with luck. A merge card is always first and marked. Each
 card is icon, name, level transition or NEW, a description, and a table of
 the real numbers now and after the pick with the build's passives and ranks
-applied. A card names the merge it leads to only when the player has
-completed that recipe in an earlier run; undiscovered recipes are the
-player's to find. A card
+applied. Cards never name the merge an item leads to; recipes are the
+player's to find, and the collection lists them once found. A card
 the player has never taken in any run carries an UNSEEN marker. The cursor
 starts on the first card; the stick or d-pad moves it; 1-2-3-4 pick
 directly. Reroll, skip, and banish show their remaining counts and grey out

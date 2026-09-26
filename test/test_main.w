@@ -180,7 +180,7 @@ fn ships_uat:
     assert(g.build.weapon_level(.Nova) == 1)
     launch.ship = .Sapper
     g.start(launch)
-    assert(g.build.weapon_slots == 4)
+    assert(g.build.weapon_slots == WEAPON_SLOTS - 1)
     launch.ship = .Null
     g.start(launch)
     assert(g.level == 5 and g.build.weapon_count() == 3)
