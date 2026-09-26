@@ -22,7 +22,8 @@ one is always rising:
 1. Power within the run: boosts, weapons, passives, merges.
 2. Progress between runs: gold banked from every run, a shop of permanent
    power-ups, an unlock list.
-3. A collection that is never complete: weapons, ships, merge recipes, stages.
+3. A collection that is never complete: weapons, ships, merge recipes,
+   the bestiary, stages.
 
 Desired reactions, in order:
 
@@ -99,6 +100,13 @@ A run ends when the player dies or when the timer reaches the cap. At the
 cap, an unkillable Reaper enters and ends the run within seconds; surviving
 to the cap counts as a clear.
 
+**Endless.** Once a ship has cleared, endless is offered for that ship: the
+timeline loops from minute 10 with every enemy stat and spawn count scaled
+up per loop, no Reaper, and the run ends only in death. Endless is where
+long-session players live once the roster is open, and it is where the
+performance ceiling is actually reached. Bests and gold are tracked
+separately for endless; unlock conditions count only capped runs.
+
 ### Timeline
 
 Difficulty is a minute-by-minute spawn timeline, not a wave counter:
@@ -111,8 +119,8 @@ Difficulty is a minute-by-minute spawn timeline, not a wave counter:
 | 10–15 | Full roster, walls of enemies, second and third merges become reachable. |
 | 15–20 | Screen-filling density. Boss at 15:00. Reaper at 20:00. |
 
-Every enemy kind, elite, and boss has a first-appearance minute in a data
-table. The table is tuning, not architecture, and lives with the other
+Every enemy kind, elite, boss, and event has a first-appearance minute in a
+data table. The table is tuning, not architecture, and lives with the other
 knobs.
 
 ### Pacing beats
@@ -121,9 +129,19 @@ knobs.
   visually, dropping a guaranteed chest.
 - **Bosses**: at 5, 10, and 15 minutes. A boss is a screen-clear gate with a
   telegraphed pattern and a health bar, the one enemy health bar in the game.
-- **Chests**: dropped by elites and bosses. Opening a chest grants one to
-  a boost on the spot, with a completed merge offered first. This is where
-  the run's power spikes.
+- **Events**: scripted set pieces at fixed minutes, telegraphed two
+  seconds ahead by a glow at the arena edge, lasting ten to twenty seconds
+  over the normal spawns. They are the run's memorable beats and they are
+  geometry: a diagonal sweep of Blocks across the arena, a ring of Darts
+  converging on the ship, a spiral of Spinners unwinding from a corner, a
+  lattice of Weavers holding formation. Twelve events at launch, each with
+  its first minute in the table; enemies killed in an event drop gems as
+  usual, so an event is also a gem harvest for a strong build.
+- **Chests**: dropped by elites and bosses. A chest is a ceremony: it opens
+  with a spinning reveal of one item, or with luck three or five, each a
+  boost choice in turn, a completed merge always first. Three- and five-item
+  chests are where luck pays off, and the reveal is what makes a chest feel
+  like a jackpot rather than a menu.
 - **Breathers**: after a boss dies, five seconds of thinned spawns and a
   music lift.
 
@@ -175,8 +193,27 @@ that is a stat. Gems do double duty, which is where the two games meet:
   without a gem, resets on damage, and multiplies gold earned
 
 Uncollected gems merge into larger gems after a few seconds so the floor
-never fills with clutter, and a rare vacuum pickup collects every gem on
-screen.
+never fills with clutter.
+
+### Pickups and fixtures
+
+The arena has fixtures: a few glowing beacons at fixed points that any
+bullet destroys, respawning elsewhere after a minute. A destroyed beacon
+drops one pickup; elites and bosses drop them too. Pickups are why the
+player crosses the arena instead of circling one spot:
+
+| Pickup | Effect |
+|---|---|
+| Vacuum | Collects every gem on screen |
+| Clear | Kills every non-boss enemy on screen, dropping their gems |
+| Freeze | Stops every enemy for five seconds |
+| Mend | Restores 30% of max health |
+| Gold | A coin, or rarely a bag worth twenty |
+| Chest | Rarely, from a beacon; always from an elite |
+
+Pickups are collected on contact, are drawn brighter than gems, and never
+expire. The bag and the chest from a beacon are the reason a beacon at the
+far wall is worth the trip.
 
 ### Level-ups
 
@@ -193,8 +230,10 @@ with a luck passive):
 
 A chest is also a boost, opened on the spot with the same choice.
 
-Skip and reroll exist as shop-bought permanent counts, one per run each at
-first. Choosing resumes play immediately.
+Skip, reroll, and banish exist as shop-bought permanent counts, one per
+run each at first. Skip declines the boost, reroll redraws it, and banish
+removes an item from every later offer this run, which is what makes a
+targeted build possible. Choosing resumes play immediately.
 
 ### Weapons
 
@@ -219,7 +258,13 @@ Launch roster, eight weapons:
 
 Six passive slots. Launch roster, eight passives: damage, fire rate,
 projectile count, area, projectile speed, magnet, move speed, max health.
-Plus cooldown, armor, luck, and gold gain as unlockables.
+Plus cooldown, armor, luck, gold gain, and curse as unlockables.
+
+**Curse** is the risk-reward lever: each level raises enemy speed, spawn
+rate, and spawn count by a percentage, and raises XP and gold by the same
+percentage. It is one number over the spawn table. A curse build reaches
+merges sooner and dies faster, and it is the intended way to make a cleared
+ship interesting again before endless.
 
 ### Merges
 
@@ -315,6 +360,15 @@ Unlocks are the collection loop. Unlocked items show in full; locked items
 show as greyed silhouettes with their condition. The list is never complete
 at launch.
 
+### Bestiary
+
+A third collection grid beside weapons and ships: every enemy kind, elite,
+boss, and event, with lifetime kills, first seen, and the minute it first
+appears once discovered. Entries are silhouettes until first killed. The
+results screen feeds it with kills per kind for the run. The bestiary costs
+nothing, the simulation already counts, and it is one more grid that is
+never full.
+
 ### Results screen
 
 Shown within half a second of the run's end. Always:
@@ -323,7 +377,8 @@ Shown within half a second of the run's end. Always:
 RUN OVER                          (or CLEARED at the cap)
 
 Survived 18:40   (best 19:12)
-Level 31   Kills 2,317   Best combo x48
+Level 31   Kills 2,317 (Block 1,402 · Dart 611 · Spinner 231 · Weaver 73)
+Best combo x48
 Build: Cannon IV · Orbit (merged) · Seeker II · Nova I
        Magnet III · Damage II · Speed I
 
@@ -368,17 +423,21 @@ the game, and the reason a player who has cleared a run starts another.
 
 ### Launch roster
 
-| Ship | Base weapon | Strength | Weakness | Unlock |
-|---|---|---|---|---|
-| Claw | Cannon | Balanced; +1 reroll per run | None | Start |
-| Dart | Seeker | +25% move speed, +20% projectile speed | Max health 2 | Survive 5:00 |
-| Anvil | Nova | +50% max health, +1 armor | −20% move speed | Take 20 hits in one run and survive |
-| Prism | Shard | Shards bounce twice more; +20% area | −15% damage | Kill 200 enemies with bounced shards |
-| Lantern | Orbit | +60% magnet, gems worth +25% XP | Cannot take the Cannon | Collect 5,000 gems, lifetime |
-| Needle | Lance | +35% damage, lance pierces everything | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
-| Ember | Mines | +40% area, mines chain-detonate | Only 4 weapon slots | Complete two merges in one run |
-| Ghost | Arc | Invulnerable for 2 seconds on every level-up | Max health 1; revives do not work | Clear a 20-minute run with no revive |
-| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
+| Ship | Base weapon | Strength | Growth | Weakness | Unlock |
+|---|---|---|---|---|---|
+| Claw | Cannon | Balanced; +1 reroll per run | +1% damage per level | None | Start |
+| Dart | Seeker | +25% move speed, +20% projectile speed | +1% move speed per level | Max health 2 | Survive 5:00 |
+| Anvil | Nova | +50% max health, +1 armor | +1 max health every 5 levels | −20% move speed | Take 20 hits in one run and survive |
+| Prism | Shard | Shards bounce twice more; +20% area | +1% area per level | −15% damage | Kill 200 enemies with bounced shards |
+| Lantern | Orbit | +60% magnet, gems worth +25% XP | +2% magnet per level | Cannot take the Cannon | Collect 5,000 gems, lifetime |
+| Needle | Lance | +35% damage, lance pierces everything | +1% damage per level, +5% every 10 | Cannot aim: no Cannon, and the right stick does nothing | Reach combo x60 |
+| Ember | Mines | +40% area, mines chain-detonate | +1% cooldown per level | Only 4 weapon slots | Complete two merges in one run |
+| Ghost | Arc | Invulnerable for 2 seconds on every level-up | +0.1 s invulnerability every 5 levels | Max health 1; revives do not work | Clear a 20-minute run with no revive |
+| Reaper | Scythe (unique) | Starts at level 5 with 3 weapons; +30% gold | +1% gold per level | −40% XP gain; cannot merge | Secret: "Face what ends the run, and end it first" |
+
+Growth is a ship's stat gain per level within the run, so a ship's identity
+sharpens across twenty minutes instead of being fixed at the start. It is a
+column in the same data table as the rest of the ship.
 
 The Reaper is the mirror of Vampire Survivors' Red Death: the Reaper that
 arrives at the 20-minute cap is unkillable to an ordinary build, and a build
@@ -604,9 +663,10 @@ Each milestone has a done condition. The next does not start before it.
 ### M1 — The run grows
 
 XP gems with magnet and merge, level-ups with the choice screen, the Cannon
-plus three other weapons, four passives, the 20-minute timeline with the
-Reaper, elites with chests, one boss pattern at 5 and 10 minutes, health as
-a stat, the results screen with gold and bests, and the save as §13 states
+plus three other weapons, four passives including curse, the 20-minute
+timeline with the Reaper, four events, beacons and the pickup set, elites
+with chests, one boss pattern at 5 and 10 minutes, health as a stat, the
+results screen with gold and bests, and the save as §13 states
 it: loaded before the first frame, written on every change, atomic with a
 backup, versioned, in the per-user data directory.
 
@@ -617,9 +677,10 @@ launch.
 
 ### M2 — Between runs
 
-The shop with all ranks, escalating prices, and refund. The unlock list with
-the remaining launch weapons and passives as unlocks. The Dart and the
-Anvil, and the ship select screen. Session metrics in the overlay.
+The shop with all ranks, escalating prices, and refund, including skip,
+reroll, and banish counts. The unlock list with the remaining launch weapons
+and passives as unlocks, and the bestiary. The Dart and the Anvil, and the
+ship select screen. Session metrics in the overlay.
 
 Done when the five metrics read as designed across ten playtest sessions:
 runs per session rising, most results screens showing an open loop within
@@ -627,13 +688,15 @@ runs per session rising, most results screens showing an open loop within
 
 ### M3 — Variety and merges
 
-All eight weapons, all passives, every evolution and union with its banner, the third
-boss, the Spinner and Weaver behaviors, stages with modifiers, the full ship
-roster including the killable Reaper and its ship.
+All eight weapons, all passives, every evolution and union with its banner,
+the third boss, the Spinner and Weaver behaviors, all twelve events, the
+chest ceremony with three- and five-item chests, stages with modifiers, the
+full ship roster including the killable Reaper and its ship, and endless
+mode.
 
 Done when three distinct builds can clear, every ship can clear in a good
-player's hands, and the unlock list is at least half locked for a new
-player.
+player's hands, endless holds 60 fps through its third loop, and the unlock
+list is at least half locked for a new player.
 
 ### M4 — Platform
 
