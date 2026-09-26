@@ -783,7 +783,11 @@ Purpose: one decision, fast, with the world frozen behind it.
 ```
 
 Three cards, four with luck. A merge card is always first and marked. Each
-card is icon, name, level transition or NEW, and one line of delta. A card
+card is icon, name, level transition or NEW, a description, and a table of
+the real numbers now and after the pick with the build's passives and ranks
+applied. A card names the merge it leads to only when the player has
+completed that recipe in an earlier run; undiscovered recipes are the
+player's to find. A card
 the player has never taken in any run carries an UNSEEN marker. The cursor
 starts on the first card; the stick or d-pad moves it; 1-2-3-4 pick
 directly. Reroll, skip, and banish show their remaining counts and grey out

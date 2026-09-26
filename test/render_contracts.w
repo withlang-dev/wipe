@@ -3,6 +3,7 @@ use presentation
 use input
 use game
 use metrics
+use loadout
 fn main:
     verify_colors()
     assert(length2(stick(0.1, 0.1)) == 0.0)
@@ -13,4 +14,13 @@ fn main:
     for _ in 0..5: metric.add(8.0)
     assert(metric.percentile(95) == 2.25)
     assert(metric.percentile(99) == 8.25)
+    // Merge hints appear only for recipes the player has completed before.
+    var b = Build {}
+    b.add_weapon(.Cannon)
+    var discovered: [bool; 20] = [false; 20]
+    assert(merge_hint(&b, .UpgradeWeapon(weapon: .Cannon), discovered).len() == 0)
+    assert(merge_hint(&b, .NewPassive(passive: .FireRate), discovered).len() == 0)
+    discovered[Weapon.Railgun.index()] = true
+    assert(merge_hint(&b, .UpgradeWeapon(weapon: .Cannon), discovered).len() > 0)
+    assert(merge_hint(&b, .NewPassive(passive: .FireRate), discovered).len() > 0)
     print("UAT passed: palette, deadzones, telemetry")

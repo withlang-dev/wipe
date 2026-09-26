@@ -962,9 +962,12 @@ pub fn passive_total(p: Passive, level: i32) -> str:
         .Overclock => f"+{10 * level}%"
 
 // What a pick leads to: the merge this item is part of, and how close.
-pub fn merge_hint(b: &Build, pick: Pick) -> str:
+// Only for recipes the player has completed before: finding a recipe is the
+// player's discovery, and the card never gives it away.
+pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 20]) -> str:
     for r in recipes():
         if b.weapon_level(r.result) > 0: continue
+        if not discovered[r.result.index()]: continue
         let involved = match pick:
             .NewWeapon(w) => uses(r, w)
             .UpgradeWeapon(w) => uses(r, w)
@@ -1088,7 +1091,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
             label(r.before.clone(), x + card_w - 126, row_y, 17, white(0.5))
             neon(r.after.clone(), x + card_w - 66, row_y, 17, if changed: lime(1.0) else: white(0.8))
             row_y += 26
-        let hint = merge_hint(&g.build, o.pick)
+        let hint = merge_hint(&g.build, o.pick, g.launch.taken_weapons)
         if hint.len() > 0:
             DrawRectangle(x + 14, y + card_h - 58, card_w - 28, 1, white(0.15))
             var hint_line = ""
