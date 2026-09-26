@@ -6,6 +6,8 @@ use tuning
 use loadout
 use ships
 use pilots
+use account
+use save
 
 fn armed(index: i32, seed: i32) -> Game:
     var g = test_game(.Claw, seed, Rules { minimum_start: 0.0 })
@@ -18,8 +20,8 @@ fn armed(index: i32, seed: i32) -> Game:
         g.build.upgrade_weapon(.Orbit)
         g.build.upgrade_weapon(.Arc)
         if index >= 2: g.build.upgrade_weapon(.Nova)
-    g.build.add_passive(.Damage)
-    g.build.add_passive(.FireRate)
+    g.build.add_passive(Passive.Damage)
+    g.build.add_passive(Passive.FireRate)
     g.level = 8 + index * 8
     g.xp_next = 1000000000
     g.boss_index = index
@@ -34,10 +36,7 @@ fn fight(index: i32, style: Style, seed: i32) -> (f64, i32, bool, f64):
     while g.phase != .Over and g.boss_alive and g.elapsed < start + 240.0:
         g.clear_events()
         g.tick(controls(&g, style), 1.0 / 120.0)
-        if g.hurt_event:
-            hits += 1
-            if false:
-                print(f"  hit at {g.elapsed - start}: health {g.health}/{g.max_health} before {g.health_before} beat {g.enemies[0].state % 30}")
+        if g.hurt_event: hits += 1
         if g.phase == .Boost:
             g.pending_levels = 0
             g.pending_cache_items = 0
@@ -47,7 +46,25 @@ fn fight(index: i32, style: Style, seed: i32) -> (f64, i32, bool, f64):
     if not g.boss_alive: left = 0.0
     (g.elapsed - start, hits, g.phase == .Over, left)
 
+// A fresh account: default unlocks, no shop ranks, the careful bot.
+fn fresh_runs(seeds: i32):
+    var reach5 = 0
+    var warden = 0
+    var reach10 = 0
+    var total = 0.0
+    for seed in 0..seeds:
+        var g = Game.new()
+        g.rng = 55555 +% (seed as u32) *% 2654435761
+        g.start(launch_for(.Claw, &Save {}, false))
+        let (end, st) = fly(g, .Careful, 601.0)
+        total += st.seconds
+        if st.seconds >= 300.0: reach5 += 1
+        if end.boss_kills[0] > 0: warden += 1
+        if st.seconds >= 600.0: reach10 += 1
+    print(f"fresh Claw, careful bot, {seeds} seeds: mean {(total / seeds as f64) as i32} s, reached 5:00 {reach5}, killed the Warden {warden}, reached 10:00 {reach10}")
+
 fn main:
+    fresh_runs(16)
     print("boss      pilot       seconds  hits  deaths (of 4)")
     for index in 1..4:
         for style in [Style.Careful, Style.Stationary]:

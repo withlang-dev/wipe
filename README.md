@@ -178,6 +178,16 @@ mkdir -p out/gallery
 ./out/bin/gallery
 ```
 
+The `bosses` executable fights each boss with a build typical of its minute,
+flown by the careful bot and by a ship that stands still, and flies a fresh
+account to ten minutes. It reports time to kill, hits, deaths, and how far
+fresh runs get:
+
+```sh
+with build :bosses
+./out/bin/bosses
+```
+
 The `play` executable is the playtest driver. A scripted player drives the
 real app through the same input path as the keyboard and pad: title, ship
 select, full runs that aim and dodge, every boost action, pause, abandon,
