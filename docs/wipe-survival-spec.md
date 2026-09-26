@@ -23,6 +23,16 @@ the run itself grows, and every run feeds a permanent curve between runs. WIPE
 keeps the first game's responsiveness, readability, and luminous chaos, and
 builds the second game's loop under it.
 
+The hook in one line: **a Vampire Survivors snowball you can steer.** The
+loop is Vampire Survivors' untouched: auto-fire, three cards, merges,
+credits, a save that never loses anything. The second stick is what WIPE
+adds. Aim decides how the swarm dies, never whether the player lives, so a
+run is something the player did rather than something they watched. The
+payoff is the last five minutes: ten thousand wireframe ships, a build the
+player assembled, and their hand pointing it. Every addition to this
+document passes one test: it makes the snowball bigger, more legible, or
+more the player's own.
+
 The addiction is not one mechanic. It is three curves that overlap so that
 one is always rising:
 
@@ -50,6 +60,8 @@ Desired reactions, in order:
 - **Growth every minute.** Something gets stronger, unlocks, or fills at
   least once a minute of play.
 - **Every run pays.** Credits are banked whatever happens. No run is wasted.
+- **Every death is a story.** The player can always name what killed them
+  and how close they came, and both are written on the results screen.
 
 ---
 
@@ -220,6 +232,10 @@ Death is instant and loud: the largest burst in the game, a radial
 shockwave, strong brief shake, a flash, 100–150 ms freeze, then the results
 screen within half a second. No lengthy animation.
 
+The run records what killed the player: the enemy kind, the minute, the
+health before the hit, and the merge or level that was nearest. The results
+screen reports all of it.
+
 ---
 
 ## 5. Feel
@@ -327,7 +343,13 @@ Launch roster, eight weapons:
 
 Six passive slots. Launch roster, eight passives: damage, fire rate,
 projectile count, area, projectile speed, magnet, move speed, max health.
-Plus cooldown, armor, luck, credit gain, and overclock as unlockables.
+Plus cooldown, armor, luck, credit gain, rebound, and overclock as
+unlockables.
+
+**Rebound** makes every projectile bounce off the arena walls once per level.
+It is the passive only a bounded arena can have: a cannon fired at a wall
+comes back through the swarm, a Nova ring folds in on itself in a corner,
+and the arena's edge stops being a limit and becomes part of the build.
 
 **Overclock** is the risk-reward lever: each level raises enemy speed, spawn
 rate, and spawn count by a percentage, and raises XP and credits by the same
@@ -379,11 +401,15 @@ All enemies chase or pressure the player; none require pathfinding.
 | Dart | Burst | Fast, fragile, straight rushes. Punishes standing still. |
 | Spinner | Pressure | Tracks briefly, telegraphs, charges. Fair, readable. |
 | Weaver | Area | Keeps distance, fires slow bullets. Prevents passive circling. |
+| Skimmer | Aim | Sidesteps projectiles it sees coming. Dies to area and orbit like anything else; rewards a placed shot. |
+| Well | Hazard | A gravity well that drifts, pulls enemies and cores in, grows with what it eats, and bursts into a Dart spray when full. Kill it early or feed it and use it. |
 | Elite | Beat | A larger, marked version of any kind with a cache. |
 | Boss | Gate | Large, high health, unique telegraphed pattern, health bar. |
 
 The four prototype silhouettes keep their looks and get the behaviors above;
-the prototype's speed offsets are the seed of the roles.
+the prototype's speed offsets are the seed of the roles. Every kind is
+defined by how it moves, not by its numbers, so the late-run screen reads as
+a mixed swarm and every death has a shape the player can name.
 
 Scaling is a function of the timeline minute, invisible to the player, with
 no health bars except bosses. Spawn count is clamped to the entity budget;
@@ -446,7 +472,8 @@ Shown within half a second of the run's end. Always:
 ```text
 RUN OVER                          (or CLEARED at the cap)
 
-Survived 18:40   (best 19:12)
+Survived 18:40   32 seconds short of your best 19:12
+Wiped by a Skimmer at 4 health
 Level 31   Kills 2,317 (Block 1,402 · Dart 611 · Spinner 231 · Weaver 73)
 Best combo x48
 Build: Cannon IV · Orbit (merged) · Seeker II · Nova I
@@ -455,13 +482,16 @@ Build: Cannon IV · Orbit (merged) · Seeker II · Nova I
 +412 credits   (banked: 1,988)
 Next: Lance unlock — survive 15:00 with Cannon  (18:40 ✓)
       Armor rank 3 — 2,300 credits
+      Railgun was one Speed level away
 
 [Retry]        [Shop]        [Unlocks]
 ```
 
 Rules: retry is available immediately; the near-miss line reports real
-proximity only; the next-unlock and next-purchase lines are always present;
-a new best is starred.
+proximity only and is the largest text on the screen after the title; the
+cause of death is always named; the next-unlock and next-purchase lines are
+always present; when the run held one half of a merge, the merge and its
+distance are named; a new best is starred.
 
 ---
 
@@ -580,6 +610,18 @@ The results screen shows the banked total rising before anything else.
 "Survived 18:40 (best 19:12)" works because it is true. Thresholds are never
 bent to manufacture proximity; that is the slot-machine mechanism and players
 feel it. The unlock list reports real progress only.
+
+The near miss is built during the run, not discovered after it. The best
+time for the ship sits on the run timer as a marker, so the player watches
+the gap close, and crossing it is called out mid-run. A new best is
+therefore always a death just past the old one, which is the honest form of
+the near miss: the player was there, and knows it. The results screen then
+states the distance in one line, either side of the mark.
+
+The same treatment applies to merges. A run that ends holding one half of a
+recipe reports the recipe and how far the other half was. A boost card the
+player has never taken carries a marker in the overlay, so the pool is
+always known to hold something unseen.
 
 ### Not used
 
@@ -715,6 +757,10 @@ Health as a bar under the ship. Boss bar at the top when a boss is alive.
 Edge indicators for off-screen caches, beacons, bosses, and incoming
 events. No score number: the combo and the credits are the score.
 
+The timer carries a marker at the ship's best time. When the run crosses
+it, the marker flares, the timer reads NEW BEST for two seconds, and the
+music lifts; from then on the timer counts up in the best-time color.
+
 ### Run: boost overlay
 
 Purpose: one decision, fast, with the world frozen behind it.
@@ -735,8 +781,9 @@ Purpose: one decision, fast, with the world frozen behind it.
 ```
 
 Three cards, four with luck. A merge card is always first and marked. Each
-card is icon, name, level transition or NEW, and one line of delta. The
-cursor starts on the first card; the stick or d-pad moves it; 1-2-3-4 pick
+card is icon, name, level transition or NEW, and one line of delta. A card
+the player has never taken in any run carries an UNSEEN marker. The cursor
+starts on the first card; the stick or d-pad moves it; 1-2-3-4 pick
 directly. Reroll, skip, and banish show their remaining counts and grey out
 at zero; banish asks which card. Taking resumes play on the same frame.
 
@@ -765,7 +812,9 @@ put retry one press away.
 ┌──────────────────────────────────────────────────────────────┐
 │ RUN OVER                                    credits 1,988 ▲412│
 │                                                              │
-│  survived 18:40  ★ best        level 31    best combo ×48    │
+│  survived 18:40   ★ NEW BEST by 0:41                          │
+│  wiped by a Skimmer at 4 health                              │
+│  level 31    best combo ×48                                  │
 │  kills 2,317   Block 1,402 · Dart 611 · Spinner 231 · Weaver 73│
 │                                                              │
 │  build  Cannon IV · Orbit (merged) · Seeker II · Nova I      │
@@ -774,6 +823,7 @@ put retry one press away.
 │  ▸ next unlock   Lance — survive 15:00 with Cannon   18:40 ✓ │
 │  ▸ next rank     Armor 3 — 2,300 credits          ████░ 86% │
 │  ▸ level-up bar was 4 s from full                            │
+│  ▸ Railgun was one Speed level away                          │
 │                                                              │
 │  NEW SHIP: SAPPER                    [RB] retry as Sapper    │
 │                                                              │
@@ -781,10 +831,11 @@ put retry one press away.
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Sequence, all skippable by one press: credits count up into the bank with
-the delta pinned beside the total; a new best pops a star; the kill line
-fills in; the three open-loop lines slide in last, because they are what the
-player should be reading when the screen settles. A newly unlocked ship
+Sequence, all skippable by one press: the best-time delta lands first and
+largest, star and all if it is a new best; the cause of death under it;
+credits count up into the bank with the delta pinned beside the total; the
+kill line fills in; the open-loop lines slide in last, because they are what
+the player should be reading when the screen settles. A newly unlocked ship
 gets its own line with a one-press retry as that ship.
 
 Activities: retry with the same ship, back to ship select, shop, collection.
@@ -994,11 +1045,24 @@ runs per session rising, most results screens showing an open loop within
 ### M3 — Variety and merges
 
 All eight weapons, all passives, every evolution and union with its banner,
-the third boss, the Spinner and Weaver behaviors, all twelve events, the
-cache ceremony with three- and five-item caches, stages as arena shapes
-with modifiers, the
-full ship roster including the killable Null and its ship, and endless
-mode.
+the third boss, the Spinner, Weaver, Skimmer, and Well behaviors, all
+twelve events, the cache ceremony with three- and five-item caches, stages
+as arena shapes with rule modifiers, the full ship roster including the
+killable Null and its ship, and endless mode.
+
+Stretch, in order, once the above is done and the pool is balanced:
+
+1. **Wild cards.** One rare rule-breaking card per run: a huge shield and no
+   repair, all weapons traded for ramming damage, shots that cost health and
+   hit triple. Each is its own collection entry.
+2. **Stage rules.** Stages differ by rule as well as shape: a stage where
+   weapons fire only inside drifting safe circles, a stage of gates that
+   detonate what they touch and nothing else fires, a stage where enemies
+   arrive in formations only.
+3. **Shield passives.** One shield per run, mutually exclusive: regenerating,
+   reflecting, blink-on-break, bastion.
+4. **Constructs.** Drones, turrets, and mines that persist and fight, as the
+   Sapper's family and as passives for every ship.
 
 Done when three distinct builds can clear, every ship can clear in a good
 player's hands, endless holds 60 fps through its third loop, and the unlock
@@ -1008,6 +1072,10 @@ list is at least half locked for a new player.
 
 Steamworks facade, achievements, Steam Deck acceptance on hardware,
 listening review, store build.
+
+Stretch: a friend's best time for the ship as a second marker on the run
+timer, with a callout when the run passes it; a daily seed with its own
+best-time list, replayable from the results screen.
 
 Done when the acceptance record shows every hardware and listening check
 green.
