@@ -172,7 +172,14 @@ pub type Enemy {
     timer: f64 = 0.0, state: i32 = 0, eaten: i32 = 0,
     // Formation enemies fly their vector before they start chasing.
     formation: f64 = 0.0,
+    // Bosses: which boss (0 Warden, 1 Lancer, 2 Hive), where it faces, and
+    // a turning angle for spirals. Hive drones orbit their core.
+    boss: i32 = -1, facing: V2 = V2 { x: 1.0 }, angle: f64 = 0.0, drone: bool = false,
 }
+
+// The three bosses, in the order they arrive.
+pub const BOSS_NAMES: [str; 3] = ["WARDEN", "LANCER", "HIVE"]
+pub const BOSS_HEALTH: [f64; 3] = [1800.0, 5000.0, 7000.0]
 pub type Bullet {
     pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0, steps: i32 = 0,
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
@@ -228,7 +235,7 @@ pub fn combo_tier(combo: i32) -> i32:
 impl Copy for PopupKind
 pub type Popup { pos: V2 = V2 {}, life: f64 = 0.0, total: f64 = 0.9, kind: PopupKind = .Xp(value: 0) }
 // One centered banner at a time: the loudest moments name themselves.
-pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossDown | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) }
+pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossName(boss: i32) | FirstKill(boss: i32) | BossDown | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) }
 impl Copy for BannerKind
 pub type Banner { kind: BannerKind = .Boss, life: f64 = 0.0, total: f64 = 2.0 }
 pub type Controls { motion: V2 = V2 {}, aim: V2 = V2 { x: 1.0, y: 0.0 } }
@@ -252,6 +259,8 @@ pub type Launch {
     taken_passives: [bool; 14] = [false; 14],
     best_time: f64 = 0.0,
     endless: bool = false,
+    // Bosses this account has ever killed; a first kill is an achievement.
+    bosses_known: [bool; 3] = [false; 3],
 }
 impl Copy for Launch
 
@@ -296,6 +305,8 @@ pub type Game {
     best_crossed: bool = false, best_flare: f64 = 0.0,
     // Boss entry pulls the camera back for a moment.
     zoom_timer: f64 = 0.0,
+    // Boss kills this run by boss.
+    boss_kills: [i32; 3] = [0; 3],
     // The Phase slips out of the world on a rhythm.
     phase_timer: f64 = 0.0,
     banner: Banner = Banner {},
@@ -328,6 +339,7 @@ pub type Game {
     level_event: bool = false, merge_event: bool = false, boss_event: bool = false,
     pickup_event: bool = false, core_event: bool = false, cache_event: bool = false,
     boss_kill_event: bool = false, best_event: bool = false, zap_event: bool = false,
+    first_kill_event: bool = false,
 }
 
 pub fn Game.new(rules: Rules = Rules {}) -> Game:
@@ -386,6 +398,12 @@ extend Game:
     pub fn boss_minute(self: &Self) -> Option[f64]:
         let minutes = self.rules.boss_minutes()
         if self.boss_index < 3: Some(minutes[self.boss_index]) else: None
+    pub fn boss_name(self: &Self) -> Option[str]:
+        for i in 0..self.enemy_count:
+            let e: Enemy = self.enemies[i]
+            if e.kind == .Boss and e.boss >= 0: return Some(BOSS_NAMES[e.boss].clone())
+        None
+
     pub fn boss_health(self: &Self) -> Option[(i32, i32)]:
         for i in 0..self.enemy_count:
             let e: Enemy = self.enemies[i]
@@ -472,6 +490,7 @@ extend Game:
         self.best_flare = 0.0
         self.zoom_timer = 0.0
         self.phase_timer = PHASE_PERIOD
+        self.boss_kills = [0, 0, 0]
         self.banner = Banner {}
         self.enemy_count = 0
         self.bullet_count = 0
@@ -507,6 +526,7 @@ extend Game:
         self.boss_kill_event = false
         self.best_event = false
         self.zap_event = false
+        self.first_kill_event = false
 
     // Recompute every multiplier: shop ranks, then passives, then the ship.
     fn refresh_mods(mut self: Self):
@@ -779,14 +799,65 @@ extend Game:
         if kind == .Well: kind = .Spinner
         let _ = self.place_enemy(pos, kind, true)
 
+    // A boss fight is one on one: the swarm dissolves, and nothing spawns
+    // until the boss is down.
     pub fn spawn_boss(mut self: Self):
+        let which = limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
+        var i = 0
+        while i < self.enemy_count:
+            let e: Enemy = self.enemies[i]
+            if e.kind == .Null:
+                i += 1
+                continue
+            if self.particle_count < PARTICLE_CAP - 300: self.burst(e.pos, V2 {}, 5, e.kind.tint(), 0.9)
+            self.enemy_count -= 1
+            self.enemies[i] = self.enemies[self.enemy_count]
         let Some(pos) = self.spawn_point() else return
         if self.place_enemy(pos, Kind.Boss):
+            let at = self.enemy_count - 1
+            let health = (BOSS_HEALTH[which] * self.difficulty()) as i32
+            self.enemies[at].boss = which
+            self.enemies[at].hp = health
+            self.enemies[at].max_hp = health
+            self.enemies[at].facing = direction(sub(self.player, pos))
+            self.enemies[at].timer = 2.0
+            if which == 2: self.spawn_drones(pos)
             self.boss_alive = true
             self.boss_event = true
             self.freeze = self.rules.boss_stop
             self.zoom_timer = 2.4
-            self.show(.Boss, 2.0)
+            self.show(.BossName(boss: which), 2.4)
+
+    // The Hive's four drones: they shield its core while any lives.
+    fn spawn_drones(mut self: Self, at: V2):
+        for k in 0..4:
+            let angle = k as f64 * 1.5708
+            if self.place_enemy(add(at, V2 { x: cos(angle) * 170.0, y: sin(angle) * 170.0 }), Kind.Weaver):
+                let d = self.enemy_count - 1
+                let hp = (220.0 * self.difficulty()) as i32
+                self.enemies[d].drone = true
+                self.enemies[d].eaten = k
+                self.enemies[d].hp = hp
+                self.enemies[d].max_hp = hp
+                self.enemies[d].timer = 1.0 + k as f64 * 0.5
+
+    fn drones_alive(self: &Self) -> i32:
+        var n = 0
+        for i in 0..self.enemy_count:
+            if self.enemies[i].drone: n += 1
+        n
+
+    // What a hit on a boss is worth: weak points and armor.
+    fn boss_damage_scale(self: &Self, e: Enemy, impact: V2) -> f64:
+        match e.boss:
+            0 => {
+                // The Warden's back is its weak point.
+                let along = impact.x * e.facing.x + impact.y * e.facing.y
+                if along > 0.3: 3.5 else: 0.35
+            }
+            1 => if e.state == 3: 2.5 else: 0.5
+            2 => if self.drones_alive() > 0: 0.08 else: 1.5
+            _ => 1.0
 
     pub fn spawn_null(mut self: Self):
         let Some(pos) = self.spawn_point() else return
@@ -941,13 +1012,29 @@ extend Game:
                 self.boss_alive = false
                 self.bosses_killed += 1
                 self.boss_kill_event = true
+                // The reward: a full repair, credits, and for a first kill
+                // ever, a large one-time bonus and the record of it.
+                self.health = self.max_health
+                if e.boss >= 0:
+                    self.boss_kills[e.boss] += 1
+                    let bonus = 60 * (e.boss + 1)
+                    self.credits += bonus
+                    self.popup(add(e.pos, V2 { y: -40.0 }), .Credits(value: bonus))
+                    let known: bool = self.launch.bosses_known[e.boss]
+                    if not known:
+                        self.launch.bosses_known[e.boss] = true
+                        let first = 400 * (e.boss + 1)
+                        self.credits += first
+                        self.first_kill_event = true
+                        self.popup(add(e.pos, V2 { y: -70.0 }), .Credits(value: first))
                 self.freeze = 0.3
                 self.flash = 0.8
                 self.trauma = 1.0
                 self.breather = self.rules.breather
                 self.drop_pickup(e.pos, PickupKind.Cache)
                 self.drop_pickup(add(e.pos, V2 { x: 90.0 }), PickupKind.Bundle)
-                self.show(.BossDown, 2.0)
+                if self.first_kill_event: self.show(.FirstKill(boss: e.boss), 3.0)
+                else: self.show(.BossDown, 2.0)
                 // Every other enemy dies with it, cores and all.
                 var i = 0
                 while i < self.enemy_count:
@@ -975,7 +1062,9 @@ extend Game:
 
     // Apply damage to one enemy; returns true when it died.
     pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12) -> bool:
-        self.enemies[index].hp -= damage
+        let target: Enemy = self.enemies[index]
+        let dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
+        self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = cooldown
         let pos: V2 = self.enemies[index].pos
@@ -1181,8 +1270,8 @@ extend Game:
                             self.mine_count += 1
                         }
                         .Chain => {
-                            // Lightning: bolts from above onto random enemies in view,
-                            // each chaining on to its neighbors.
+                            // Lightning: bolts from the ship onto random enemies in
+                            // view, each chaining on to its neighbors.
                             self.build.weapons[slot].timer = stats.cooldown
                             var struck = 0
                             let zap = ((stats.damage as f64) * self.rules.lightning_damage + 0.5) as i32
@@ -1198,7 +1287,7 @@ extend Game:
                                     self.arcs[self.arc_count] = ArcBolt { a: from, b: pos, seed: self.rng }
                                     self.arc_count += 1
                                 self.pulse(pos, 44.0, .Violet)
-                                let _ = self.damage_enemy(target, zap_damage, V2 { y: 1.0 })
+                                let _ = self.damage_enemy(target, zap_damage, direction(sub(pos, from)))
                                 // Anyone unlucky enough to be in the way is struck too.
                                 self.strike_line(from, pos, zap_damage)
                                 if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, zap_damage * 2 / 3 + 1)
@@ -1528,6 +1617,10 @@ extend Game:
                 if self.minute() >= minute and not self.boss_alive:
                     self.boss_index += 1
                     self.spawn_boss()
+        // During a boss fight nothing else arrives, and the elite clock waits.
+        if self.boss_alive:
+            self.next_elite += dt
+            return
         // Elites every minute from three.
         if self.elapsed >= self.next_elite:
             self.next_elite += self.rules.elite_interval
@@ -1564,7 +1657,18 @@ extend Game:
             if self.enemy_count < ENEMY_CAP - 64: self.spawn_enemy()
             else: self.spawn_timer += 0.05
 
+    fn boss_position(self: &Self) -> Option[V2]:
+        for i in 0..self.enemy_count:
+            if self.enemies[i].kind == .Boss: return Some(self.enemies[i].pos)
+        None
+
+    fn hostile_shot(mut self: Self, from: V2, heading: V2, speed: f64, damage: i32):
+        if self.bullet_count >= BULLET_CAP: return
+        self.bullets[self.bullet_count] = Bullet { pos: from, vel: scale(direction(heading), speed), life: 5.0, damage, hostile: true, weapon: .Cannon }
+        self.bullet_count += 1
+
     fn step_enemies(mut self: Self, dt: f64):
+        let hive = self.boss_position()
         let frozen = self.enemies_frozen > 0.0
         for e in 0..self.enemy_count:
             var enemy: Enemy = self.enemies[e]
@@ -1600,6 +1704,22 @@ extend Game:
                                     separation = add(separation, scale(delta, (reach - d) / (reach * d)))
                             other = self.cell_next[other]
             var velocity = V2 {}
+            if enemy.drone:
+                // Drones hold a ring around the Hive and fire aimed bolts.
+                if let Some(core) = hive:
+                    let a = self.elapsed * 0.8 + enemy.eaten as f64 * 1.5708
+                    enemy.pos = add(core, V2 { x: cos(a) * 170.0, y: sin(a) * 170.0 })
+                enemy.timer -= dt
+                if enemy.timer <= 0.0:
+                    // A three-bolt burst at the ship.
+                    enemy.timer = 1.8
+                    let aim = direction(sub(self.player, enemy.pos))
+                    let base = atan2(aim.y, aim.x)
+                    for k in 0..3:
+                        let a = base + (k as f64 - 1.0) * 0.12
+                        self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 230.0, 3 + self.endless_loop)
+                self.enemies[e] = enemy
+                continue
             if enemy.formation > 0.0:
                 enemy.formation -= dt
                 velocity = enemy.vel
@@ -1710,30 +1830,91 @@ extend Game:
                             enemy.hp = 0
                     }
                     .Boss => {
-                        // Track, telegraph, charge; a dart ring every cycle.
                         enemy.timer -= dt
-                        if enemy.state == 0:
-                            velocity = scale(toward, enemy.speed * 1.1)
-                            if enemy.timer <= 0.0:
-                                enemy.state = 1
-                                enemy.timer = 1.0
-                        else if enemy.state == 1:
-                            enemy.flash = 0.02
-                            enemy.vel = scale(toward, enemy.speed * 3.8)
-                            if enemy.timer <= 0.0:
-                                enemy.state = 2
-                                enemy.timer = 1.1
-                        else if enemy.state == 2:
-                            velocity = enemy.vel
-                            if enemy.timer <= 0.0:
-                                enemy.state = 0
-                                enemy.timer = 2.4
-                                for i in 0..8:
-                                    let angle = (i as f64) * 0.785398
-                                    let pos = add(enemy.pos, V2 { x: cos(angle) * 90.0, y: sin(angle) * 90.0 })
-                                    if self.place_enemy(pos, Kind.Dart):
-                                        self.enemies[self.enemy_count - 1].vel = V2 { x: cos(angle) * 220.0, y: sin(angle) * 220.0 }
-                                        self.enemies[self.enemy_count - 1].formation = 1.0
+                        let shot_damage = (if enemy.boss == 0: 2 else: 3) + self.endless_loop
+                        match enemy.boss:
+                            0 => {
+                                // Warden: turns slowly to face the ship, drifts in,
+                                // and sprays a turning spiral. Its back is the target.
+                                let want = direction(sub(self.player, enemy.pos))
+                                let turn = limit(dt * 0.9, 0.0, 1.0)
+                                enemy.facing = direction(add(scale(enemy.facing, 1.0 - turn), scale(want, turn)))
+                                velocity = scale(toward, enemy.speed * 0.45)
+                                if enemy.timer <= 0.0:
+                                    enemy.timer = 0.12
+                                    enemy.state += 1
+                                    let beat = enemy.state % 30
+                                    if beat < 20:
+                                        // A three-armed spiral, turning.
+                                        enemy.angle += 0.26
+                                        for k in 0..3:
+                                            let a = enemy.angle + k as f64 * 2.0944
+                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 175.0, shot_damage)
+                                    else if beat == 24:
+                                        // Then an aimed fan at the ship.
+                                        let aim = direction(sub(self.player, enemy.pos))
+                                        let base = atan2(aim.y, aim.x)
+                                        for k in 0..5:
+                                            let a = base + (k as f64 - 2.0) * 0.14
+                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 260.0, shot_damage)
+                            }
+                            1 => {
+                                // Lancer: closes in, locks a line, charges, and is
+                                // stunned where it lands. Stunned is when it breaks.
+                                if enemy.state == 0:
+                                    velocity = scale(toward, enemy.speed * 0.8)
+                                    enemy.facing = toward
+                                    if enemy.timer <= 0.0:
+                                        enemy.state = 1
+                                        enemy.timer = 1.0
+                                else if enemy.state == 1:
+                                    enemy.facing = direction(sub(self.player, enemy.pos))
+                                    enemy.flash = 0.02
+                                    if enemy.timer <= 0.0:
+                                        enemy.state = 2
+                                        enemy.timer = 0.9
+                                        enemy.vel = scale(enemy.facing, 950.0)
+                                else if enemy.state == 2:
+                                    velocity = enemy.vel
+                                    let ahead = add(enemy.pos, scale(enemy.vel, dt))
+                                    if enemy.timer <= 0.0 or not self.in_arena(ahead, -60.0):
+                                        // Below half health it recovers faster.
+                                        let enraged = enemy.hp * 2 < enemy.max_hp
+                                        enemy.state = 3
+                                        enemy.timer = if enraged: 1.1 else: 1.8
+                                        self.trauma = limit(self.trauma + 0.4, 0.0, 1.0)
+                                        let aim = direction(sub(self.player, enemy.pos))
+                                        let base = atan2(aim.y, aim.x)
+                                        for k in 0..9:
+                                            let a = base + (k as f64 - 4.0) * 0.18
+                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 210.0, shot_damage)
+                                else:
+                                    if enemy.timer <= 0.0:
+                                        enemy.state = 0
+                                        enemy.timer = if enemy.hp * 2 < enemy.max_hp: 0.9 else: 2.0
+                            }
+                            _ => {
+                                // Hive: drifts; its drones shield it. With every drone
+                                // down it is open for eight seconds, then rebuilds them.
+                                velocity = scale(toward, enemy.speed * 0.3)
+                                if self.drones_alive() == 0:
+                                    if enemy.state == 0:
+                                        enemy.state = 1
+                                        enemy.timer = 8.0
+                                        enemy.angle = 0.0
+                                    else if enemy.timer <= 0.0:
+                                        enemy.state = 0
+                                        self.spawn_drones(enemy.pos)
+                                    else:
+                                        // Open, it pulses rings of bolts.
+                                        enemy.angle -= dt
+                                        if enemy.angle <= 0.0:
+                                            enemy.angle = 1.1
+                                            let turn = self.random() * 0.5
+                                            for k in 0..14:
+                                                let a = turn + k as f64 * 0.4488
+                                                self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 190.0, shot_damage)
+                            }
                     }
                     .Null => { velocity = scale(toward, enemy.speed) }
             let velocity2 = if enemy.kind == .Boss or enemy.kind == .Null: velocity else: add(velocity, scale(movement(separation), 150.0))

@@ -232,7 +232,7 @@ pub fn launch_for(ship: Ship, s: &Save, endless: bool) -> Launch:
         reboots: s.ranks[12], skips: s.ranks[13], rerolls: s.ranks[14], banishes: s.ranks[15],
         taken_weapons: s.taken_weapons, taken_passives: s.taken_passives,
         best_time: if endless: s.best_endless[ship.index()] else: s.best_time[ship.index()],
-        endless,
+        endless, bosses_known: s.boss_slain,
     }
     for i in 0..BASE_WEAPON_COUNT: l.unlocked_weapons[i] = met(weapon_condition(weapon_at(i)), s)
     for i in 0..PASSIVE_COUNT: l.unlocked_passives[i] = met(passive_condition(passive_at(i)), s)

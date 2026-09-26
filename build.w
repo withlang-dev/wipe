@@ -31,6 +31,8 @@ pub fn build(ctx: BuildCtx) -> Build:
     ).add_target(
         game_target("odds", "src/odds.w")
     ).add_target(
+        game_target("bosses", "src/bosses.w")
+    ).add_target(
         game_target("runs", "src/runs.w")
     ).add_target(
         game_target("audio-uat", "src/audio_uat.w")

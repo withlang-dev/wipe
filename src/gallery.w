@@ -219,6 +219,16 @@ fn main:
     zap.build.weapons[0].timer = 0.0
     zap = step(zap, 0.04, V2 { x: 1.0 })
     shot(&renderer, &zap, 90.0, "61-lightning")
+    // Each boss mid-fight, one on one.
+    for index in 1..4:
+        var fight = staged()
+        fight.build.weapons[0] = WeaponSlot { weapon: .Cannon, level: 4 }
+        fight.boss_index = index
+        fight.elapsed = 300.0 * index as f64
+        fight.spawn_boss()
+        fight = step(fight, 7.0, V2 { x: 0.8, y: -0.6 })
+        let bname = f"63-boss-{index}"
+        shot(&renderer, &fight, 100.0 + index as f64, bname)
     // Walled maps mid-fight.
     for st in [Stage.Gridlock, Stage.Maze]:
         var walled = Game.new(st.rules())

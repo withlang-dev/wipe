@@ -154,8 +154,27 @@ knobs.
 
 - **Elites**: one larger, tougher enemy of an existing kind, marked
   visually, dropping a guaranteed supply cache.
-- **Bosses**: at 5, 10, and 15 minutes. A boss is a screen-clear gate with a
-  telegraphed pattern and a health bar, the one enemy health bar in the game.
+- **Bosses**: at 5, 10, and 15 minutes, each unique. A boss fight is one on
+  one: on arrival the swarm dissolves (no drops), and no spawns, elites, or
+  events arrive until the boss dies. Bosses have massive health (1,800,
+  5,000, and 7,000 before difficulty scaling), a named health bar, the one
+  enemy health bar in the game, and attacks that a ship standing still
+  cannot survive for ten seconds:
+  - **Warden** (5:00): turns slowly to face the ship, sprays a turning
+    three-armed spiral, then an aimed fan. Its back is its weak point:
+    hits from behind deal 3.5×, hits on its shield 0.35×.
+  - **Lancer** (10:00): closes in, locks a visible line for a second,
+    charges along it, and lands with a fan of bolts. It is stunned where it
+    lands; stunned it takes 2.5×, otherwise 0.5×. Below half health it
+    recovers and charges faster.
+  - **Hive** (15:00): a core shielded by four orbiting drones that fire
+    aimed bursts. While any drone lives the core takes 0.08×. With every
+    drone down the core opens for eight seconds at 1.5×, pulsing rings of
+    bolts, then rebuilds its drones.
+  - **Reward**: a full repair, a credit bounty, a guaranteed cache and a
+    credit bundle. The first kill ever of each boss is an achievement: a
+    FIRST KILL banner, a large one-time credit bonus (400, 800, 1,200), and
+    an entry in the collection's Bosses tab.
 - **Events**: scripted set pieces at fixed minutes, telegraphed two
   seconds ahead by a glow at the camera edge on the side they arrive from,
   lasting ten to twenty seconds
@@ -258,10 +277,11 @@ Juice is required scope, not polish:
 - **Level-up**: brief freeze, a pulse from the ship, a rising tone.
 - **Merge**: the loudest non-death moment: freeze, screen flash, a named
   banner, the new weapon's first volley.
-- **Boss entry**: red edge warning for 1.5 seconds, WARNING text, spawns
-  pause, 120–150 ms freeze, camera zoom out, music shift.
-- **Boss kill**: 200–350 ms freeze, explosion cascade, all enemies die, gold
-  flash, the strongest shake.
+- **Boss entry**: red edge warning for 1.5 seconds, WARNING and the boss's
+  name with a one-line hint at its weakness, the swarm dissolves, 120–150 ms freeze, camera zoom out, music shift.
+- **Boss kill**: 200–350 ms freeze, explosion cascade, gold flash, the
+  strongest shake, BOSS DOWN, or FIRST KILL and the boss's name the first
+  time ever.
 - **Player hit**: strong flash, edge vignette, 30–60 ms hit-stop, flicker.
 
 Effects never obscure enemy silhouettes or the player. Readability is
@@ -409,7 +429,7 @@ All enemies chase or pressure the player; none require pathfinding.
 | Skimmer | Aim | Sidesteps projectiles it sees coming. Dies to area and orbit like anything else; rewards a placed shot. |
 | Well | Hazard | A gravity well that drifts, pulls enemies and cores in, grows with what it eats, and bursts into a Dart spray when full. Kill it early or feed it and use it. |
 | Elite | Beat | A larger, marked version of any kind with a cache. |
-| Boss | Gate | Large, high health, unique telegraphed pattern, health bar. |
+| Boss | Gate | One on one, massive health, a unique pattern to dodge, a weak point or a window, a named health bar. |
 
 The four prototype silhouettes keep their looks and get the behaviors above;
 the prototype's speed offsets are the seed of the roles. Every kind is

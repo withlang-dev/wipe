@@ -651,6 +651,12 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         // enemies at once whites out the ship.
         let color = if e.flash > 0.0: ColorLerp(paint(e.kind.tint(), 1.0), white(1.0), 0.55) else: paint(e.kind.tint(), 1.0)
         let toward = direction(sub(g.player, e.pos))
+        if e.kind == .Boss and e.boss >= 0:
+            draw_boss(g, e, cam, pos, radius, clock, color)
+            continue
+        if e.drone:
+            draw_drone(g, e, cam, pos, clock)
+            continue
         draw_enemy(e.kind, pos, radius, clock, e.speed, toward, color, 0.85)
         if e.elite:
             // Elites carry a slow outer ring and a brighter core.
@@ -659,7 +665,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         if e.age < 0.25:
             DrawCircleLinesV(rv(pos), (30.0 - growth * 12.0) as f32, Fade(color, (1.0 - growth) * 0.7))
         // Spinners and bosses telegraph their charge with a line to the ship.
-        if (e.kind == .Spinner or e.kind == .Boss) and e.state == 1:
+        if e.kind == .Boss and e.state == 1:
             let reach = if e.kind == .Boss: 500.0 else: 220.0
             line(pos, add(pos, scale(toward, reach)), 1.2, Fade(color, 0.25 + 0.2 * sin(clock * 40.0)))
     for i in 0..g.bullet_count:
@@ -876,6 +882,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         DrawRectangle(x0, 66, w, 8, ink(0.8))
         DrawRectangle(x0, 66, (w as f64 * limit(hp as f64 / max_hp as f64, 0.0, 1.0)) as i32, 8, red(0.95))
         DrawRectangleLines(x0, 66, w, 8, red(0.5))
+        if let Some(name) = g.boss_name(): centered(name, 78, 10, red(0.8))
     // Bottom: weapon and passive icons with level pips.
     DrawRectangle(0, HEIGHT - 52, WIDTH, 52, ink(0.75))
     var x = 30.0
@@ -922,6 +929,21 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
                 centered("WARNING", 300, 44, red(alpha))
                 centered("A BOSS HAS ENTERED THE ARENA", 350, 14, white(alpha * 0.8))
             }
+            .BossName(b) => {
+                DrawRectangle(0, 0, WIDTH, HEIGHT, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
+                centered("WARNING", 280, 18, red(alpha))
+                centered(BOSS_NAMES[b].clone(), 302, 48, red(alpha))
+                let hint = match b:
+                    0 => "ITS BACK IS ITS WEAKNESS"
+                    1 => "STRIKE WHILE IT IS STUNNED"
+                    _ => "BREAK THE DRONES TO OPEN THE CORE"
+                centered(hint, 360, 14, white(alpha * 0.8))
+            }
+            .FirstKill(b) => {
+                centered("FIRST KILL", 270, 18, gold(alpha))
+                centered(BOSS_NAMES[b].clone(), 292, 48, gold(alpha))
+                centered("ACHIEVEMENT UNLOCKED   BONUS CREDITS", 350, 14, white(alpha * 0.8))
+            }
             .BossDown => centered("BOSS DOWN", 300, 44, gold(alpha))
             .Event(f) => {
                 let name = match f:
@@ -940,6 +962,111 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
             .Cleared => centered("THE NULL IS DOWN", 300, 44, white(alpha))
             .Reboot => centered("REBOOT", 300, 44, cyan(alpha))
             .Endless(c) => centered(f"LOOP {c}", 300, 44, magenta(alpha))
+
+// The three bosses, each its own silhouette. Weak points glow white.
+fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, color: Color):
+    let _ = cam
+    let face = e.facing
+    let side = perpendicular(face)
+    match e.boss:
+        0 => {
+            // Warden: a heavy shield arc in front, an exposed pulsing core behind.
+            let front = add(pos, scale(face, radius * 0.9))
+            for k in 0..9:
+                let t0 = (k as f64 - 4.5) * 0.19
+                let t1 = t0 + 0.19
+                let a = add(pos, add(scale(face, cos(t0) * radius * 1.15), scale(side, sin(t0) * radius * 1.15)))
+                let b = add(pos, add(scale(face, cos(t1) * radius * 1.15), scale(side, sin(t1) * radius * 1.15)))
+                line(a, b, 10.0, Fade(color, 0.2))
+                glow_line(a, b, color)
+            DrawPolyLinesEx(rv(pos), 8, (radius * 0.8) as f32, (clock * 15.0) as f32, 3.0, color)
+            let _ = front
+            let back = sub(pos, scale(face, radius * 0.75))
+            let beat = 0.5 + 0.5 * sin(clock * 8.0)
+            ring(back, 14.0 + beat * 5.0, white(0.35 + 0.3 * beat))
+            circle(back, 7.0, white(1.0))
+        }
+        1 => {
+            // Lancer: a long spearhead. Telegraphs its line; glows when stunned.
+            let nose = add(pos, scale(face, radius * 1.5))
+            let tail = sub(pos, scale(face, radius * 0.9))
+            let l = add(tail, scale(side, radius * 0.8))
+            let r = sub(tail, scale(side, radius * 0.8))
+            glow_line(nose, l, color)
+            glow_line(nose, r, color)
+            glow_line(l, pos, color)
+            glow_line(r, pos, color)
+            if e.state == 1:
+                let reach = 900.0
+                line(pos, add(pos, scale(face, reach)), 18.0, Fade(color, 0.08 + 0.08 * sin(clock * 30.0)))
+                line(pos, add(pos, scale(face, reach)), 1.5, Fade(color, 0.5 + 0.3 * sin(clock * 30.0)))
+            if e.state == 3:
+                let beat = 0.5 + 0.5 * sin(clock * 14.0)
+                ring(pos, radius * 1.2 + beat * 6.0, white(0.6))
+                circle(pos, 9.0, white(1.0))
+                label("STUNNED", pos.x as i32 - 24, (pos.y - radius * 1.9) as i32, 10, white(0.8))
+        }
+        _ => {
+            // Hive: a honeycomb core. Shielded while drones live.
+            let shielded = drone_count(g) > 0
+            for k in 0..3:
+                DrawPolyLinesEx(rv(pos), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.4, Fade(color, 1.0 - k as f64 * 0.25))
+            if shielded:
+                ring(pos, radius * 1.35, Fade(color, 0.35 + 0.15 * sin(clock * 6.0)))
+                ring(pos, radius * 1.4, Fade(color, 0.15))
+            else:
+                let beat = 0.5 + 0.5 * sin(clock * 10.0)
+                circle(pos, radius * 0.35, white(0.6 + 0.4 * beat))
+        }
+
+// A boss's silhouette for the collection.
+pub fn draw_boss_icon(index: i32, center: V2, radius: f64, clock: f64):
+    let color = paint(Kind.Boss.tint(), 1.0)
+    match index:
+        0 => {
+            for k in 0..7:
+                let t0 = (k as f64 - 3.5) * 0.25 - 1.5708
+                let t1 = t0 + 0.25
+                glow_line(add(center, V2 { x: cos(t0) * radius, y: sin(t0) * radius }), add(center, V2 { x: cos(t1) * radius, y: sin(t1) * radius }), color)
+            DrawPolyLinesEx(rv(center), 8, (radius * 0.7) as f32, (clock * 15.0) as f32, 2.0, color)
+            circle(add(center, V2 { y: radius * 0.6 }), 4.0, white(1.0))
+        }
+        1 => {
+            let nose = add(center, V2 { y: -radius * 1.2 })
+            let l = add(center, V2 { x: -radius * 0.7, y: radius * 0.8 })
+            let r = add(center, V2 { x: radius * 0.7, y: radius * 0.8 })
+            glow_line(nose, l, color)
+            glow_line(nose, r, color)
+            glow_line(l, center, color)
+            glow_line(r, center, color)
+        }
+        _ => {
+            for k in 0..3:
+                DrawPolyLinesEx(rv(center), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.0, Fade(color, 1.0 - k as f64 * 0.25))
+            for k in 0..4:
+                let a = clock + k as f64 * 1.5708
+                DrawPolyLinesEx(rv(add(center, V2 { x: cos(a) * radius * 1.4, y: sin(a) * radius * 1.4 })), 4, 5.0, 0.0, 1.5, violet(1.0))
+        }
+
+fn drone_count(g: &Game) -> i32:
+    var n = 0
+    for i in 0..g.enemy_count:
+        if g.enemies[i].drone: n += 1
+    n
+
+fn draw_drone(g: &Game, e: Enemy, cam: Camera, pos: V2, clock: f64):
+    let color = violet(1.0)
+    if let Some(core) = hive_core(g):
+        line(to_screen(cam, core), pos, 1.0, violet(0.25))
+    DrawPolyLinesEx(rv(pos), 4, 16.0, (clock * 90.0) as f32, 6.0, violet(0.2))
+    DrawPolyLinesEx(rv(pos), 4, 16.0, (clock * 90.0) as f32, 2.2, color)
+    circle(pos, 4.0, white(1.0))
+    let _ = e
+
+fn hive_core(g: &Game) -> Option[V2]:
+    for i in 0..g.enemy_count:
+        if g.enemies[i].kind == .Boss: return Some(g.enemies[i].pos)
+    None
 
 // The boost overlay: three or four cards over the frozen world.
 // ----- card information -----------------------------------------------------

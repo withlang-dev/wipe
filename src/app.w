@@ -18,10 +18,10 @@ pub enum Screen { | Title | Select | Maps | Run | Pause | Results | Shop | Colle
 impl Copy for Screen
 impl Eq for Screen
 
-pub enum Tab { | Ships | Weapons | Passives | Merges | Registry | Stages }
+pub enum Tab { | Ships | Weapons | Passives | Merges | Registry | Bosses | Stages }
 impl Copy for Tab
 impl Eq for Tab
-pub const TAB_COUNT: i32 = 6
+pub const TAB_COUNT: i32 = 7
 fn tab_at(i: i32) -> Tab:
     match i:
         0 => .Ships
@@ -29,6 +29,7 @@ fn tab_at(i: i32) -> Tab:
         2 => .Passives
         3 => .Merges
         4 => .Registry
+        5 => .Bosses
         _ => .Stages
 extend Tab:
     fn index(self: &Self) -> i32:
@@ -38,7 +39,8 @@ extend Tab:
             .Passives => 2
             .Merges => 3
             .Registry => 4
-            .Stages => 5
+            .Bosses => 5
+            .Stages => 6
     fn name(self: &Self) -> str:
         match self:
             .Ships => "SHIPS"
@@ -46,6 +48,7 @@ extend Tab:
             .Passives => "PASSIVES"
             .Merges => "MERGES"
             .Registry => "REGISTRY"
+            .Bosses => "BOSSES"
             .Stages => "MAPS"
     fn count(self: &Self) -> i32:
         match self:
@@ -54,6 +57,7 @@ extend Tab:
             .Passives => PASSIVE_COUNT
             .Merges => RECIPE_COUNT
             .Registry => KIND_COUNT
+            .Bosses => 3
             .Stages => STAGE_COUNT
 
 // What the results screen shows, captured once when the run ends.
@@ -943,8 +947,8 @@ extend App:
             let (have, total) = self.tab_counts(tab)
             let text = f"{tab.name()} {have}/{total}"
             let selected = tab == self.tab
-            neon(text.clone(), 60 + t * 130, 74, 12, if selected: white(1.0) else: white(0.4))
-            if selected: DrawRectangle(60 + t * 130, 92, MeasureText(text, 12), 2, lime(1.0))
+            neon(text.clone(), 40 + t * 120, 74, 12, if selected: white(1.0) else: white(0.4))
+            if selected: DrawRectangle(40 + t * 120, 92, MeasureText(text, 12), 2, lime(1.0))
         let count = self.tab.count()
         for i in 0..count:
             let (x, y) = collection_card_origin(i)
@@ -966,6 +970,10 @@ extend App:
                     else: centered_at("? + ?", x + 70, y + 34, 18, white(0.3))
                 }
                 .Registry => draw_enemy(kind_at(i), center, 18.0, clock, 0.0, V2 { x: 0.0, y: -1.0 }, paint(kind_at(i).tint(), alpha), 0.85)
+                .Bosses => {
+                    if open: draw_boss_icon(i, center, 26.0, clock)
+                    else: mystery(center, 30, white(0.3))
+                }
                 .Stages => {
                     if open: draw_stage_preview(stage_at(i), x + 20, y + 12, 100, 60, true)
                     else: mystery(center, 30, white(0.3))
@@ -988,6 +996,10 @@ extend App:
             if self.entry_open(tab, i): have += 1
         (have, tab.count())
 
+    fn boss_slain(self: &Self, i: i32) -> bool:
+        let slain: bool = self.save.boss_slain[i]
+        slain
+
     fn entry_open(self: &Self, tab: Tab, i: i32) -> bool:
         match tab:
             .Ships => ship_unlocked(ship_at(i), &self.save)
@@ -995,6 +1007,7 @@ extend App:
             .Passives => met(passive_condition(passive_at(i)), &self.save)
             .Merges => self.save.taken_weapons[recipes()[i].result.index()]
             .Registry => self.save.registry_kills[i] > 0
+            .Bosses => self.boss_slain(i)
             .Stages => stage_unlocked(stage_at(i), &self.save)
 
     fn entry_name(self: &Self, tab: Tab, i: i32) -> str:
@@ -1004,6 +1017,7 @@ extend App:
             .Passives => passive_at(i).name()
             .Merges => recipes()[i].result.name()
             .Registry => kind_at(i).name()
+            .Bosses => BOSS_NAMES[i].clone()
             .Stages => stage_at(i).name()
 
     fn entry_detail(self: &Self, tab: Tab, i: i32) -> Vec[str]:
@@ -1058,6 +1072,16 @@ extend App:
                     out.push(f"First killed at minute {first as i32}")
                 else: out.push("Not yet destroyed.")
                 let _ = k
+            }
+            .Bosses => {
+                let minute = 5 * (i + 1)
+                if open:
+                    out.push("Achievement: first kill")
+                    out.push(f"Arrives at {minute}:00")
+                    out.push(f"Lifetime kills: {self.save.boss_kills[i]}")
+                else:
+                    out.push(f"Arrives at {minute}:00")
+                    out.push("Not yet defeated.")
             }
             .Stages => {
                 let s = stage_at(i)

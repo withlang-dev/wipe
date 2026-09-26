@@ -33,6 +33,9 @@ pub type Save {
     taken_passives: [bool; 14] = [false; 14],
     registry_kills: [i32; 8] = [0; 8],
     registry_first: [f64; 8] = [-1.0; 8],
+    // Each boss's first kill, the achievement.
+    boss_slain: [bool; 3] = [false; 3],
+    boss_kills: [i32; 3] = [0; 3],
     last_ship: i32 = 0,
     volume: f64 = 1.0,
     deadzone: f64 = 0.2,
@@ -102,6 +105,7 @@ extend Save:
         for i in 0..WEAPON_COUNT: out = out ++ f"taken_weapon {i} {fmt_bool(self.taken_weapons[i])}\n"
         for i in 0..PASSIVE_COUNT: out = out ++ f"taken_passive {i} {fmt_bool(self.taken_passives[i])}\n"
         for i in 0..KIND_COUNT: out = out ++ f"registry {i} {self.registry_kills[i]} {fmt_float(self.registry_first[i])}\n"
+        for i in 0..3: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
         out = out ++ f"last_ship {self.last_ship}\nvolume {fmt_float(self.volume)}\ndeadzone {fmt_float(self.deadzone)}\n"
         out
 
@@ -164,6 +168,10 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
             if index >= 0 and index < KIND_COUNT:
                 s.registry_kills[index] = parse(third)
                 s.registry_first[index] = parse_float(fourth)
+        else if key == "boss_slain":
+            if index >= 0 and index < 3:
+                s.boss_slain[index] = parse_bool(third)
+                s.boss_kills[index] = parse(fourth)
         else if key == "last_ship": s.last_ship = index
         else if key == "volume": s.volume = parse_float(a)
         else if key == "deadzone": s.deadzone = parse_float(a)
@@ -290,6 +298,9 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
     for i in 0..PASSIVE_COUNT:
         let taken: bool = g.launch.taken_passives[i]
         if taken: s.taken_passives[i] = true
+    for i in 0..3:
+        s.boss_kills[i] += g.boss_kills[i]
+        if g.boss_kills[i] > 0: s.boss_slain[i] = true
     for i in 0..KIND_COUNT:
         s.registry_kills[i] += g.kills_by_kind[i]
         if g.kills_by_kind[i] > 0 and s.registry_first[i] < 0.0: s.registry_first[i] = g.minute()

@@ -31,6 +31,22 @@ pub fn careful(g: &Game) -> Controls:
         if d2 < nearest: nearest = d2
         let fear = if e.kind == .Boss or e.kind == .Null: 380.0 else: 230.0
         if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: 400.0 else: 90.0)))
+    // Circle toward the Warden's back, its weak point.
+    for i in 0..g.enemy_count:
+        let e: Enemy = g.enemies[i]
+        if e.kind == .Boss and e.boss == 0:
+            let behind = sub(e.pos, scale(e.facing, 300.0))
+            push = add(push, scale(direction(sub(behind, g.player)), 1.6))
+    // Step out of a telegraphed charge line.
+    for i in 0..g.enemy_count:
+        let e: Enemy = g.enemies[i]
+        if e.kind == .Boss and e.boss == 1 and (e.state == 1 or e.state == 2):
+            let d = sub(g.player, e.pos)
+            let along = d.x * e.facing.x + d.y * e.facing.y
+            let side = perpendicular(e.facing)
+            let off = d.x * side.x + d.y * side.y
+            if along > -40.0 and off < 140.0 and off > -140.0:
+                push = add(push, scale(side, if off >= 0.0: 6.0 else: -6.0))
     for i in 0..g.bullet_count:
         let b: Bullet = g.bullets[i]
         if not b.hostile: continue

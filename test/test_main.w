@@ -169,6 +169,81 @@ fn timeline_uat:
     for _ in 0..10: e.tick(Controls {}, 1.0 / 120.0)
     assert(not e.cleared and not e.null_alive)
 
+fn boss_game(index: i32) -> Game:
+    var g = Game.new(Rules { minimum_start: 0.0 })
+    var launch = Launch {}
+    for i in 0..8: launch.unlocked_weapons[i] = true
+    g.start(launch)
+    g.rules.contact_radius = 0.0
+    g.build.weapons[0].level = 0
+    g.stress(60)
+    g.boss_index = index
+    g.elapsed = 300.0 * index as f64
+    g.spawn_boss()
+    g
+
+fn boss_at(g: &Game) -> i32:
+    for i in 0..g.enemy_count:
+        if g.enemies[i].kind == .Boss: return i
+    -1
+
+fn bosses_uat:
+    // One on one: the swarm dissolves and nothing else arrives.
+    for index in 1..4:
+        var g = boss_game(index)
+        let b = boss_at(&g)
+        assert(b >= 0)
+        let e: Enemy = g.enemies[b]
+        assert(e.boss == index - 1)
+        assert(e.max_hp >= 1800)
+        for _ in 0..1200:
+            g.clear_events()
+            g.tick(Controls {}, 1.0 / 120.0)
+        var others = 0
+        for i in 0..g.enemy_count:
+            let o: Enemy = g.enemies[i]
+            if o.kind != .Boss and not o.drone: others += 1
+        assert(others == 0)
+        // Every boss attacks: hostile fire is in the air.
+        var hostile = 0
+        for i in 0..g.bullet_count:
+            if g.bullets[i].hostile: hostile += 1
+        assert(hostile > 0 or index == 2)
+    // The Warden's back takes several times what its front does.
+    var w = boss_game(1)
+    let wb = boss_at(&w)
+    let facing = w.enemies[wb].facing
+    let hp0 = w.enemies[wb].hp
+    let _ = w.damage_enemy(wb, 100, facing)
+    let back = hp0 - w.enemies[wb].hp
+    let hp1 = w.enemies[wb].hp
+    let _ = w.damage_enemy(wb, 100, scale(facing, -1.0))
+    let front = hp1 - w.enemies[wb].hp
+    assert(back >= front * 5)
+    // The Hive's core barely feels a hit while its drones live.
+    var h = boss_game(3)
+    let hb = boss_at(&h)
+    let before = h.enemies[hb].hp
+    let _ = h.damage_enemy(hb, 100, V2 { x: 1.0 })
+    assert(before - h.enemies[hb].hp < 20)
+    // The first kill pays a one-time bonus and is recorded.
+    var k = boss_game(1)
+    let kb = boss_at(&k)
+    k.health = 1
+    let credits = k.credits
+    let _ = k.damage_enemy(kb, 10000000, V2 { x: 1.0 })
+    assert(not k.boss_alive)
+    assert(k.health == k.max_health)
+    assert(k.first_kill_event)
+    assert(k.credits - credits >= 400)
+    assert(k.boss_kills[0] == 1)
+    // Once known, the same boss pays only its ordinary bounty.
+    var again = boss_game(1)
+    again.launch.bosses_known[0] = true
+    let ab = boss_at(&again)
+    let _ = again.damage_enemy(ab, 10000000, V2 { x: 1.0 })
+    assert(not again.first_kill_event)
+
 fn ships_uat:
     var g = Game.new(Rules { minimum_start: 0.0 })
     var launch = Launch { ship: .Hull }
@@ -262,6 +337,7 @@ fn main:
     boost_uat()
     merges_uat()
     timeline_uat()
+    bosses_uat()
     ships_uat()
     stage_uat()
     beacon_uat()
