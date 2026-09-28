@@ -1,3 +1,4 @@
 *.w linguist-language=With
 bootstrap/** linguist-vendored
 out/** linguist-generated
+vendor/** linguist-vendored

@@ -3,3 +3,4 @@ out/
 !.with/lock.json
 .DS_Store
 .claude/
+vendor/steamworks/public/
