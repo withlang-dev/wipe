@@ -34,6 +34,9 @@ fn main:
     // The save is read before the first frame; launching is loading.
     var wipe = App.open()
     while not WindowShouldClose() and not wipe.quit:
+        if IsKeyPressed(KEY_F11): wipe.toggle_fullscreen()
+        // Borderless at the desktop resolution; the renderer letterboxes the scene.
+        if wipe.save.fullscreen != IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE): ToggleBorderlessWindowed()
         let elapsed = GetFrameTime() as f64
         wipe.frame_ms += (elapsed * 1000.0 - wipe.frame_ms) * 0.05
         if IsKeyPressed(KEY_F3) and wipe.screen == .Run and wipe.game.phase == .Running:

@@ -39,6 +39,7 @@ pub type Save {
     last_ship: i32 = 0,
     volume: f64 = 1.0,
     deadzone: f64 = 0.2,
+    fullscreen: bool = false,
 }
 impl Copy for Save
 
@@ -107,6 +108,7 @@ extend Save:
         for i in 0..KIND_COUNT: out = out ++ f"registry {i} {self.registry_kills[i]} {fmt_float(self.registry_first[i])}\n"
         for i in 0..3: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
         out = out ++ f"last_ship {self.last_ship}\nvolume {fmt_float(self.volume)}\ndeadzone {fmt_float(self.deadzone)}\n"
+        out = out ++ f"fullscreen {fmt_bool(self.fullscreen)}\n"
         out
 
 // Parse a save. Unknown keys are ignored so newer fields never break an
@@ -175,6 +177,7 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
         else if key == "last_ship": s.last_ship = index
         else if key == "volume": s.volume = parse_float(a)
         else if key == "deadzone": s.deadzone = parse_float(a)
+        else if key == "fullscreen": s.fullscreen = parse_bool(a)
     if not saw_version: return Err(.SetAside)
     s.version = SAVE_VERSION
     Ok(s)
