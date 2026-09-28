@@ -230,7 +230,7 @@ fn bosses_uat:
     var k = boss_game(1)
     let kb = boss_at(&k)
     k.health = 1
-    let credits = k.credits
+    let credits: i32 = k.credits
     let _ = k.damage_enemy(kb, 10000000, V2 { x: 1.0 })
     assert(not k.boss_alive)
     assert(k.health == k.max_health)

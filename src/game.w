@@ -531,7 +531,7 @@ extend Game:
     // Recompute every multiplier: shop ranks, then passives, then the ship.
     fn refresh_mods(mut self: Self):
         let m = self.launch.ship.apply(self.build.passive_mods(self.launch.shop), self.level)
-        let previous_max = self.max_health
+        let previous_max: i32 = self.max_health
         self.mods = m
         self.max_health = m.max_health
         if previous_max > 0 and self.max_health > previous_max: self.health += self.max_health - previous_max
@@ -872,7 +872,7 @@ extend Game:
     pub fn spawn_event(mut self: Self, event: Event):
         let o = self.view_origin()
         let kind = kind_at(event.kind_index)
-        let side = self.event_side
+        let side: i32 = self.event_side
         let center = add(o, V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 })
         match event.formation:
             .Sweep => {
@@ -1953,7 +1953,7 @@ extend Game:
         var b = 0
         while b < self.bullet_count:
             var bullet: Bullet = self.bullets[b]
-            let previous = bullet.pos
+            let previous: V2 = bullet.pos
             if bullet.hostile:
                 bullet.pos = add(bullet.pos, scale(bullet.vel, dt))
                 bullet.life -= dt
@@ -1987,7 +1987,7 @@ extend Game:
             bullet.life -= dt
             // Walls: bounce while bounces remain, otherwise the bolt is spent.
             var spent = false
-            let r = self.rules
+            let r: Rules = self.rules
             if bullet.pos.x < 0.0 or bullet.pos.x > r.arena_width or bullet.pos.y < 0.0 or bullet.pos.y > r.arena_height:
                 if bullet.bounces > 0:
                     bullet.bounces -= 1
@@ -2075,7 +2075,7 @@ extend Game:
         while w < self.wave_count:
             var wave: Shockwave = self.waves[w]
             wave.life -= dt
-            let previous = wave.radius
+            let previous: f64 = wave.radius
             wave.radius = wave.max_radius * (1.0 - wave.life / wave.total)
             var i = 0
             while i < self.enemy_count:

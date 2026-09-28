@@ -53,7 +53,7 @@ fn kills_once(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i3
                 best = length2(d)
                 aim = d
         g.clear_events()
-        let kills_before = g.kills
+        let kills_before: i32 = g.kills
         g.tick(Controls { motion: movement(scale(sub(goal, g.player), 1.0 / 60.0)), aim }, 1.0 / 120.0)
         if g.phase == .Boost:
             g.pending_levels = 0

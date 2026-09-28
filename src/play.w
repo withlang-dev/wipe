@@ -311,7 +311,7 @@ fn main:
                     p.wait = 0.25
                 }
         // ----- step the real app ------------------------------------------
-        let before_credits = wipe.save.credits
+        let before_credits: i32 = wipe.save.credits
         let started = GetTime()
         wipe.step(m, controls, DT)
         let tick_ms = (GetTime() - started) * 1000.0
