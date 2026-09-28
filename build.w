@@ -11,8 +11,8 @@ fn native_target(kind: BuildKind, name: str, entry: str) -> Target:
     // Likewise its Windows system libraries: input methods (imm32) and
     // controller device discovery (setupapi, cfgmgr32).
     if os() == "Windows":
-        for lib in ["imm32", "setupapi", "cfgmgr32"]:
-            target = (move target).link_system_lib(lib)
+        for system_lib in ["imm32", "setupapi", "cfgmgr32"]:
+            target = (move target).link_system_lib(system_lib.clone())
     target
 
 fn game_target(name: str, entry: str) -> Target:
