@@ -5,6 +5,7 @@ use loadout
 use ships
 use save
 use settings
+use achievements
 use account
 use input
 use gamepads
@@ -86,6 +87,9 @@ pub type App {
     settings: Settings = Settings {}, settings_file: SettingsFile,
     // The view for this screen's aspect ratio (view_size); main sets it once.
     view_w: i32 = WIDTH, view_h: i32 = HEIGHT,
+    // The platform's one line for the title ("Steam isn't running..."), shown
+    // for the first seconds, like the save notice.
+    platform_notice: str = "",
     game: Game, attract: Game, attract_frame: i32 = 0,
     ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false,
     ship_cursor: i32 = 0, stage_cursor: i32 = 0,
@@ -163,6 +167,22 @@ extend App:
         self.game.screen_h = view_h as f64
         self.attract.screen_w = view_w as f64
         self.attract.screen_h = view_h as f64
+
+    // A store overlay opening over a run pauses it, as losing focus does.
+    pub fn pause_for_overlay(mut self: Self):
+        if self.screen == .Run and self.game.phase == .Running:
+            self.screen = .Pause
+            self.pause_cursor = 0
+            self.confirm_abandon = false
+
+    // Every achievement earned so far. During a run the save is judged as if
+    // the run ended now, so an achievement arrives when it is earned, not on
+    // the results screen; run counts only count finished runs.
+    pub fn achievements_now(self: &Self) -> Vec[str]:
+        if self.screen != .Run and self.screen != .Pause: return earned(&self.save)
+        var provisional: Save = record_run(self.save, &self.game).0
+        provisional.runs = self.save.runs
+        earned(&provisional)
 
     fn persist(mut self: Self):
         if not self.file.store(&self.save) and not self.file.read_only:
@@ -694,6 +714,7 @@ extend App:
             .TooNew(v) => f"This save was written by a newer WIPE (format {v}). Progress will not be saved."
             _ => ""
         if text.len() > 0: centered(text, 740, 14, magenta(limit(self.notice_timer, 0.0, 1.0)))
+        else if self.platform_notice.len() > 0: centered(self.platform_notice.clone(), 740, 14, white(0.6 * limit(self.notice_timer, 0.0, 1.0)))
 
     fn draw_title(self: &Self, clock: f64):
         centered("W I P E : S U R V I V A L", 190, 54, cyan(1.0))

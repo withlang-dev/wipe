@@ -2,6 +2,7 @@
 use sdl
 use c_import("SDL3/SDL.h")
 use game
+use std.process.env
 
 pub fn controller_error() -> str:
     SDL_GetError().map(it.to_str_lossy()) ?? "Unknown SDL error"
@@ -39,17 +40,23 @@ pub type Gamepads {
     // Valve controllers: when "lizard mode off" was last sent.
     valve: bool = false, next_controller_mode: u64 = 0,
     report_connections: bool = true, warned: bool = false,
+    // Launched by Steam: Steam Input owns Valve controllers, presents a
+    // virtual pad, and manages lizard mode itself.
+    under_steam: bool = false,
 }
 
 pub fn Gamepads.open(preferred_id: u32 = 0) -> Result[Gamepads, str]:
+    let under_steam = env("SteamAppId").len() > 0 or env("SteamGameId").len() > 0
     SDL_SetHint("SDL_JOYSTICK_HIDAPI", "1")
-    SDL_SetHint("SDL_JOYSTICK_HIDAPI_STEAM", "1")
+    // Without Steam, SDL drives the Steam Controller's USB puck directly.
+    // Under Steam that would fight Steam Input for the device.
+    if not under_steam: SDL_SetHint("SDL_JOYSTICK_HIDAPI_STEAM", "1")
     // SDL has no window; WIPE gates gameplay on raylib's window focus instead.
     SDL_SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
     if not SDL_InitSubSystem(SDL_INIT_GAMEPAD): return Err(controller_error())
     SDL_SetGamepadEventsEnabled(false)
     SDL_SetJoystickEventsEnabled(false)
-    Gamepads { ready: true, preferred_id }
+    Gamepads { ready: true, preferred_id, under_steam }
 
 impl Drop for Gamepads:
     fn drop(move self: Self):
@@ -134,7 +141,7 @@ const CONTROLLER_MODE_REPORT_BYTES: i32 = 64
 
 extend Gamepads:
     fn hold_controller_mode(mut self: Self):
-        if not self.valve: return
+        if not self.valve or self.under_steam: return
         let now = SDL_GetTicks()
         if now < self.next_controller_mode: return
         self.next_controller_mode = now + 500
