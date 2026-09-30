@@ -20,7 +20,7 @@ fn main:
     let h = Header { seed: 424242, ship: .Claw, stage: .Field, save, tuning: "enemy_speed 120\n" }
     var g = start_game(&h)
     var rec = Recorder {}
-    rec.begin(h.seed, h.ship, h.stage, false, save.serialize(), h.tuning)
+    rec.begin(h.seed, h.ship, h.stage, false, h.view_w, h.view_h, save.serialize(), h.tuning)
     var rerolled = false
     while g.phase != .Over and g.elapsed < 90.0:
         let c = quantize(careful(&g))

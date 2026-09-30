@@ -446,6 +446,8 @@ fn draw_lightning(a: V2, b: V2, seed: u32, remaining: f64):
     circle(b, 12.0 * remaining, violet(0.25 * remaining))
 
 fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
+    let sw = g.screen_w as i32
+    let sh = g.screen_h as i32
     let arena_origin = to_screen(cam, V2 {})
     let arena = Rectangle { x: arena_origin.x as f32, y: arena_origin.y as f32, width: g.rules.arena_width as f32, height: g.rules.arena_height as f32 }
     // The containment edge: a glowing geometric boundary, never terrain.
@@ -740,20 +742,20 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let strength = 0.5 + 0.25 * sin(clock * 14.0)
         let deep = 120
         match g.event_side:
-            0 => DrawRectangleGradientH(0, 0, deep, HEIGHT, magenta(strength), magenta(0.0))
-            1 => DrawRectangleGradientH(WIDTH - deep, 0, deep, HEIGHT, magenta(0.0), magenta(strength))
-            2 => DrawRectangleGradientV(0, 0, WIDTH, deep, magenta(strength), magenta(0.0))
-            _ => DrawRectangleGradientV(0, HEIGHT - deep, WIDTH, deep, magenta(0.0), magenta(strength))
+            0 => DrawRectangleGradientH(0, 0, deep, sh, magenta(strength), magenta(0.0))
+            1 => DrawRectangleGradientH(sw - deep, 0, deep, sh, magenta(0.0), magenta(strength))
+            2 => DrawRectangleGradientV(0, 0, sw, deep, magenta(strength), magenta(0.0))
+            _ => DrawRectangleGradientV(0, sh - deep, sw, deep, magenta(0.0), magenta(strength))
         let inward = match g.event_side:
             0 => V2 { x: 1.0 }
             1 => V2 { x: -1.0 }
             2 => V2 { y: 1.0 }
             _ => V2 { y: -1.0 }
         let edge = match g.event_side:
-            0 => V2 { x: 30.0, y: HEIGHT as f64 / 2.0 }
-            1 => V2 { x: WIDTH as f64 - 30.0, y: HEIGHT as f64 / 2.0 }
-            2 => V2 { x: WIDTH as f64 / 2.0, y: 90.0 }
-            _ => V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 - 90.0 }
+            0 => V2 { x: 30.0, y: g.screen_h / 2.0 }
+            1 => V2 { x: g.screen_w - 30.0, y: g.screen_h / 2.0 }
+            2 => V2 { x: g.screen_w / 2.0, y: 90.0 }
+            _ => V2 { x: g.screen_w / 2.0, y: g.screen_h - 90.0 }
         let side = perpendicular(inward)
         for k in -2..3:
             let base = add(edge, scale(side, k as f64 * 150.0))
@@ -764,26 +766,28 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let label_at = add(edge, scale(inward, 60.0))
         centered_at("INCOMING", label_at.x as i32, label_at.y as i32 - 8, 16, magenta(0.9))
     if g.flash > 0.0:
-        DrawRectangle(0, 0, WIDTH, HEIGHT, white(g.flash * 0.10))
-        DrawRectangle(0, 0, WIDTH, 9, magenta(g.flash))
-        DrawRectangle(0, HEIGHT - 9, WIDTH, 9, magenta(g.flash))
-        DrawRectangle(0, 0, 9, HEIGHT, magenta(g.flash))
-        DrawRectangle(WIDTH - 9, 0, 9, HEIGHT, magenta(g.flash))
+        DrawRectangle(0, 0, sw, sh, white(g.flash * 0.10))
+        DrawRectangle(0, 0, sw, 9, magenta(g.flash))
+        DrawRectangle(0, sh - 9, sw, 9, magenta(g.flash))
+        DrawRectangle(0, 0, 9, sh, magenta(g.flash))
+        DrawRectangle(sw - 9, 0, 9, sh, magenta(g.flash))
     if g.enemies_frozen > 0.0:
-        DrawRectangle(0, 0, WIDTH, HEIGHT, blue(0.06))
+        DrawRectangle(0, 0, sw, sh, blue(0.06))
 
 // An indicator at the screen edge pointing at an off-screen world position:
 // a pulsing arrowhead with a glow, larger and brighter for what matters.
 fn edge_indicator(g: &Game, cam: Camera, target: V2, color: Color, size: f64, clock: f64):
+    let sw = g.screen_w as i32
+    let sh = g.screen_h as i32
     if g.on_screen(target, -10.0): return
-    let center = V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 }
+    let center = V2 { x: g.screen_w / 2.0, y: g.screen_h / 2.0 }
     let screen = to_screen(cam, target)
     let heading = direction(sub(screen, center))
     // Inside the play area: clear of the top HUD band and the bottom strip.
     let margin = 34.0
     let top = 96.0
-    let bottom = HEIGHT as f64 - 86.0
-    let sx = if heading.x > 0.0001: (WIDTH as f64 - margin - center.x) / heading.x else if heading.x < -0.0001: (margin - center.x) / heading.x else: 1.0e9
+    let bottom = g.screen_h - 86.0
+    let sx = if heading.x > 0.0001: (g.screen_w - margin - center.x) / heading.x else if heading.x < -0.0001: (margin - center.x) / heading.x else: 1.0e9
     let sy = if heading.y > 0.0001: (bottom - center.y) / heading.y else if heading.y < -0.0001: (top - center.y) / heading.y else: 1.0e9
     let t = if sx < sy: sx else: sy
     let at = add(center, scale(heading, t))
@@ -825,17 +829,25 @@ fn render_indicators(g: &Game, cam: Camera, clock: f64):
 // ----- HUD ---------------------------------------------------------------------
 
 // What the account layer knows and the HUD shows.
+// Centered text in the run's view. Mid-screen banners (y >= 150) stay in the
+// middle of a view taller than 800; the top band stays at the top.
+fn hud_centered(g: &Game, text: str, y: i32, size: i32, color: Color):
+    let lift = if y >= 150: (g.screen_h as i32 - HEIGHT) / 2 else: 0
+    centered_at(text, g.screen_w as i32 / 2, y + lift, size, color)
+
 pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true }
 impl Copy for Hud
 
 fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
+    let sw = g.screen_w as i32
+    let sh = g.screen_h as i32
     // Top: the level-up bar with the level number, combo, timer, credits,
     // over a dark band so the swarm never runs through the numbers.
-    DrawRectangleGradientV(0, 0, WIDTH, 84, ink(0.88), ink(0.0))
-    DrawRectangle(0, 0, WIDTH, 8, ink(0.8))
+    DrawRectangleGradientV(0, 0, sw, 84, ink(0.88), ink(0.0))
+    DrawRectangle(0, 0, sw, 8, ink(0.8))
     let fraction = limit(g.xp as f64 / g.xp_next as f64, 0.0, 1.0)
-    DrawRectangle(0, 0, (WIDTH as f64 * fraction) as i32, 8, lime(0.85))
-    DrawRectangle((WIDTH as f64 * fraction) as i32 - 3, 0, 3, 8, white(1.0))
+    DrawRectangle(0, 0, (g.screen_w * fraction) as i32, 8, lime(0.85))
+    DrawRectangle((g.screen_w * fraction) as i32 - 3, 0, 3, 8, white(1.0))
     neon(f"LV {g.level}", 22, 16, 28, hud_lime(1.0))
     // Health lives in the HUD, out of the action: a bar under the level.
     let health_fraction = limit(g.health as f64 / g.max_health as f64, 0.0, 1.0)
@@ -860,108 +872,108 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     // Timer with the best-time marker.
     let timer_color = if g.best_crossed: gold(1.0) else: white(1.0)
     let time_text = if g.best_flare > 0.0 and (clock * 4.0) as i32 % 2 == 0: "NEW BEST" else: stamp(g.elapsed)
-    centered(time_text, 14, 34, timer_color)
+    hud_centered(g, time_text, 14, 34, timer_color)
     if hud.best_time > 0.0 and not g.best_crossed:
         // A thin track under the timer; the marker sits at the best and the
         // run fills toward it.
         let track_w = 240
-        let x0 = (WIDTH - track_w) / 2
+        let x0 = (sw - track_w) / 2
         DrawRectangle(x0, 52, track_w, 2, white(0.2))
         let progress = limit(g.elapsed / hud.best_time, 0.0, 1.0)
         DrawRectangle(x0, 52, (track_w as f64 * progress) as i32, 2, white(0.7))
         DrawRectangle(x0 + track_w - 1, 46, 2, 14, gold(0.9))
         label(f"BEST {stamp(hud.best_time)}", x0 + track_w + 8, 46, 10, gold(0.7))
     else if g.best_crossed:
-        centered(f"BEST {stamp(g.launch.best_time)}", 52, 10, gold(0.6))
+        hud_centered(g, f"BEST {stamp(g.launch.best_time)}", 52, 10, gold(0.6))
     neon_right(f"{commas(g.credits)}", 1254, 16, 28, gold(1.0))
     label("CREDITS", 1254 - MeasureText("CREDITS", 10), 48, 10, gold(0.6))
     // Boss bar.
     if let Some((hp, max_hp)) = g.boss_health():
         let w = 500
-        let x0 = (WIDTH - w) / 2
+        let x0 = (sw - w) / 2
         DrawRectangle(x0, 66, w, 8, ink(0.8))
         DrawRectangle(x0, 66, (w as f64 * limit(hp as f64 / max_hp as f64, 0.0, 1.0)) as i32, 8, red(0.95))
         DrawRectangleLines(x0, 66, w, 8, red(0.5))
-        if let Some(name) = g.boss_name(): centered(name, 78, 10, red(0.8))
+        if let Some(name) = g.boss_name(): hud_centered(g, name, 78, 10, red(0.8))
     // Bottom: weapon and passive icons with level pips.
-    DrawRectangle(0, HEIGHT - 52, WIDTH, 52, ink(0.75))
+    DrawRectangle(0, sh - 52, sw, 52, ink(0.75))
     var x = 30.0
     for slot in 0..SLOT_COUNT:
         let s: WeaponSlot = g.build.weapons[slot]
-        let pos = V2 { x, y: HEIGHT as f64 - 30.0 }
+        let pos = V2 { x, y: g.screen_h - 30.0 }
         if slot < g.build.weapon_slots:
-            DrawRectangleLines((x - 18.0) as i32, HEIGHT - 48, 36, 36, if s.level > 0: white(0.3) else: white(0.08))
+            DrawRectangleLines((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: white(0.3) else: white(0.08))
         if s.level > 0:
             draw_weapon_icon(s.weapon, pos, 10.0, clock, 1.0)
             for pip in 0..MAX_WEAPON_LEVEL:
                 let px = (x - 16.0 + pip as f64 * 4.5) as i32
-                DrawRectangle(px, HEIGHT - 10, 3, 3, if pip < s.level: white(0.9) else: white(0.12))
+                DrawRectangle(px, sh - 10, 3, 3, if pip < s.level: white(0.9) else: white(0.12))
         x += 46.0
-    x = WIDTH as f64 - 30.0
+    x = g.screen_w - 30.0
     for slot in 0..PASSIVE_SLOTS:
         let s: PassiveSlot = g.build.passives[slot]
-        let pos = V2 { x, y: HEIGHT as f64 - 30.0 }
-        DrawRectangleLines((x - 18.0) as i32, HEIGHT - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
+        let pos = V2 { x, y: g.screen_h - 30.0 }
+        DrawRectangleLines((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
         if s.level > 0:
             draw_passive_icon(s.passive, pos, 9.0, 1.0)
             for pip in 0..MAX_PASSIVE_LEVEL:
                 let px = (x - 12.0 + pip as f64 * 5.5) as i32
-                DrawRectangle(px, HEIGHT - 10, 4, 3, if pip < s.level: lime(0.9) else: white(0.12))
+                DrawRectangle(px, sh - 10, 4, 3, if pip < s.level: lime(0.9) else: white(0.12))
         x -= 46.0
     // Center bottom: counts of reroll, skip, banish, reboot, and kills.
     let counts = f"KILLS {commas(g.kills)}     REROLL {g.rerolls}   SKIP {g.skips}   BANISH {g.banishes}   REBOOT {g.reboots}"
-    label(counts, (WIDTH - MeasureText(counts, 10)) / 2, HEIGHT - 32, 10, white(0.5))
+    label(counts, (sw - MeasureText(counts, 10)) / 2, sh - 32, 10, white(0.5))
     if hud.show_hints and g.elapsed < 8.0:
         let hint = "MOVE  WASD / LEFT STICK     AIM  MOUSE / RIGHT STICK     AUTO-FIRE     ESC  PAUSE, ESC AGAIN FOR TITLE"
-        label(hint, (WIDTH - MeasureText(hint, 10)) / 2, HEIGHT - 16, 10, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
+        label(hint, (sw - MeasureText(hint, 10)) / 2, sh - 16, 10, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
     // Banner.
     if g.banner.life > 0.0:
         let remaining = limit(g.banner.life / g.banner.total, 0.0, 1.0)
         let alpha = limit(remaining * 3.0, 0.0, 1.0)
         match g.banner.kind:
             .Merge(w) => {
-                centered("MERGE", 170, 16, white(alpha))
-                centered(w.name(), 192, 48, gold(alpha))
-                centered(w.describe(), 246, 14, white(alpha * 0.8))
+                hud_centered(g, "MERGE", 170, 16, white(alpha))
+                hud_centered(g, w.name(), 192, 48, gold(alpha))
+                hud_centered(g, w.describe(), 246, 14, white(alpha * 0.8))
             }
             .Boss => {
-                DrawRectangle(0, 0, WIDTH, HEIGHT, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
-                centered("WARNING", 300, 44, red(alpha))
-                centered("A BOSS HAS ENTERED THE ARENA", 350, 14, white(alpha * 0.8))
+                DrawRectangle(0, 0, sw, sh, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
+                hud_centered(g, "WARNING", 300, 44, red(alpha))
+                hud_centered(g, "A BOSS HAS ENTERED THE ARENA", 350, 14, white(alpha * 0.8))
             }
             .BossName(b) => {
-                DrawRectangle(0, 0, WIDTH, HEIGHT, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
-                centered("WARNING", 280, 18, red(alpha))
-                centered(BOSS_NAMES[b].clone(), 302, 48, red(alpha))
+                DrawRectangle(0, 0, sw, sh, red(0.08 * alpha * (0.5 + 0.5 * sin(clock * 20.0))))
+                hud_centered(g, "WARNING", 280, 18, red(alpha))
+                hud_centered(g, BOSS_NAMES[b].clone(), 302, 48, red(alpha))
                 let hint = match b:
                     0 => "ITS BACK IS ITS WEAKNESS"
                     1 => "STRIKE WHILE IT IS STUNNED"
                     _ => "BREAK THE DRONES TO OPEN THE CORE"
-                centered(hint, 360, 14, white(alpha * 0.8))
+                hud_centered(g, hint, 360, 14, white(alpha * 0.8))
             }
             .FirstKill(b) => {
-                centered("FIRST KILL", 270, 18, gold(alpha))
-                centered(BOSS_NAMES[b].clone(), 292, 48, gold(alpha))
-                centered("ACHIEVEMENT UNLOCKED   BONUS CREDITS", 350, 14, white(alpha * 0.8))
+                hud_centered(g, "FIRST KILL", 270, 18, gold(alpha))
+                hud_centered(g, BOSS_NAMES[b].clone(), 292, 48, gold(alpha))
+                hud_centered(g, "ACHIEVEMENT UNLOCKED   BONUS CREDITS", 350, 14, white(alpha * 0.8))
             }
-            .BossDown => centered("BOSS DOWN", 300, 44, gold(alpha))
+            .BossDown => hud_centered(g, "BOSS DOWN", 300, 44, gold(alpha))
             .Event(f) => {
                 let name = match f:
                     .Sweep => "SWEEP"
                     .Ring => "RING"
                     .Spiral => "SPIRAL"
                     .Lattice => "LATTICE"
-                centered(f"INCOMING  {name}", 90, 18, magenta(alpha))
+                hud_centered(g, f"INCOMING  {name}", 90, 18, magenta(alpha))
             }
-            .NewBest => centered("NEW BEST", 300, 44, gold(alpha))
+            .NewBest => hud_centered(g, "NEW BEST", 300, 44, gold(alpha))
             .Null => {
-                DrawRectangle(0, 0, WIDTH, HEIGHT, white(0.05 * alpha))
-                centered("THE NULL", 290, 52, white(alpha))
-                centered("THE RUN IS CLEARED. NOTHING ORDINARY SURVIVES IT.", 350, 14, white(alpha * 0.8))
+                DrawRectangle(0, 0, sw, sh, white(0.05 * alpha))
+                hud_centered(g, "THE NULL", 290, 52, white(alpha))
+                hud_centered(g, "THE RUN IS CLEARED. NOTHING ORDINARY SURVIVES IT.", 350, 14, white(alpha * 0.8))
             }
-            .Cleared => centered("THE NULL IS DOWN", 300, 44, white(alpha))
-            .Reboot => centered("REBOOT", 300, 44, cyan(alpha))
-            .Endless(c) => centered(f"LOOP {c}", 300, 44, magenta(alpha))
+            .Cleared => hud_centered(g, "THE NULL IS DOWN", 300, 44, white(alpha))
+            .Reboot => hud_centered(g, "REBOOT", 300, 44, cyan(alpha))
+            .Endless(c) => hud_centered(g, f"LOOP {c}", 300, 44, magenta(alpha))
 
 // The three bosses, each its own silhouette. Weak points glow white.
 fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, color: Color):
@@ -1085,6 +1097,17 @@ pub fn draw_stage_preview(stage: Stage, x: i32, y: i32, w: i32, h: i32, open: bo
         DrawRectangle((ox + wall.x * fit) as i32, (oy + wall.y * fit) as i32, (wall.w * fit + 1.0) as i32, (wall.h * fit + 1.0) as i32, if open: cyan(0.45) else: white(0.12))
     if rules.void_radius > 0.0:
         circle(V2 { x: ox + pw / 2.0, y: oy + ph / 2.0 }, rules.void_radius * fit, if open: cyan(0.45) else: white(0.12))
+
+// Screens laid out for the 1280x800 frame (the menus, pause, the boost
+// cards) draw centered in a larger view; the mouse is offset to match.
+pub fn frame_offset(view_w: i32, view_h: i32) -> V2:
+    V2 { x: ((view_w - WIDTH) / 2) as f64, y: ((view_h - HEIGHT) / 2) as f64 }
+
+pub fn begin_frame(view_w: i32, view_h: i32):
+    let o = frame_offset(view_w, view_h)
+    BeginMode2D(Camera2D { offset: rv(o), target: Vector2 { x: 0.0, y: 0.0 }, rotation: 0.0, zoom: 1.0 })
+
+pub fn end_frame(): EndMode2D()
 
 pub fn boost_card_rect(i: i32, count: i32) -> (i32, i32, i32, i32):
     let card_w = 260
@@ -1211,8 +1234,12 @@ pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 20]) -> str:
 fn render_boost(g: &Game, cursor: i32, clock: f64):
     // The world dims; the build strip along the bottom stays lit so every
     // card can be weighed against what the ship already carries.
-    DrawRectangle(0, 0, WIDTH, HEIGHT - 52, ink(0.7))
-    DrawRectangle(0, HEIGHT - 52, WIDTH, 2, white(0.25))
+    let sw = g.screen_w as i32
+    let sh = g.screen_h as i32
+    DrawRectangle(0, 0, sw, sh - 52, ink(0.7))
+    DrawRectangle(0, sh - 52, sw, 2, white(0.25))
+    // The cards are laid out for the 1280x800 frame, centered in the view.
+    begin_frame(sw, sh)
     let title = match g.boost_source:
         .LevelUp => f"LEVEL {g.level - g.pending_levels}"
         .Cache => "CACHE"
@@ -1238,6 +1265,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         if index < BASE_WEAPON_COUNT: draw_weapon_icon(weapon_at(index), pos, 44.0, clock, 1.0)
         else: draw_passive_icon(passive_at(index - BASE_WEAPON_COUNT), pos, 40.0, 1.0)
         centered("OPENING", 580, 16, gold(0.9))
+        end_frame()
         return
     let count = g.offer_count
     for i in 0..count:
@@ -1316,6 +1344,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         centered_at(f"{i + 1}", cx, y + card_h - 18, 12, white(0.4))
     let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / K] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
     label(controls, (WIDTH - MeasureText(controls, 14)) / 2, 660, 14, white(0.7))
+    end_frame()
 
 // ----- debug ------------------------------------------------------------------------
 
@@ -1357,6 +1386,9 @@ pub type Renderer {
     ship_location: i32, camera_location: i32, visible_location: i32, stage_location: i32, count_location: i32, impulse_locations: Vec[i32],
     bullet_count_location: i32, bullet_locations: Vec[i32],
     threshold_location: i32, direction_location: i32, bloom_location: i32, wide_location: i32,
+    view_location: i32,
+    // The scene's size (the view), and the bloom tiers at a quarter and an eighth of it.
+    view_w: i32, view_h: i32,
 }
 fn surface(width: i32, height: i32) -> RenderTexture2D:
     let target = LoadRenderTexture(width, height)
@@ -1364,7 +1396,7 @@ fn surface(width: i32, height: i32) -> RenderTexture2D:
     SetTextureWrap(target.texture, TEXTURE_WRAP_CLAMP)
     target
 
-pub fn Renderer.open() -> Renderer:
+pub fn Renderer.open(view_w: i32 = WIDTH, view_h: i32 = HEIGHT) -> Renderer:
     let grid = Effect.open("grid.fs")
     let bright = Effect.open("bright.fs")
     let blur = Effect.open("blur.fs")
@@ -1374,8 +1406,9 @@ pub fn Renderer.open() -> Renderer:
     var bullets: Vec[i32] = Vec.with_capacity(24)
     for i in 0..24: bullets.push(grid.location(f"bullets[{i}]"))
     Renderer {
-        scene: surface(WIDTH, HEIGHT), bloom_a: surface(320, 200), bloom_b: surface(320, 200),
-        wide_a: surface(160, 100), wide_b: surface(160, 100),
+        scene: surface(view_w, view_h), bloom_a: surface(view_w / 4, view_h / 4), bloom_b: surface(view_w / 4, view_h / 4),
+        wide_a: surface(view_w / 8, view_h / 8), wide_b: surface(view_w / 8, view_h / 8),
+        view_location: grid.location("view"), view_w, view_h,
         ship_location: grid.location("ship"), camera_location: grid.location("camera"),
         visible_location: grid.location("shipVisible"), stage_location: grid.location("stage"), count_location: grid.location("impulseCount"),
         bullet_count_location: grid.location("bulletCount"), bullet_locations: bullets,
@@ -1398,19 +1431,19 @@ fn blit(texture: Texture2D, width: f64, height: f64):
         Rectangle { x: 0.0, y: 0.0, width: width as f32, height: height as f32 },
         Vector2 { x: 0.0, y: 0.0 }, 0.0, WHITE)
 
-// Where the WIDTH x HEIGHT scene lands in a window: the largest whole fit,
-// centered. Fullscreen letterboxes rather than stretches; the window at its
-// own size is scale 1 at the origin.
+// Where the view lands in a window: one uniform scale, centered. The view
+// already has the screen's aspect ratio (view_size), so fullscreen fills the
+// screen exactly and a window at the view's size is scale 1 at the origin.
 pub type Fit { x: f64, y: f64, scale: f64 }
 impl Copy for Fit
 
-pub fn fit(window_w: i32, window_h: i32) -> Fit:
+pub fn fit(window_w: i32, window_h: i32, view_w: i32 = WIDTH, view_h: i32 = HEIGHT) -> Fit:
     // A minimized window reports zero; keep the identity so the mouse map stays finite.
     if window_w <= 0 or window_h <= 0: return Fit { x: 0.0, y: 0.0, scale: 1.0 }
-    let sx = window_w as f64 / WIDTH as f64
-    let sy = window_h as f64 / HEIGHT as f64
+    let sx = window_w as f64 / view_w as f64
+    let sy = window_h as f64 / view_h as f64
     let scale = if sx < sy: sx else: sy
-    Fit { x: (window_w as f64 - WIDTH as f64 * scale) / 2.0, y: (window_h as f64 - HEIGHT as f64 * scale) / 2.0, scale }
+    Fit { x: (window_w as f64 - view_w as f64 * scale) / 2.0, y: (window_h as f64 - view_h as f64 * scale) / 2.0, scale }
 
 // The camera for this frame: the simulation's view plus presentation shake.
 pub fn camera_for(g: &Game, clock: f64) -> Camera:
@@ -1426,7 +1459,7 @@ extend Renderer:
         let uniforms = [
             self.ship_location, self.camera_location, self.visible_location, self.stage_location, self.count_location, self.bullet_count_location,
             self.threshold_location, self.direction_location, self.bloom_location,
-            self.wide_location, self.impulse_locations[0], self.bullet_locations[0],
+            self.wide_location, self.view_location, self.impulse_locations[0], self.bullet_locations[0],
         ]
         for location in uniforms:
             if location < 0: return false
@@ -1454,11 +1487,12 @@ extend Renderer:
     pub fn begin_world(self: &Self, g: &Game, clock: f64, brightness: f64) -> Camera:
         let cam = camera_for(g, clock)
         let zoom = g.zoom()
-        let center = V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 }
+        let center = V2 { x: g.screen_w / 2.0, y: g.screen_h / 2.0 }
         // Shader inputs are where things land on screen after the zoom.
         let zoomed = (p: V2) => add(center, scale(sub(p, center), zoom))
         let ship = zoomed(to_screen(cam, g.player))
         self.grid.vector2(self.stage_location, g.rules.void_radius as f32, zoom as f32)
+        self.grid.vector2(self.view_location, self.view_w as f32, self.view_h as f32)
         self.grid.vector4(self.ship_location, ship.x as f32, ship.y as f32, clock as f32, g.trauma as f32)
         self.grid.vector4(self.camera_location, cam.origin.x as f32, cam.origin.y as f32, g.rules.arena_width as f32, g.rules.arena_height as f32)
         self.grid.scalar(self.visible_location, if g.health > 0: 1.0 else: 0.0)
@@ -1481,13 +1515,13 @@ extend Renderer:
         BeginTextureMode(self.scene)
         ClearBackground(ink(1.0))
         self.grid.begin()
-        DrawRectangle(0, 0, WIDTH, HEIGHT, WHITE)
+        DrawRectangle(0, 0, self.view_w, self.view_h, WHITE)
         EndShaderMode()
         let view = Camera2D { offset: rv(center), target: rv(center), rotation: 0.0, zoom: zoom as f32 }
         BeginMode2D(view)
         render_world(g, cam, clock)
         EndMode2D()
-        if brightness < 1.0: DrawRectangle(0, 0, WIDTH, HEIGHT, ink(1.0 - brightness))
+        if brightness < 1.0: DrawRectangle(0, 0, self.view_w, self.view_h, ink(1.0 - brightness))
         cam
 
     // The in-run layers: indicators, HUD, boost overlay, debug.
@@ -1501,32 +1535,34 @@ extend Renderer:
     pub fn present(self: &Self) -> f64:
         let started = GetTime()
         EndTextureMode()
+        let (bw, bh) = ((self.view_w / 4) as f64, (self.view_h / 4) as f64)
+        let (ww, wh) = ((self.view_w / 8) as f64, (self.view_h / 8) as f64)
         BeginTextureMode(self.bloom_a)
         ClearBackground(BLACK)
         self.bright.scalar(self.threshold_location, 0.36)
         self.bright.begin()
-        blit(self.scene.texture, 320.0, 200.0)
+        blit(self.scene.texture, bw, bh)
         EndShaderMode()
         EndTextureMode()
-        self.blur_pair(self.bloom_a, self.bloom_b, 320.0, 200.0)
+        self.blur_pair(self.bloom_a, self.bloom_b, bw, bh)
         BeginTextureMode(self.wide_a)
         ClearBackground(BLACK)
-        blit(self.bloom_a.texture, 160.0, 100.0)
+        blit(self.bloom_a.texture, ww, wh)
         EndTextureMode()
-        self.blur_pair(self.wide_a, self.wide_b, 160.0, 100.0)
-        self.blur_pair(self.wide_a, self.wide_b, 160.0, 100.0)
+        self.blur_pair(self.wide_a, self.wide_b, ww, wh)
+        self.blur_pair(self.wide_a, self.wide_b, ww, wh)
         BeginDrawing()
         ClearBackground(ink(1.0))
         self.composite.begin()
         self.composite.texture(self.bloom_location, self.bloom_a.texture)
         self.composite.texture(self.wide_location, self.wide_a.texture)
-        let f = fit(GetScreenWidth(), GetScreenHeight())
+        let f = fit(GetScreenWidth(), GetScreenHeight(), self.view_w, self.view_h)
         DrawTexturePro(self.scene.texture,
-            Rectangle { x: 0.0, y: 0.0, width: WIDTH as f32, height: -HEIGHT as f32 },
-            Rectangle { x: f.x as f32, y: f.y as f32, width: (WIDTH as f64 * f.scale) as f32, height: (HEIGHT as f64 * f.scale) as f32 },
+            Rectangle { x: 0.0, y: 0.0, width: self.view_w as f32, height: -self.view_h as f32 },
+            Rectangle { x: f.x as f32, y: f.y as f32, width: (self.view_w as f64 * f.scale) as f32, height: (self.view_h as f64 * f.scale) as f32 },
             Vector2 { x: 0.0, y: 0.0 }, 0.0, WHITE)
         EndShaderMode()
-        // Mouse input reads in scene coordinates whatever the window size.
+        // Mouse input reads in view coordinates whatever the window size.
         SetMouseOffset(-(f.x as i32), -(f.y as i32))
         SetMouseScale((1.0 / f.scale) as f32, (1.0 / f.scale) as f32)
         let cpu_ms = (GetTime() - started) * 1000.0

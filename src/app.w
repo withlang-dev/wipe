@@ -4,6 +4,7 @@ use tuning
 use loadout
 use ships
 use save
+use settings
 use account
 use input
 use gamepads
@@ -82,6 +83,9 @@ pub type ResultsView {
 pub type App {
     screen: Screen = .Title, return_to: Screen = .Title,
     save: Save = Save {}, file: SaveFile, notice: LoadNotice = .Fresh, notice_timer: f64 = 6.0,
+    settings: Settings = Settings {}, settings_file: SettingsFile,
+    // The view for this screen's aspect ratio (view_size); main sets it once.
+    view_w: i32 = WIDTH, view_h: i32 = HEIGHT,
     game: Game, attract: Game, attract_frame: i32 = 0,
     ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false,
     ship_cursor: i32 = 0, stage_cursor: i32 = 0,
@@ -107,8 +111,10 @@ pub type App {
 pub fn App.open() -> App:
     var file = SaveFile.open()
     let (save, notice) = file.load()
+    let settings_file = SettingsFile.open(file.directory)
+    let settings = settings_file.load() ?? Settings.from_save(&save)
     var app = App {
-        file, save, notice,
+        file, save, notice, settings, settings_file,
         game: Game.new(), attract: Game.new(),
         results: ResultsView { new_ships: Vec.new(), unlocks: Vec.new() },
         metrics: Metrics.new(),
@@ -116,7 +122,7 @@ pub fn App.open() -> App:
     app.ship = ship_at(limit(save.last_ship as f64, 0.0, (SHIP_COUNT - 1) as f64) as i32)
     if not ship_unlocked(app.ship, &app.save): app.ship = .Claw
     app.ship_cursor = app.ship.index()
-    app.input.deadzone = save.deadzone
+    app.input.deadzone = settings.deadzone
     // Live tuning: WIPE_TUNING, or tuning.txt beside the save. The defaults
     // file lists every knob with its current value.
     let override = env("WIPE_TUNING")
@@ -148,9 +154,21 @@ fn wrap(value: i32, count: i32) -> i32:
     if count <= 0: 0 else: ((value % count) + count) % count
 
 extend App:
+    // The view for this screen (view_size): the run, the attract run behind
+    // the menus, and every later launch use it.
+    pub fn set_view(mut self: Self, view_w: i32, view_h: i32):
+        self.view_w = view_w
+        self.view_h = view_h
+        self.game.screen_w = view_w as f64
+        self.game.screen_h = view_h as f64
+        self.attract.screen_w = view_w as f64
+        self.attract.screen_h = view_h as f64
+
     fn persist(mut self: Self):
         if not self.file.store(&self.save) and not self.file.read_only:
             eprint(f"WIPE could not write its save at {self.file.path}")
+        if not self.settings_file.store(&self.settings):
+            eprint(f"WIPE could not write its settings at {self.settings_file.path}")
 
     fn go(mut self: Self, screen: Screen):
         if screen == .Shop or screen == .Collection:
@@ -173,10 +191,10 @@ extend App:
         // A fresh game per run, built exactly as a replay builds it.
         let h = Header {
             seed: 1234567 +% (self.save.runs as u32) *% 2654435761 +% (GetTime() * 1000.0) as u32,
-            ship, stage: self.stage, endless, save: self.save, tuning: self.tuning_text.clone(),
+            ship, stage: self.stage, endless, view_w: self.view_w, view_h: self.view_h, save: self.save, tuning: self.tuning_text.clone(),
         }
         self.game = start_game(&h)
-        self.rec.begin(h.seed, ship, self.stage, endless, self.save.serialize(), self.tuning_text)
+        self.rec.begin(h.seed, ship, self.stage, endless, self.view_w, self.view_h, self.save.serialize(), self.tuning_text)
         self.picks = ""
         self.screen = .Run
         self.boost_cursor = 0
@@ -301,7 +319,10 @@ extend App:
             self.screen = .Pause
             self.pause_cursor = 0
             self.confirm_abandon = false
-        let m = self.menu.sample(pad)
+        var m = self.menu.sample(pad)
+        // Menus, pause and the boost cards are laid out in the 1280x800
+        // frame centered in the view; their hit tests read frame coordinates.
+        m.mouse = sub(m.mouse, frame_offset(self.view_w, self.view_h))
         // Aim is resolved against the ship's position on screen.
         let screen_player = sub(self.game.player, self.game.view_origin())
         let controls = if self.screen == .Run: self.input.sample(screen_player, self.game.aim, pad) else: Controls { aim: self.game.aim }
@@ -447,7 +468,7 @@ extend App:
 
     // F11 anywhere, or the pause menu; main applies it to the window.
     pub fn toggle_fullscreen(mut self: Self):
-        self.save.fullscreen = not self.save.fullscreen
+        self.settings.fullscreen = not self.settings.fullscreen
         self.persist()
 
     fn update_pause(mut self: Self, m: MenuInput):
@@ -458,10 +479,10 @@ extend App:
             self.ui_move = true
         if m.left or m.right:
             let step = if m.right: 0.1 else: -0.1
-            if self.pause_cursor == 1: self.save.volume = limit(self.save.volume + step, 0.0, 1.0)
+            if self.pause_cursor == 1: self.settings.volume = limit(self.settings.volume + step, 0.0, 1.0)
             if self.pause_cursor == 2:
-                self.save.deadzone = limit(self.save.deadzone + step * 0.5, 0.05, 0.5)
-                self.input.deadzone = self.save.deadzone
+                self.settings.deadzone = limit(self.settings.deadzone + step * 0.5, 0.05, 0.5)
+                self.input.deadzone = self.settings.deadzone
             if self.pause_cursor == 3: self.toggle_fullscreen()
             self.ui_move = true
         // Escape and Q head for the title, banking the run; the pad's B and
@@ -570,14 +591,20 @@ extend App:
                 let cam = renderer.begin_world(&self.game, clock, 1.0)
                 let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, show_hints: false }
                 renderer.draw_run(&self.game, cam, hud, self.boost_cursor, clock, None)
+                DrawRectangle(0, 0, self.view_w, self.view_h, ink(0.6))
+                begin_frame(self.view_w, self.view_h)
                 self.draw_pause()
+                end_frame()
             }
             .Results => {
                 let _ = renderer.begin_world(&self.game, clock, 0.12)
+                begin_frame(self.view_w, self.view_h)
                 self.draw_results(clock)
+                end_frame()
             }
             _ => {
                 let _ = renderer.begin_world(&self.attract, clock, 0.3)
+                begin_frame(self.view_w, self.view_h)
                 match self.screen:
                     .Title => self.draw_title(clock)
                     .Select => self.draw_select(clock)
@@ -593,6 +620,7 @@ extend App:
                         label(line_text.clone(), 55, y, 12, lime(0.8))
                         y += 18
                     label(f"SAVE {info.save_path}", 55, y, 10, white(0.45))
+                end_frame()
             }
         renderer.present()
 
@@ -806,13 +834,12 @@ extend App:
         centered(controls, 690, 14, white(0.7))
 
     fn draw_pause(self: &Self):
-        DrawRectangle(0, 0, WIDTH, HEIGHT, ink(0.6))
         panel(440, 220, 400, 374, cyan(1.0))
         centered("PAUSED", 240, 30, cyan(1.0))
-        let vol = (self.save.volume * 100.0 + 0.5) as i32
-        let dz = (self.save.deadzone * 100.0 + 0.5) as i32
+        let vol = (self.settings.volume * 100.0 + 0.5) as i32
+        let dz = (self.settings.deadzone * 100.0 + 0.5) as i32
         let abandon = if self.confirm_abandon: "ABANDON RUN? PRESS A AGAIN" else: "ABANDON RUN (BANKS CREDITS)"
-        let screen_mode = if self.save.fullscreen: "FULLSCREEN" else: "WINDOWED"
+        let screen_mode = if self.settings.fullscreen: "FULLSCREEN" else: "WINDOWED"
         let items = ["RESUME", f"VOLUME  < {vol}% >", f"DEADZONE  < {dz}% >", f"DISPLAY  < {screen_mode} >", abandon, "QUIT TO TITLE"]
         for i in 0..6:
             let selected = i == self.pause_cursor
