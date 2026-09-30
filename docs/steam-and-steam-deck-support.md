@@ -57,166 +57,80 @@ them, so delete them.
 
 ---
 
-## 3. Options screen and settings file
+## 3. Settings file (done on `options-display`)
 
-There is no options screen. Volume and deadzone are two rows in the pause
-menu (`src/app.w:448-493`, `:801-813`), and they are stored in `save.txt`
-beside progress (`src/save.w:40-41`). The title screen is hotkeys only (A
-launch, X shop, Y collection, hold B quit), so there is nowhere to put
-display settings.
+There is no options screen, because there is no resolution to choose (§4).
+Volume, deadzone and display mode stay in the pause menu, and F11 toggles
+fullscreen anywhere.
 
-**Build:**
-
-- A new `.Options` screen reachable from the title and from pause.
-  - **On the title** it is a fourth entry beside launch, shop, and
-    collection: the pad's Menu button (☰, Start on an Xbox pad), O on the
-    keyboard, or a click on its label. Start does nothing on the title
-    today. Escape still quits, so the pad button and the key must be read
-    separately; `MenuInput.start` merges them (`src/input.w:88`).
-  - **In pause**, an `OPTIONS` row replaces the inline volume and deadzone
-    rows.
-  - Inside Options, every row is navigable with the d-pad and stick,
-    adjusted with left and right, and closed with B or Escape, like every
-    other screen.
-- This changes the spec in two places. The §11 title mockup gains
-  `[☰] options`. The pause section's "This is the only place volume and
-  deadzone live" becomes: volume and deadzone live in Options, reachable
-  from the title and from pause.
-- Rows, first pass:
-  - **Display:** display mode (Windowed / Fullscreen), window size (only
-    when windowed), VSync on/off, frame cap (60 / display refresh /
-    unlimited).
-  - **Audio:** master volume. Music and effects volumes are optional.
-    `src/audio.w` already sets per-sound volumes.
-  - **Controls:** stick deadzone, and button prompts (Automatic / Controller
-    / Keyboard). Automatic is the default (§5).
-  - **Optional accessibility:** screen shake and flash intensity. Trauma
-    shake and full-screen flashes are both presentation-only.
-- **A separate `settings.txt`** beside the save, in the same `key value`
-  format with the same atomic write and backup. Settings are per machine
+- **They live in `settings.txt`**, beside the save, in the same `key value`
+  format, written atomically (`src/settings.w`). Settings are per machine
   and progress is per player: a Deck and a desktop sharing a Steam Cloud
-  save must not trade window sizes. On first run, when `settings.txt` is
-  missing, copy `volume` and `deadzone` from the save. The save keeps
-  reading those keys and stops writing them. Unknown keys are already
-  ignored, so `SAVE_VERSION` stays 1.
-- **Read settings before `InitWindow`.** Window flags and size have to be
-  known before the window exists. Today `App.open()` reads the save after
-  the window is created (`src/main.w:12-34`). Settings load moves to the
-  top of `main`. The save can stay where it is.
-- The harnesses (`uat`, `tour`, `gallery`, `play`, `bosses`) never read
-  `settings.txt`. They keep a fixed 1280×800 window so their PNGs and
-  timings stay comparable.
-
-**Done when:** every row round-trips through `settings.txt`
-(`test/settings_contracts.w`), the tour has an Options PNG, and the screen
-works with the pad alone.
+  save must not trade display modes.
+- **Migration:** on first run, when `settings.txt` is missing, `volume` and
+  `deadzone` come from the save. The save still reads those keys and no
+  longer writes them. Unknown keys are already ignored, so `SAVE_VERSION`
+  stays 1.
+- **A first launch under gamescope starts fullscreen**, detected through
+  `SteamDeck=1` or `XDG_CURRENT_DESKTOP=gamescope`, both set by SteamOS.
+- **The harnesses** (`uat`, `tour`, `gallery`, `play`, `bosses`) never read
+  `settings.txt`.
+- **Tests:** `test/save_contracts.w` covers the round trip, clamping,
+  unknown keys, and migration.
 
 ---
 
 ## 4. Resolution and display
 
-### 4.1 The canvas stays 1280×800
+### 4.1 The view takes the screen's aspect ratio (decided 2026-09-29)
 
-`WIDTH` and `HEIGHT` are simulation constants. The camera bounds
-(`src/game.w:684-705`), culling (`on_screen`), and the view-edge spawn
-positions (`src/game.w:715-725`, `:876-923`) all use them. Showing more
-world on a wider screen would change where enemies appear and how early the
-player sees them. That changes balance per display and breaks exact replay
-of recordings. So the logical canvas stays 1280×800 (16:10) on every
-display, and output resolution is only a presentation concern.
+Nothing is stretched, squashed, cropped or letterboxed, and the player never
+picks a resolution. The Deck's 1280×800 is the smallest view. A screen of
+another shape grows it in one dimension to match (`view_size`,
+`src/game.w`):
 
-### 4.2 Step 1: letterbox and map the mouse (required)
+| Screen | View |
+|---|---|
+| Steam Deck, 16:10 | 1280×800 |
+| 16:9 | 1422×800 |
+| 21:9 (3440×1440) | 1911×800 |
+| 4:3 | 1280×960 |
 
-- Composite the 1280×800 scene into the largest 16:10 rectangle that fits
-  the framebuffer, centered, with `ink` bars. `blit` in `present()`
-  (`src/presentation.w:1509`) already takes a destination size. It needs an
-  offset and a size from one pure function,
-  `letterbox(framebuffer_w, framebuffer_h) -> Rect`, which is unit tested.
+- **The view is part of the run.** The camera bounds, culling, and the
+  view-edge spawns use it, so a wider screen sees more of the arena
+  sideways. Recordings store it (`view W H`), so replays stay exact. A
+  recording made before this change replays at 1280×800.
+- **The screen decides the view once, at startup.** The window opens
+  hidden, reads the monitor, and shows the view 1:1. It is shrunk
+  uniformly only if the screen cannot hold it. Borderless fullscreen then
+  fills the monitor at one scale, because the aspect ratios match.
+- **Menus, pause and the boost cards keep their 1280×800 layout** in a
+  frame centered in the view (`begin_frame`), and the mouse is offset to
+  match. The HUD and world overlays anchor to the view's edges.
+- **Rendering:** the scene and both bloom tiers are sized by the view. The
+  grid shader takes the view as a uniform, replacing its hard-coded `800`.
+- **On a Deck,** gamescope reports 1280×800, so the view is unchanged. If
+  the player sets Steam's per-game Game Resolution while docked, gamescope
+  reports that screen, and the view follows it.
+- **Verified:** the tour at 1280×800, 1422×800 and 1280×960
+  (`WIPE_TOUR_VIEW=WxH`).
 
-  | Output | Image | Bars |
-  |---|---|---|
-  | 1280×800 (Deck handheld) | 1280×800 | none |
-  | 1280×720 (Deck 16:9 setting) | 1152×720 | 64 px left and right |
-  | 1920×1080 (docked TV) | 1728×1080 | 96 px left and right |
-  | 1920×1200 | 1920×1200 | none |
-  | 3840×2160 | 3456×2160 | 192 px left and right |
+### 4.2 Sharpness above 800 lines (open)
 
-- `SetMouseScale` and `SetMouseOffset` convert window coordinates to canvas
-  coordinates once, globally. Then the 13 `inside(m.mouse, …)` hit tests in
-  `src/app.w` and mouse aiming work unchanged. Deck touchscreen taps arrive
-  as mouse events and get the same mapping.
-- Make the window resizable (`FLAG_WINDOW_RESIZABLE`) and recompute the
-  letterbox when `IsWindowResized()` reports a change.
-- Fullscreen means **borderless fullscreen at the monitor's current mode**
-  (`FLAG_BORDERLESS_WINDOWED_MODE` / `ToggleBorderlessWindowed`). Do not
-  switch the display mode with `ToggleFullscreen`. Mode switches are slow
-  and fragile on desktops, and on the Deck gamescope owns the output
-  anyway.
-- Window sizes offered when windowed: 1280×800, 1280×720, 1440×900,
-  1600×1000, 1920×1080, 1920×1200, 2560×1440, 2560×1600, 3840×2160.
-  Filter to what fits the current monitor (`GetMonitorWidth/Height`).
-- First-launch default: fullscreen when Steam reports Steam hardware, or
-  when running under gamescope. The Steam build asks
-  `ISteamUtils::GetSteamHardwareDefaultConfig()`, which is new in SDK 1.65.
-  Valve's header describes it as the call for choosing default settings,
-  and it can be retuned per device from the partner site without a new
-  build. The plain build reads the environment instead:
-  `XDG_CURRENT_DESKTOP=gamescope`, or `SteamDeck=1`, both set by SteamOS.
-  Otherwise the default is a 1280×800 window. The player can change
-  either.
-- SDK 1.65 removed `IsRunningOnSteamDeck()`. `IsRunningOnSteamHardware()`
-  exists, but Valve limits it to analytics and support, not functional
-  decisions, so nothing in WIPE branches on "is this a Deck".
+The view is measured in world units, so on a 1920×1080 screen a 1422×800
+scene is upscaled 1.35× and looks soft. Rendering at the output resolution
+is possible later:
+- the scene surface at output size, under one scale transform;
+- 1-pixel `DrawRectangleLines`/`DrawCircleLines` moved to their thickness
+  variants;
+- optionally a TTF font instead of raylib's 10 px bitmap.
 
-On the Deck, gamescope shows any window fullscreen. By default the game
-sees a 1280×800 output. If the player sets Steam's per-game **Game
-Resolution** (for example Native while docked to a 4K TV), gamescope
-reports that size and the game must fill it. Step 1 is exactly what makes
-that correct.
+### 4.3 Frame pacing
 
-### 4.3 Step 2: render at output resolution (sharpness above 800p)
-
-Step 1 upscales a 1280×800 image, which is soft at 1080p and blurry at 4K
-or on a Retina Mac. Step 2 renders the scene at the letterboxed size
-instead:
-
-- Allocate `scene` at the letterbox size and recreate it on resize. Draw
-  the world and HUD under one scale transform (`Camera2D.zoom` or
-  `rlScalef`), so every call site keeps canvas coordinates.
-- **`assets/shaders/grid.fs:41` hard-codes the surface height**
-  (`800.0 - gl_FragCoord.y`). Replace it with a uniform, and scale the
-  screen-space uniforms (ship, impulses, bullets) by the render scale.
-- `DrawRectangleLines`, `DrawCircleLines`, and `DrawCircleLinesV` draw
-  1-pixel GL lines that do not scale (14 call sites). Move them to the
-  `…Ex` or thickness variants the rest of the renderer already uses.
-- raylib's default font is a 10 px bitmap and gets blocky when scaled.
-  Load a TTF with `LoadFontEx` at the render scale, or accept the look.
-  This is an art decision.
-- Bloom surfaces stay at 320×200 and 160×100. The glow looks the same at
-  every output size.
-- Set `FLAG_WINDOW_HIGHDPI` so macOS Retina windows get a full-density
-  framebuffer. Use `GetRenderWidth` for surfaces and `GetScreenWidth` for
-  mouse mapping.
-
-In fullscreen, the options screen's "Resolution" row then means render
-resolution (Native, 1920×1080, 1280×800, and so on). It is a performance
-lever on a 4K TV and needs no display mode switch.
-
-### 4.4 Frame pacing
-
-`SetTargetFPS(60)` (`src/main.w:22`) is a sleep-based limiter without
-VSync. The Deck LCD runs at 60 Hz and the Deck OLED at up to 90 Hz. Both
-are fixed-refresh panels, not VRR, and Steam's own frame limiter can cap
-further. Add a VSync option (`FLAG_VSYNC_HINT`, on by default) and a frame
-cap option. The simulation is fixed-step, so any rate is safe.
-
-Clamp the frame delta once in `main` rather than only in runs. The attract
-simulation ticks with the raw delta (`src/app.w:336`), so the first frame
-after the Deck resumes from sleep can be minutes long.
-
-**Done when:** at 1280×800, 1280×720, 1920×1080, 2560×1600 HiDPI, and
-3840×2160, the image is undistorted, every click lands on its target, and
-the tour produces PNGs at each size. Deck handheld is pixel-exact.
+- **Done:** the frame time is clamped to 0.1 s in `main`, so the first
+  frame after the Deck wakes cannot jump the menus or the attract run.
+- **Open:** `SetTargetFPS(60)` is a sleep-based limiter. VSync is not
+  enabled; the Deck OLED runs at 90 Hz.
 
 ---
 
@@ -573,7 +487,7 @@ developer mode.
 | No keyboard or mouse glyphs when they are not the active input | Fail | §5 prompts |
 | Text input possible with a controller | Pass: no text entry | — |
 | Runs at a Deck resolution (1280×800 preferred) | Pass: the canvas is 1280×800 | §4 so docked and other resolutions also work |
-| Smallest character at least 9 px tall at 1280×800 | Unknown: many labels use size 10 of raylib's 10 px bitmap font, and capitals are shorter than the cell | Measure on captured frames. Raise the floor to 12 to 14, or use a TTF (§4.3) |
+| Smallest character at least 9 px tall at 1280×800 | Unknown: many labels use size 10 of raylib's 10 px bitmap font, and capitals are shorter than the cell | Measure on captured frames. Raise the floor to 12 to 14, or use a TTF (§4.2) |
 | No compatibility warnings or launcher | Pass | — |
 | 30 fps at 800p on default settings | Unmeasured on the Deck. The spec target is 60 fps at 1,000 enemies | Run the `uat` bench and F3 stress on the device |
 | Suspend and resume | Runs clamp the delta, but attract does not | §4.4 clamp. Test sleep mid-run, then resume |
@@ -614,8 +528,8 @@ Not code, but release-blocking:
 
 ## 11. Tests and acceptance
 
-- **Contracts:** settings round-trip; `letterbox` for each §4.2 size;
-  mouse mapping inverts the letterbox; `earned()` on the veteran fixture
+- **Contracts:** settings round-trip; `view_size` for each §4.1 screen, and
+  `fit` filling it at one scale; `earned()` on the veteran fixture
   (`WIPE_PLAY_VETERAN`) returns every achievement, and on a fresh save
   returns none; API names are unique.
 - **The plain build stays plain:** `wipe` has no `SteamAPI_` strings and no
@@ -645,14 +559,13 @@ Not code, but release-blocking:
 
 Each step leaves the game shippable without Steam.
 
-1. **Options screen, `settings.txt`, letterbox, mouse mapping, borderless
-   fullscreen, VSync, frame cap, delta clamp.** Every platform benefits,
-   and it is all testable on the Mac today.
+1. **`settings.txt`, the aspect-ratio view, borderless fullscreen, and the
+   frame-time clamp.** Done on `options-display` (§3, §4).
 2. **Prompts by active device, cursor hiding, a text-size floor, and
    deleting `native/glfw/`.**
 3. **Linux build** on a Linux host or the `steamrt4` SDK container (§8).
    Run it on desktop Linux and on the Deck without Steam.
-4. **Render at output resolution (§4.3).** Can move after step 6 if
+4. **Render at output resolution (§4.2).** Can move after step 6 if
    docked sharpness can wait.
 5. **The `Platform` seam, `src/steam.w` importing `steam_api_flat.h`,
    the `wipe-steam` target with linking and rpath, and the Spacewar
@@ -672,7 +585,7 @@ Common Steam Deck advice, checked against this tree:
 | Advice | For WIPE |
 |---|---|
 | "Query the display with `SDL_GetCurrentDisplayMode`." | raylib and GLFW own the window. SDL is initialized only for gamepads. `GetMonitorWidth/Height` and `GetRenderWidth/Height` give the same answer. (That snippet is also SDL2; the tree uses SDL3.) |
-| "Render to a virtual framebuffer and let gamescope letterbox." | The first half is already true: the 1280×800 scene. The game letterboxes itself (§4.2), because gamescope only exists on SteamOS and the game must be correct everywhere. |
+| "Render to a virtual framebuffer and let gamescope letterbox." | Not needed: the view takes the screen's aspect ratio (§4.1), so there is nothing to letterbox, on SteamOS or anywhere else. |
 | "Use OpenGL 3.3+ or Vulkan; use `SDL_Renderer` with VSync." | Already OpenGL 3.3 core through raylib. `SDL_Renderer` is not involved. VSync becomes an option (§4.4). The Deck's panels are fixed 60 or 90 Hz, not variable refresh. |
 | "Steam has a C-compatible ABI you can call with that header." | The ABI half is right: the flat functions have C linkage and the C calling convention, and With calls them. The header half is not. The flat functions are declared in `steam_api_flat.h`, which includes the C++ `steam_api.h`, so neither header parses as C, and With's `c_import` is C-only (§6.1). |
 | "`SteamAPI_Init()` and `SteamAPI_SteamUserStats_v012()`." | `SteamAPI_Init` is an inline C++ wrapper in current SDKs; the flat entry point is `SteamAPI_InitFlat`. Accessor suffixes change between SDK versions and must match the shipped SDK (§6.3). |
@@ -717,10 +630,10 @@ Common Steam Deck advice, checked against this tree:
 
 **Open:**
 
-5. **Render at output resolution (§4.3) before release.** Recommended:
-   yes. Deck handheld does not need it, but docked play, Steam Machine on
-   a TV, and Retina Macs look soft without it. A TTF font is an art call
-   that can wait.
+5. **Render at output resolution (§4.2) before release.** Recommended:
+   yes, for docked play, Steam Machine on a TV, and Retina Macs. Resolved
+   separately: the view follows the screen's aspect ratio with no
+   resolution setting (§4.1, 2026-09-29).
 6. **Depots.** Recommended: Linux and macOS, the two builds that exist.
    Add Windows only if a Windows build is made.
 7. **`ISteamInput`.** Recommended: not for the first release. SDL plus
