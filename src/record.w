@@ -36,11 +36,11 @@ fn block(tag: &str, text: &str) -> str:
 pub type Recorder { active: bool = false, text: str = "", last: str = "", repeat: i32 = 0 }
 
 extend Recorder:
-    pub fn begin(mut self: Self, seed: u32, ship: Ship, stage: Stage, endless: bool, save_text: &str, tuning_text: &str):
+    pub fn begin(mut self: Self, seed: u32, ship: Ship, stage: Stage, endless: bool, view_w: i32, view_h: i32, save_text: &str, tuning_text: &str):
         self.active = true
         self.last = ""
         self.repeat = 0
-        var head = f"wipe-recording {RECORDING_VERSION}\nseed {seed}\nship {ship.index()}\nstage {stage.index()}\nendless {if endless: 1 else: 0}\n"
+        var head = f"wipe-recording {RECORDING_VERSION}\nseed {seed}\nship {ship.index()}\nstage {stage.index()}\nendless {if endless: 1 else: 0}\nview {view_w} {view_h}\n"
         head = head ++ block("save", save_text) ++ block("tuning", tuning_text) ++ "events\n"
         self.text = head
 
@@ -81,6 +81,8 @@ extend Recorder:
 
 pub type Header {
     seed: u32 = 0, ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false,
+    // The view the run was played in; a recording from before views varied is 1280x800.
+    view_w: i32 = WIDTH, view_h: i32 = HEIGHT,
     save: Save = Save {}, tuning: str = "",
 }
 
@@ -101,6 +103,8 @@ fn read_int(s: &str) -> i64:
 pub fn start_game(h: &Header) -> Game:
     let (rules, _, _) = apply_tuning(h.stage.rules(), h.tuning)
     var g = Game.new(rules)
+    g.screen_w = h.view_w as f64
+    g.screen_h = h.view_h as f64
     g.rng = h.seed
     g.start(launch_for(h.ship, &h.save, h.endless))
     g
@@ -126,6 +130,9 @@ pub fn read_header(text: &str) -> Result[(Header, i32), str]:
         else if key == "ship": h.ship = ship_at(read_int(parts[1].clone()) as i32)
         else if key == "stage": h.stage = stage_at(read_int(parts[1].clone()) as i32)
         else if key == "endless": h.endless = parts[1] == "1"
+        else if key == "view" and parts.len() >= 3:
+            h.view_w = read_int(parts[1].clone()) as i32
+            h.view_h = read_int(parts[2].clone()) as i32
         else if key == "save":
             let (body, next) = take_block(&lines, i)
             match Save.parse_text(body):

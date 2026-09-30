@@ -10,6 +10,7 @@ use presentation
 use app
 use gamepads
 use std.process.env
+use std.string.parse
 
 fn frames(wipe: &App, renderer: &Renderer, count: i32, clock: f64) -> f64:
     var t = clock
@@ -21,7 +22,14 @@ fn frames(wipe: &App, renderer: &Renderer, count: i32, clock: f64) -> f64:
 fn main:
     SetTraceLogLevel(LOG_WARNING)
     SetConfigFlags(FLAG_MSAA_4X_HINT)
-    InitWindow(WIDTH, HEIGHT, "WIPE: SURVIVAL | tour")
+    // WIPE_TOUR_VIEW=1422x800 tours the view a screen of that shape gets.
+    var view_w = WIDTH
+    var view_h = HEIGHT
+    let asked = env("WIPE_TOUR_VIEW").split("x")
+    if asked.len() == 2:
+        view_w = parse(asked[0])
+        view_h = parse(asked[1])
+    InitWindow(view_w, view_h, "WIPE: SURVIVAL | tour")
     if not IsWindowReady(): return 1
     defer: CloseWindow()
     SetExitKey(KEY_NULL)
@@ -29,9 +37,10 @@ fn main:
     if env("WIPE_SAVE_DIR").len() == 0:
         eprint("tour: set WIPE_SAVE_DIR to a scratch directory")
         return 1
-    let renderer = Renderer.open()
+    let renderer = Renderer.open(view_w, view_h)
     if not renderer.valid(): return 1
     var wipe = App.open()
+    wipe.set_view(view_w, view_h)
     // A seasoned account: some ships, ranks, and a registry.
     wipe.save.credits = 1988
     wipe.save.best_time[0] = 1152.0

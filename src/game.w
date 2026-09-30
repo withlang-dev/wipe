@@ -18,8 +18,20 @@ pub const MINE_CAP: i32 = 32
 pub const BEAM_CAP: i32 = 16
 pub const ARC_CAP: i32 = 96
 pub const SHOCKWAVE_CAP: i32 = 16
+// The Steam Deck's panel: the menu frame, and the smallest view. A screen of
+// another shape widens or heightens the view to its aspect ratio
+// (view_size); the game's screen_w and screen_h carry the view in use.
 pub const WIDTH: i32 = 1280
 pub const HEIGHT: i32 = 800
+
+// The view for a screen: 1280x800 grown in one dimension to the screen's
+// aspect ratio, never cropped (16:9 is 1422x800, 4:3 is 1280x960).
+pub fn view_size(screen_w: i32, screen_h: i32) -> (i32, i32):
+    if screen_w <= 0 or screen_h <= 0: return (WIDTH, HEIGHT)
+    let aspect = screen_w as f64 / screen_h as f64
+    let base = WIDTH as f64 / HEIGHT as f64
+    if aspect >= base: ((HEIGHT as f64 * aspect + 0.5) as i32, HEIGHT)
+    else: (WIDTH, (WIDTH as f64 / aspect + 0.5) as i32)
 // The enemy grid covers the largest arena the rules allow.
 const CELL_SIZE: i32 = 64
 const CELL_COLS: i32 = 60
@@ -281,6 +293,8 @@ pub type Game {
     // The camera center. Deterministic so headless tests see the same spawns.
     view: V2 = V2 {},
     health: i32 = 10, max_health: i32 = 10, regen_bank: f64 = 0.0,
+    // The view in world units: 1280x800 on a 16:10 screen (view_size).
+    screen_w: f64 = 1280.0, screen_h: f64 = 800.0,
     kills: i32 = 0, elapsed: f64 = 0.0,
     level: i32 = 1, xp: i32 = 0, xp_next: i32 = 20, pending_levels: i32 = 0,
     combo: i32 = 0, best_combo: i32 = 0, combo_timer: f64 = 0.0,
@@ -682,12 +696,12 @@ extend Game:
 
     // The camera rectangle, clamped inside the arena.
     pub fn view_origin(self: &Self) -> V2:
-        let half_w = WIDTH as f64 / 2.0
-        let half_h = HEIGHT as f64 / 2.0
-        let x = if self.rules.arena_width <= WIDTH as f64: self.rules.arena_width / 2.0 - half_w
-            else: limit(self.view.x - half_w, 0.0, self.rules.arena_width - WIDTH as f64)
-        let y = if self.rules.arena_height <= HEIGHT as f64: self.rules.arena_height / 2.0 - half_h
-            else: limit(self.view.y - half_h, 0.0, self.rules.arena_height - HEIGHT as f64)
+        let half_w = self.screen_w / 2.0
+        let half_h = self.screen_h / 2.0
+        let x = if self.rules.arena_width <= self.screen_w: self.rules.arena_width / 2.0 - half_w
+            else: limit(self.view.x - half_w, 0.0, self.rules.arena_width - self.screen_w)
+        let y = if self.rules.arena_height <= self.screen_h: self.rules.arena_height / 2.0 - half_h
+            else: limit(self.view.y - half_h, 0.0, self.rules.arena_height - self.screen_h)
         V2 { x, y }
 
     // The camera's zoom: 1 normally, pulled back to 0.82 on a boss's entry.
@@ -700,9 +714,9 @@ extend Game:
     pub fn on_screen(self: &Self, pos: V2, margin: f64) -> bool:
         let o = self.view_origin()
         let z = self.zoom()
-        let ex = (1.0 / z - 1.0) * WIDTH as f64 / 2.0 + margin
-        let ey = (1.0 / z - 1.0) * HEIGHT as f64 / 2.0 + margin
-        pos.x >= o.x - ex and pos.x <= o.x + WIDTH as f64 + ex and pos.y >= o.y - ey and pos.y <= o.y + HEIGHT as f64 + ey
+        let ex = (1.0 / z - 1.0) * self.screen_w / 2.0 + margin
+        let ey = (1.0 / z - 1.0) * self.screen_h / 2.0 + margin
+        pos.x >= o.x - ex and pos.x <= o.x + self.screen_w + ex and pos.y >= o.y - ey and pos.y <= o.y + self.screen_h + ey
 
     fn follow(mut self: Self, dt: f64):
         let target = add(self.player, scale(self.aim, self.rules.lookahead))
@@ -719,10 +733,10 @@ extend Game:
             let side = (start + attempt) % 4
             let along = self.random()
             let pos = match side:
-                0 => V2 { x: o.x - margin, y: o.y + along * HEIGHT as f64 }
-                1 => V2 { x: o.x + WIDTH as f64 + margin, y: o.y + along * HEIGHT as f64 }
-                2 => V2 { x: o.x + along * WIDTH as f64, y: o.y - margin }
-                _ => V2 { x: o.x + along * WIDTH as f64, y: o.y + HEIGHT as f64 + margin }
+                0 => V2 { x: o.x - margin, y: o.y + along * self.screen_h }
+                1 => V2 { x: o.x + self.screen_w + margin, y: o.y + along * self.screen_h }
+                2 => V2 { x: o.x + along * self.screen_w, y: o.y - margin }
+                _ => V2 { x: o.x + along * self.screen_w, y: o.y + self.screen_h + margin }
             if self.in_arena(pos, -8.0): return Some(pos)
         // The camera shows the whole arena along some axis: any far corner.
         let pos = V2 { x: 8.0 + self.random() * (self.rules.arena_width - 16.0), y: 8.0 + self.random() * (self.rules.arena_height - 16.0) }
@@ -873,17 +887,17 @@ extend Game:
         let o = self.view_origin()
         let kind = kind_at(event.kind_index)
         let side: i32 = self.event_side
-        let center = add(o, V2 { x: WIDTH as f64 / 2.0, y: HEIGHT as f64 / 2.0 })
+        let center = add(o, V2 { x: self.screen_w / 2.0, y: self.screen_h / 2.0 })
         match event.formation:
             .Sweep => {
                 // A line across the far edge, all moving one way.
                 for i in 0..event.count:
                     let t = (i as f64 + 0.5) / event.count as f64
                     let pos = match side:
-                        0 => V2 { x: o.x - 80.0, y: o.y + t * HEIGHT as f64 }
-                        1 => V2 { x: o.x + WIDTH as f64 + 80.0, y: o.y + t * HEIGHT as f64 }
-                        2 => V2 { x: o.x + t * WIDTH as f64, y: o.y - 80.0 }
-                        _ => V2 { x: o.x + t * WIDTH as f64, y: o.y + HEIGHT as f64 + 80.0 }
+                        0 => V2 { x: o.x - 80.0, y: o.y + t * self.screen_h }
+                        1 => V2 { x: o.x + self.screen_w + 80.0, y: o.y + t * self.screen_h }
+                        2 => V2 { x: o.x + t * self.screen_w, y: o.y - 80.0 }
+                        _ => V2 { x: o.x + t * self.screen_w, y: o.y + self.screen_h + 80.0 }
                     let heading = match side:
                         0 => V2 { x: 1.0 }
                         1 => V2 { x: -1.0 }
@@ -904,9 +918,9 @@ extend Game:
                 // A spiral unwinding from a corner of the view.
                 let corner = match side:
                     0 => V2 { x: o.x - 40.0, y: o.y - 40.0 }
-                    1 => V2 { x: o.x + WIDTH as f64 + 40.0, y: o.y - 40.0 }
-                    2 => V2 { x: o.x + WIDTH as f64 + 40.0, y: o.y + HEIGHT as f64 + 40.0 }
-                    _ => V2 { x: o.x - 40.0, y: o.y + HEIGHT as f64 + 40.0 }
+                    1 => V2 { x: o.x + self.screen_w + 40.0, y: o.y - 40.0 }
+                    2 => V2 { x: o.x + self.screen_w + 40.0, y: o.y + self.screen_h + 40.0 }
+                    _ => V2 { x: o.x - 40.0, y: o.y + self.screen_h + 40.0 }
                 for i in 0..event.count:
                     let t = i as f64
                     let pos = add(corner, V2 { x: cos(t * 0.6) * t * 14.0, y: sin(t * 0.6) * t * 14.0 })
@@ -918,9 +932,9 @@ extend Game:
                 let rows = (event.count + cols - 1) / cols
                 let anchor = match side:
                     0 => V2 { x: o.x - 260.0, y: center.y - (rows as f64) * 30.0 }
-                    1 => V2 { x: o.x + WIDTH as f64 + 60.0, y: center.y - (rows as f64) * 30.0 }
+                    1 => V2 { x: o.x + self.screen_w + 60.0, y: center.y - (rows as f64) * 30.0 }
                     2 => V2 { x: center.x - 120.0, y: o.y - 260.0 }
-                    _ => V2 { x: center.x - 120.0, y: o.y + HEIGHT as f64 + 60.0 }
+                    _ => V2 { x: center.x - 120.0, y: o.y + self.screen_h + 60.0 }
                 let heading = direction(sub(center, add(anchor, V2 { x: 100.0, y: (rows as f64) * 30.0 })))
                 for i in 0..event.count:
                     let pos = add(anchor, V2 { x: ((i % cols) as f64) * 60.0, y: ((i / cols) as f64) * 60.0 })

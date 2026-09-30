@@ -47,7 +47,7 @@ pub enum LoadNotice { | Fresh | Loaded | Restored | SetAside | TooNew(version: i
 impl Copy for LoadNotice
 impl Eq for LoadNotice
 
-fn fmt_float(x: f64) -> str:
+pub fn fmt_float(x: f64) -> str:
     // Three decimals, no locale, no exponent.
     let negative = x < 0.0
     let magnitude = if negative: -x else: x
@@ -84,8 +84,8 @@ pub fn parse_float(s: &str) -> f64:
             i += 1
     if negative: -value else: value
 
-fn parse_bool(s: &str) -> bool: s == "1" or s == "true"
-fn fmt_bool(b: bool) -> str: if b: "1" else: "0"
+pub fn parse_bool(s: &str) -> bool: s == "1" or s == "true"
+pub fn fmt_bool(b: bool) -> str: if b: "1" else: "0"
 
 extend Save:
     pub fn serialize(self: &Self) -> str:
@@ -106,7 +106,8 @@ extend Save:
         for i in 0..PASSIVE_COUNT: out = out ++ f"taken_passive {i} {fmt_bool(self.taken_passives[i])}\n"
         for i in 0..KIND_COUNT: out = out ++ f"registry {i} {self.registry_kills[i]} {fmt_float(self.registry_first[i])}\n"
         for i in 0..3: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
-        out = out ++ f"last_ship {self.last_ship}\nvolume {fmt_float(self.volume)}\ndeadzone {fmt_float(self.deadzone)}\n"
+        // volume and deadzone moved to settings.txt; they are still read, once, to migrate.
+        out = out ++ f"last_ship {self.last_ship}\n"
         out
 
 // Parse a save. Unknown keys are ignored so newer fields never break an

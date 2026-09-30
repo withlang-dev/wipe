@@ -1,9 +1,10 @@
-//! expect-stdout: UAT passed: save round trip, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record
+//! expect-stdout: UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record
 use std.fs
 use std.process.env
 use std.process.set_env
 use std.process.pid
 use save
+use settings
 use account
 use game
 use ships
@@ -30,7 +31,6 @@ fn main:
     s.taken_weapons[9] = true
     s.registry_kills[5] = 77
     s.registry_first[5] = 12.5
-    s.volume = 0.4
     assert(file.store(&s))
     let (back, loaded) = file.load()
     assert(loaded == .Loaded)
@@ -40,7 +40,31 @@ fn main:
     assert(back.cleared[2] and back.taken_weapons[9] and back.no_reboot_clear)
     assert(back.registry_kills[5] == 77)
     near(back.registry_first[5], 12.5)
-    near(back.volume, 0.4)
+    // Settings live in settings.txt, per machine: the save no longer writes
+    // them, but still reads an older save's volume and deadzone to migrate.
+    assert(not back.serialize().contains("volume") and not back.serialize().contains("deadzone"))
+    match Save.parse_text(back.serialize() ++ "volume 0.400\ndeadzone 0.300\n"):
+        Ok(older) => {
+            let migrated = Settings.from_save(&older)
+            near(migrated.volume, 0.4)
+            near(migrated.deadzone, 0.3)
+        }
+        Err(_) => assert(false)
+    let settings_file = SettingsFile.open(file.directory)
+    assert(settings_file.load().is_none())
+    assert(settings_file.store(&Settings { volume: 0.25, deadzone: 0.1, fullscreen: true }))
+    match settings_file.load():
+        Some(read) => {
+            near(read.volume, 0.25)
+            near(read.deadzone, 0.1)
+            assert(read.fullscreen)
+        }
+        None => assert(false)
+    // Out-of-range and unknown lines are clamped or ignored.
+    let odd = Settings.parse_text("volume 7\ndeadzone -1\nshader 3\nfullscreen yes\n")
+    near(odd.volume, 1.0)
+    near(odd.deadzone, 0.05)
+    assert(not odd.fullscreen)
     // A second write keeps the first as the backup.
     var s2 = back
     s2.credits = 5
@@ -107,4 +131,4 @@ fn main:
     near(held.held[Weapon.Cannon.index()], 950.0)
     assert(met(weapon_condition(.Lance), &held))
     let _ = remove_tree(dir)
-    print("UAT passed: save round trip, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record")
+    print("UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record")
