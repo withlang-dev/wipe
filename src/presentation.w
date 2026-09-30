@@ -1398,6 +1398,20 @@ fn blit(texture: Texture2D, width: f64, height: f64):
         Rectangle { x: 0.0, y: 0.0, width: width as f32, height: height as f32 },
         Vector2 { x: 0.0, y: 0.0 }, 0.0, WHITE)
 
+// Where the WIDTH x HEIGHT scene lands in a window: the largest whole fit,
+// centered. Fullscreen letterboxes rather than stretches; the window at its
+// own size is scale 1 at the origin.
+pub type Fit { x: f64, y: f64, scale: f64 }
+impl Copy for Fit
+
+pub fn fit(window_w: i32, window_h: i32) -> Fit:
+    // A minimized window reports zero; keep the identity so the mouse map stays finite.
+    if window_w <= 0 or window_h <= 0: return Fit { x: 0.0, y: 0.0, scale: 1.0 }
+    let sx = window_w as f64 / WIDTH as f64
+    let sy = window_h as f64 / HEIGHT as f64
+    let scale = if sx < sy: sx else: sy
+    Fit { x: (window_w as f64 - WIDTH as f64 * scale) / 2.0, y: (window_h as f64 - HEIGHT as f64 * scale) / 2.0, scale }
+
 // The camera for this frame: the simulation's view plus presentation shake.
 pub fn camera_for(g: &Game, clock: f64) -> Camera:
     let shake = g.trauma * g.trauma * 8.0
@@ -1506,8 +1520,15 @@ extend Renderer:
         self.composite.begin()
         self.composite.texture(self.bloom_location, self.bloom_a.texture)
         self.composite.texture(self.wide_location, self.wide_a.texture)
-        blit(self.scene.texture, WIDTH as f64, HEIGHT as f64)
+        let f = fit(GetScreenWidth(), GetScreenHeight())
+        DrawTexturePro(self.scene.texture,
+            Rectangle { x: 0.0, y: 0.0, width: WIDTH as f32, height: -HEIGHT as f32 },
+            Rectangle { x: f.x as f32, y: f.y as f32, width: (WIDTH as f64 * f.scale) as f32, height: (HEIGHT as f64 * f.scale) as f32 },
+            Vector2 { x: 0.0, y: 0.0 }, 0.0, WHITE)
         EndShaderMode()
+        // Mouse input reads in scene coordinates whatever the window size.
+        SetMouseOffset(-(f.x as i32), -(f.y as i32))
+        SetMouseScale((1.0 / f.scale) as f32, (1.0 / f.scale) as f32)
         let cpu_ms = (GetTime() - started) * 1000.0
         EndDrawing()
         cpu_ms

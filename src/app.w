@@ -445,8 +445,13 @@ extend App:
         self.boost_cursor = 0
         self.ui_confirm = true
 
+    // F11 anywhere, or the pause menu; main applies it to the window.
+    pub fn toggle_fullscreen(mut self: Self):
+        self.save.fullscreen = not self.save.fullscreen
+        self.persist()
+
     fn update_pause(mut self: Self, m: MenuInput):
-        let items = 5
+        let items = 6
         if m.up or m.down:
             self.pause_cursor = wrap(self.pause_cursor + (if m.down: 1 else: -1), items)
             self.confirm_abandon = false
@@ -457,6 +462,7 @@ extend App:
             if self.pause_cursor == 2:
                 self.save.deadzone = limit(self.save.deadzone + step * 0.5, 0.05, 0.5)
                 self.input.deadzone = self.save.deadzone
+            if self.pause_cursor == 3: self.toggle_fullscreen()
             self.ui_move = true
         // Escape and Q head for the title, banking the run; the pad's B and
         // Start resume.
@@ -476,7 +482,8 @@ extend App:
                     self.persist()
                     self.screen = .Run
                 }
-                3 => {
+                3 => self.toggle_fullscreen()
+                4 => {
                     if self.confirm_abandon:
                         // Abandoning banks what the run earned so far.
                         self.rec.event("a")
@@ -484,7 +491,7 @@ extend App:
                         self.finish_run()
                     else: self.confirm_abandon = true
                 }
-                4 => {
+                5 => {
                     self.rec.event("a")
                     self.game.abandon()
                     self.finish_run()
@@ -800,17 +807,18 @@ extend App:
 
     fn draw_pause(self: &Self):
         DrawRectangle(0, 0, WIDTH, HEIGHT, ink(0.6))
-        panel(440, 220, 400, 330, cyan(1.0))
+        panel(440, 220, 400, 374, cyan(1.0))
         centered("PAUSED", 240, 30, cyan(1.0))
         let vol = (self.save.volume * 100.0 + 0.5) as i32
         let dz = (self.save.deadzone * 100.0 + 0.5) as i32
         let abandon = if self.confirm_abandon: "ABANDON RUN? PRESS A AGAIN" else: "ABANDON RUN (BANKS CREDITS)"
-        let items = ["RESUME", f"VOLUME  < {vol}% >", f"DEADZONE  < {dz}% >", abandon, "QUIT TO TITLE"]
-        for i in 0..5:
+        let screen_mode = if self.save.fullscreen: "FULLSCREEN" else: "WINDOWED"
+        let items = ["RESUME", f"VOLUME  < {vol}% >", f"DEADZONE  < {dz}% >", f"DISPLAY  < {screen_mode} >", abandon, "QUIT TO TITLE"]
+        for i in 0..6:
             let selected = i == self.pause_cursor
             centered(items[i].clone(), 300 + i * 44, 20, if selected: white(1.0) else: white(0.45))
             if selected: DrawRectangle(470, 300 + i * 44 + 26, 340, 2, cyan(0.8))
-        centered("[B / START] RESUME     [ESC / Q] TITLE", 520, 12, white(0.5))
+        centered("[B / START] RESUME     [ESC / Q] TITLE     [F11] FULLSCREEN", 564, 12, white(0.5))
 
     fn draw_results(self: &Self, clock: f64):
         let r = &self.results

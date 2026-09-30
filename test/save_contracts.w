@@ -31,6 +31,8 @@ fn main:
     s.registry_kills[5] = 77
     s.registry_first[5] = 12.5
     s.volume = 0.4
+    assert(not s.fullscreen)
+    s.fullscreen = true
     assert(file.store(&s))
     let (back, loaded) = file.load()
     assert(loaded == .Loaded)
@@ -41,6 +43,13 @@ fn main:
     assert(back.registry_kills[5] == 77)
     near(back.registry_first[5], 12.5)
     near(back.volume, 0.4)
+    assert(back.fullscreen)
+    // A save from before the setting opens windowed.
+    let old_text = back.serialize().replace("fullscreen 1\n", "")
+    assert(not old_text.contains("fullscreen"))
+    match Save.parse_text(old_text):
+        Ok(older) => assert(not older.fullscreen)
+        Err(_) => assert(false)
     // A second write keeps the first as the backup.
     var s2 = back
     s2.credits = 5
