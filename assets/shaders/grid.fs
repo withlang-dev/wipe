@@ -8,6 +8,7 @@ uniform vec4 bullets[24];      // screen x/y, unit direction
 uniform float bulletCount;
 uniform float shipVisible;     // 0 hides the gravity well (menus, death)
 uniform vec2 stage;            // dead-center radius, camera zoom
+uniform vec2 view;             // the view in pixels: 1280x800, wider or taller to the screen
 
 float lattice(vec2 p, float spacing, float thickness) {
     vec2 d = abs(mod(p + spacing * .5, spacing) - spacing * .5);
@@ -38,9 +39,9 @@ vec3 stars(vec2 world, float time) {
 }
 
 void main() {
-    vec2 raw = vec2(gl_FragCoord.x, 800.0 - gl_FragCoord.y);
+    vec2 raw = vec2(gl_FragCoord.x, view.y - gl_FragCoord.y);
     // Zoom about the screen center; every screen-space input is pre-zoomed.
-    vec2 screen = (raw - vec2(640.0, 400.0)) / stage.y + vec2(640.0, 400.0);
+    vec2 screen = (raw - view * .5) / stage.y + view * .5;
     vec2 world = screen + camera.xy;
     vec3 color = vec3(.002,.003,.012) + stars(world * .6 + camera.xy * .4, ship.z);
     bool inVoid = stage.x > 0.0 && length(world - camera.zw * .5) < stage.x;
