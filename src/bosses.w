@@ -31,7 +31,7 @@ fn armed(index: i32, seed: i32) -> Game:
 
 fn fight(index: i32, style: Style, seed: i32) -> (f64, i32, bool, f64):
     var g = armed(index, seed)
-    let start = g.elapsed
+    let start: f64 = g.elapsed
     var hits = 0
     while g.phase != .Over and g.boss_alive and g.elapsed < start + 240.0:
         g.clear_events()

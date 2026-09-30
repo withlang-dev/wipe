@@ -8,6 +8,11 @@ fn native_target(kind: BuildKind, name: str, entry: str) -> Target:
     if os() == "Macos":
         for framework in ["CoreVideo", "Foundation", "Cocoa", "Carbon", "CoreAudio", "AudioToolbox", "AVFoundation", "UniformTypeIdentifiers", "CoreMedia", "GameController", "CoreHaptics", "ForceFeedback", "IOKit", "Metal", "QuartzCore"]:
             target = (move target).link_system_lib("framework:" ++ framework)
+    // Likewise its Windows system libraries: input methods (imm32) and
+    // controller device discovery (setupapi, cfgmgr32).
+    if os() == "Windows":
+        for system_lib in ["imm32", "setupapi", "cfgmgr32"]:
+            target = (move target).link_system_lib(system_lib.clone())
     target
 
 fn game_target(name: str, entry: str) -> Target:
