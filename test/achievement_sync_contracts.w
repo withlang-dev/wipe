@@ -1,0 +1,145 @@
+//! expect-stdout: UAT passed: achievement upload retries and completion
+use achievement_sync
+
+fn late_success_keeps_newer_store_waiting:
+    var sync = AchievementSync.new()
+    sync.remember("A", true)
+    sync.submitted(true, 0.0)
+    sync.remember("B", true)
+    sync.tick(15.0)
+    assert(not sync.waiting and sync.ready(17.0))
+    sync.submitted(true, 17.0)
+    // This could acknowledge either accepted store: Steam supplies no ID.
+    sync.completed(true, false, 18.0)
+    assert(sync.waiting and sync.deadline == 32.0)
+    assert(not sync.ready(100.0))
+    sync.tick(31.0)
+    assert(sync.waiting)
+    // Losing the remaining callback still forces another bounded retry.
+    sync.tick(32.0)
+    assert(sync.dirty and not sync.waiting)
+    assert(not sync.ready(35.0) and sync.ready(36.0))
+    sync.submitted(true, 36.0)
+    sync.completed(true, false, 37.0)
+    assert(sync.waiting and sync.deadline == 51.0)
+    sync.completed(true, false, 38.0)
+    assert(not sync.waiting and not sync.dirty and sync.failures == 0)
+
+fn new_facts_survive_all_old_callbacks:
+    var sync = AchievementSync.new()
+    sync.remember("A", true)
+    sync.submitted(true, 0.0)
+    sync.tick(15.0)
+    sync.submitted(true, 17.0)
+    sync.remember("B", true)
+    // The retry's success may arrive before the old request's callback.
+    // With no request IDs, the first success still cannot end the wait.
+    sync.completed(true, false, 18.0)
+    assert(sync.waiting and sync.dirty)
+    sync.completed(true, false, 19.0)
+    assert(not sync.waiting and sync.ready(19.0))
+    sync.submitted(true, 19.0)
+    sync.completed(true, false, 20.0)
+    assert(not sync.waiting and not sync.dirty)
+
+fn late_failure_keeps_newer_store_waiting(invalidated: bool):
+    var sync = AchievementSync.new()
+    sync.remember("A", true)
+    sync.submitted(true, 0.0)
+    sync.tick(15.0)
+    sync.submitted(true, 17.0)
+    sync.remember("B", true)
+    sync.completed(false, invalidated, 18.0)
+    assert(sync.waiting and sync.dirty and sync.deadline == 32.0)
+    assert(not sync.ready(100.0))
+    assert(sync.needs("A") == invalidated and sync.needs("B") == invalidated)
+    sync.completed(true, false, 19.0)
+    // A success cannot erase the failed store or a rejected local fact.
+    assert(not sync.waiting and sync.ready(19.0))
+    if invalidated:
+        sync.remember("A", true)
+        sync.remember("B", true)
+    sync.submitted(true, 19.0)
+    sync.completed(true, false, 20.0)
+    assert(not sync.dirty and not sync.waiting)
+
+fn callbacks_without_accepted_stores_do_not_cancel_backoff:
+    var sync = AchievementSync.new()
+    sync.completed(true, false, 0.0)
+    assert(not sync.dirty and not sync.waiting)
+    sync.remember("A", true)
+    sync.submitted(false, 0.0)
+    sync.completed(true, false, 1.0)
+    assert(not sync.ready(1.0) and sync.ready(2.0))
+    sync.submitted(true, 2.0)
+    sync.completed(true, false, 3.0)
+    assert(not sync.dirty and not sync.waiting)
+    // InvalidParam can invalidate observations even without a tracked store.
+    sync.completed(false, true, 4.0)
+    assert(sync.needs("A") and sync.dirty)
+    sync.completed(true, false, 5.0)
+    assert(not sync.ready(5.0) and sync.ready(6.0))
+
+fn lost_callbacks_keep_bounded_retries:
+    var sync = AchievementSync.new()
+    sync.remember("A", true)
+    var now = 0.0
+    for _ in 0..20:
+        assert(sync.ready(now))
+        sync.submitted(true, now)
+        now += 15.0
+        sync.tick(now)
+        assert(sync.dirty and not sync.waiting)
+        assert(sync.retry_at > now and sync.retry_at <= now + 60.0)
+        now = sync.retry_at
+    sync.completed(true, false, now)
+    assert(sync.dirty and sync.ready(now))
+
+fn main:
+    late_success_keeps_newer_store_waiting()
+    new_facts_survive_all_old_callbacks()
+    late_failure_keeps_newer_store_waiting(false)
+    late_failure_keeps_newer_store_waiting(true)
+    callbacks_without_accepted_stores_do_not_cancel_backoff()
+    lost_callbacks_keep_bounded_retries()
+    var sync = AchievementSync.new()
+    assert(sync.needs("A") and not sync.ready(0.0))
+    // Failed queries/sets do not call remember, so they cannot poison the cache.
+    assert(sync.needs("A"))
+    sync.remember("A", false)
+    assert(not sync.needs("A") and not sync.ready(0.0))
+    sync.remember("B", true)
+    assert(sync.ready(0.0))
+    sync.submitted(false, 0.0)
+    assert(not sync.ready(1.0) and sync.ready(2.0))
+    sync.submitted(true, 2.0)
+    assert(sync.waiting and not sync.ready(3.0))
+    // A second unlock while storing must survive the first completion.
+    sync.remember("C", true)
+    sync.completed(true, false, 3.0)
+    assert(sync.ready(3.0))
+    sync.submitted(true, 3.0)
+    sync.completed(false, false, 4.0)
+    assert(not sync.ready(5.0) and sync.ready(6.0))
+    sync.submitted(true, 6.0)
+    sync.completed(false, true, 7.0)
+    assert(sync.needs("A") and sync.needs("B") and sync.needs("C"))
+    assert(not sync.ready(10.0) and sync.ready(11.0))
+    sync.remember("B", true)
+    sync.submitted(true, 11.0)
+    sync.tick(25.0)
+    assert(sync.waiting)
+    sync.tick(26.0)
+    assert(not sync.waiting and not sync.ready(26.0))
+    sync.flush()
+    assert(sync.ready(26.0))
+    sync.submitted(true, 26.0)
+    sync.completed(true, false, 27.0)
+    assert(sync.waiting)
+    sync.completed(true, false, 28.0)
+    assert(not sync.ready(100.0) and sync.failures == 0)
+    // Backoff is bounded even after a long outage.
+    sync.remember("D", true)
+    for _ in 0..20: sync.submitted(false, 100.0)
+    assert(not sync.ready(159.0) and sync.ready(160.0))
+    print("UAT passed: achievement upload retries and completion")

@@ -7,6 +7,7 @@ use tuning
 use loadout
 use ships
 use presentation
+use devices
 
 fn shot(renderer: &Renderer, g: &Game, clock: f64, name: &str, cursor: i32 = 0):
     // raylib's screenshot reads the frame before the one just presented:
@@ -54,10 +55,10 @@ fn step(start: Game, seconds: f64, aim: V2) -> Game:
 
 fn main:
     SetTraceLogLevel(LOG_WARNING)
-    SetConfigFlags(FLAG_MSAA_4X_HINT)
+    SetConfigFlags(FLAG_MSAA_4X_HINT as u32)
     InitWindow(WIDTH, HEIGHT, "WIPE: SURVIVAL | gallery")
     if not IsWindowReady(): return 1
-    defer: CloseWindow()
+    let window_device = WindowDevice {}
     SetTargetFPS(0)
     let renderer = Renderer.open()
     if not renderer.valid(): return 1

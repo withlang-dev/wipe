@@ -57,3 +57,33 @@ pub fn earned(s: &Save) -> Vec[str]:
     for id in ACHIEVEMENT_IDS:
         if achievement_met(id, s): out.push(id.clone())
     out
+
+// The local collection uses the same permanent table as every platform.
+pub fn achievement_name(index: i32) -> str:
+    let names = ["DART", "HULL", "PRISM", "HALO", "NEEDLE", "SAPPER", "PHASE", "NULL",
+        "LANCE", "MINES", "SHARD", "COOLDOWN", "ARMOR", "LUCK", "CREDIT", "REBOUND", "OVERCLOCK",
+        "CORRIDOR", "SHAFT", "RING", "CROSS", "WARDEN", "LANCER", "HIVE",
+        "FIRST CLEAR", "FIRST MERGE", "10 RUNS", "50 RUNS", "100 RUNS"]
+    if index < 0 or index >= ACHIEVEMENT_COUNT: "" else: names[index].clone()
+
+pub fn achievement_description(index: i32) -> str:
+    if index >= 0 and index < 8: return ship_at(index + 1).condition().describe()
+    if index >= 8 and index < 11:
+        let weapons: [Weapon; 3] = [.Lance, .Mines, .Shard]
+        return weapon_condition(weapons[index - 8]).describe()
+    if index >= 11 and index < 17:
+        let passives: [Passive; 6] = [.Cooldown, .Armor, .Luck, .Credit, .Rebound, .Overclock]
+        return passive_condition(passives[index - 11]).describe()
+    if index >= 17 and index < 21:
+        let stages: [Stage; 4] = [.Corridor, .Shaft, .Ring, .Cross]
+        return stage_condition(stages[index - 17]).describe()
+    match index:
+        21 => "Defeat the Warden for the first time."
+        22 => "Defeat the Lancer for the first time."
+        23 => "Defeat the Hive for the first time."
+        24 => "Clear a run for the first time."
+        25 => "Create your first weapon merge."
+        26 => "Finish 10 runs."
+        27 => "Finish 50 runs."
+        28 => "Finish 100 runs."
+        _ => ""

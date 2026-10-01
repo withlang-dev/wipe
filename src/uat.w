@@ -8,6 +8,7 @@ use audio
 use std.process.env
 use metrics
 use gamepads
+use devices
 
 fn pilot(g: &Game, frame: i32) -> Controls:
     let t = frame as f64 / 60.0
@@ -24,10 +25,10 @@ fn pilot(g: &Game, frame: i32) -> Controls:
 
 fn main:
     SetTraceLogLevel(LOG_WARNING)
-    SetConfigFlags(FLAG_MSAA_4X_HINT)
+    SetConfigFlags(FLAG_MSAA_4X_HINT as u32)
     InitWindow(WIDTH, HEIGHT, "WIPE: SURVIVAL | acceptance run")
     if not IsWindowReady(): return 1
-    defer: CloseWindow()
+    let window_device = WindowDevice {}
     var pads = match Gamepads.open():
         Ok(controllers) => controllers
         Err(message) => { eprint(message); return 1 }
@@ -36,7 +37,7 @@ fn main:
     let pace = if recording: 3 else: 1
     SetTargetFPS(if benchmark or recording: 0 else: 60)
     InitAudioDevice()
-    defer: CloseAudioDevice()
+    let audio_device = AudioDevice {}
     let sound = if IsAudioDeviceReady(): Some(Audio.open()) else: None
     let renderer = Renderer.open()
     if not renderer.valid(): return 1

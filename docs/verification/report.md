@@ -1,5 +1,124 @@
 # WIPE acceptance record
 
+## Steam and Deck implementation checks — 2026-09-30
+
+This test phase uses an isolated With compiler candidate based on `40aaf6f9`
+and WIPE based on `d93a416`. No publishing, compiler installation, Steam depot
+upload, or partner configuration is part of this phase.
+
+Confirmed so far:
+
+- All 16 game test files pass on macOS, including controller lifecycle, input and menu
+  navigation, refresh-independent simulation pacing, save recovery, replay,
+  achievement retry, ordered resource cleanup, gameplay/balance targets and
+  weapon bands. The final run took 259.0 seconds and is recorded in
+  `out/steam-game-tests-final.txt`. The final 16-file Linux suite also passed
+  inside the official Steam Runtime SDK in 313.8 seconds.
+- The plain macOS game builds with no unresolved Steam API symbols and no
+  `libsteam_api` dynamic dependency. SDL contains optional Steam function-name
+  strings; those do not establish a linked Steam dependency.
+- A separate source copy without the Steam SDK builds the plain target. The
+  plain package contains exactly the executable, nine audio files and four
+  shaders. A startup check from another directory reports no asset errors.
+- `wipe-steam` builds and resolves `@loader_path/libsteam_api.dylib`. Both final
+  Mac game variants render their first frame, close audio before the window,
+  and exit with status 0 after a debugger-requested normal window close. The
+  Steam variant shows its disabled-Steam fallback notice. Earlier startup
+  checks also verified the Spacewar guard notice that WIPE achievements remain
+  local; their timeout exits were not counted as shutdown acceptance. These
+  checks do not establish end-to-end physical input.
+- The complete local SDK 1.65 header imports in C++ mode. Compiler checks cover
+  callback identifiers and records; 161 callback record sizes/alignments and
+  all 448 fields match Clang's ABI layout.
+- The Steam harness links the bundled macOS library and passes actual Spacewar
+  initialization, achievement query and manual callback dispatch. The test
+  achievement was locked; no achievement has been changed.
+- Successful initialization followed by an unavailable stats accessor still
+  permits callback dispatch and repeated, harmless cleanup.
+- The deterministic disabled-Steam path passes. A separate run without a
+  development App ID exercises a real SDK initialization failure (result 1),
+  then verifies the fallback notice, harmless sync and repeated cleanup.
+  The running Steam client was left untouched; this is not a closed-client test.
+- Achievement retry contracts pass, including a regression that first failed
+  before the fix: a late callback for an earlier store cannot falsely confirm
+  a newer store. Missing callbacks and failures retain work with capped backoff.
+- Tours completed at actual 1280×800, 1280×720 and 1920×1080 output sizes, with keyboard
+  and pad prompts, pause settings and both Awards pages. Framebuffer-sized
+  scene allocation, resize reuse and minimized-window handling were checked.
+- The actual default-font alpha bounds for lowercase a/e/m/x are five rows in
+  a ten-row font cell. The size-20 floor yields 10 visible pixels at 800p and
+  9 at 720p. Assertions verify both, and 1080p captures confirm the corrected
+  debug panel, ship details, pause layout and input prompts fit.
+- The final Retina tour uses production's high-DPI window flag: a 1280×800
+  logical window produces a 2560×1600 framebuffer and scene. All 23 captures
+  have the correct full-frame dimensions. The test harness now uses
+  `LoadImageFromScreen` because the pinned raylib 6 `TakeScreenshot` applies
+  DPI a second time. Linked-library disassembly and the original failed capture
+  are preserved; no production renderer change or image cropping was needed.
+- A fresh Mac graphics fixture completed stress, death and restart with peaks
+  of 1,802 enemies and 2,319 particles. At a requested 60 FPS, mean frame times
+  were 16.90/16.91/17.01 ms for 150/350/1,800 enemies, with p95 ≤17.25 ms.
+  Uncapped means were 1.41/1.57/4.42 ms and p95 ≤3.00/2.75/6.50 ms. These are
+  desktop measurements; they do not establish Deck performance.
+- The final Mac graphics fixture repeats stress, death and restart and exits
+  normally. Its means are 16.87/16.88/17.00 ms with p95 ≤17.25 ms. The final
+  audio fixture validates assets, the 34.9091-second music loop, preserved
+  playback position on retry and clean shutdown.
+- Linux builds inside the official Steam Runtime 4 SDK resolve all required
+  libraries in the strict runtime environment. Both game binaries require at
+  most GLIBC 2.38; the Steam build finds its bundled library through `$ORIGIN`.
+  The plain package has the same 14-file allowlist as macOS.
+- The strict Linux runtime passes the disabled-Steam harness and all 23 tour
+  captures. Both actual game entrypoints reach drawing and exit normally after
+  the debugger requests window closure. This verifies cleanup on a normal
+  window-close path, not physical controller input.
+- The Linux graphics fixture completed under the runtime's software renderer.
+  An initial direct run exited 139 without diagnostics; debugger runs and a
+  subsequent direct run completed normally. That superseded-build failure is
+  retained in the evidence. The final ABI-12 build passes two direct stress
+  runs, the audio fixture and both game variants' normal shutdown checks.
+
+Local evidence is under `out/verification/mac/`, including `steam-probe.txt`,
+the final `steam-*-final.txt` checks,
+`plain-dependencies.txt`, `steam-dependencies.txt`, `capped-performance.txt`,
+`uncapped-performance.txt`, the final graphics/audio fixture logs and the four
+`tour-*` directories (including Retina).
+Final Linux logs and archive inventories are under `out/verification/linux/final/`;
+earlier evidence remains under `compiler/`, `game/` and `sdk/`.
+These captures are automated fixtures, not physical controller acceptance.
+
+Two Linux x86_64 test bundles are ready under `out/verification/linux/`:
+`wipe-linux-x86_64-plain-test.tar.gz` and
+`wipe-linux-x86_64-steam-test.tar.gz`. Their local SHA-256 checks pass. The plain
+archive contains 14 files; Steam contains 15, adding only `libsteam_api.so`.
+Neither contains SDK headers, the compiler, test harnesses or `steam_appid.txt`.
+`LINUX-TEST-BUILDS.txt` supplies launch and hardware-test instructions;
+`SHA256SUMS` and the inventories record the exact artifacts.
+
+The compiler's empty-resource cleanup correction is committed as `b35b6d04`
+(ABI 12). Its focused move/return/nested/vector regression, zero-leak allocator
+check and actual game lifecycle contract pass. The full compiler battery is
+**GREEN**: gate 209 seconds, remaining checks 756 seconds. This includes
+self-hosting fixpoint, 1,538 behavior tests, 1,580 error-diagnostic tests,
+17 codegen tests, 210 specification tests, 69 phase tests, 58 internals tests,
+allocator checks, Drop/move audits and runtime/bundle checks. Evidence is in
+`out/verification/compiler/`; no compiler installation or remote publication
+was performed.
+
+Outstanding: real achievement store callbacks; an overlay
+open/close cycle; and physical Deck controls, docked output, suspend/resume,
+performance and speaker checks. The account-mutating Spacewar test awaits
+explicit approval because Steam may retain unlock history after the visible
+flag is restored. The additive `--store-unchanged` harness is compiled and
+ready, but automatic approval review also rejected executing that narrower
+check because it submits account data to Steam. Approval was requested and
+no stats submission or achievement mutation has run. Read-only modes explicitly
+disable any deferred stats flush before shutdown. Desktop overlay automation is
+currently blocked by macOS
+ScreenCaptureKit error -3811 when selecting the running Steam client.
+
+## Earlier prototype acceptance — 2026-09-25
+
 Recorded 2026-09-25 UTC. This is a working prototype with measured desktop
 evidence. The recruiting prototype spec was **signed off on 2026-09-25**; the
 hands-on items below (physical controller acceptance, Steam Deck performance,

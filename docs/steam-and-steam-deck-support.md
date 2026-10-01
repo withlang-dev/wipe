@@ -6,9 +6,32 @@ inventory for milestone M4 (spec §16). Spec §3 (controls and platform), §12
 (performance), and §15 (Steam) remain the requirements. This document says
 what is missing and how to add it.
 
-Status as of 2026-09-27: nothing here is implemented. The tree runs on macOS
-through raylib 6.0 and SDL3 and has no Linux build, options screen,
-resolution handling, or Steamworks code.
+Implementation, compiler validation and macOS/Linux game tests completed on
+**2026-09-30**, from WIPE
+`d93a416` on `steamworks-sdk-1.65` and With `40aaf6f9` (`v0.15.3.0`).
+The compiler candidate is isolated in `/private/tmp/with-steam-integration`.
+The current scope is local implementation and testing; publishing and partner
+portal changes are deferred at Eric's request. No Steam or Deck acceptance
+is implied by code being present.
+
+| Area | Current state | Next acceptance |
+|---|---|---|
+| Display and settings | Output-resolution surfaces, VSync/frame caps and per-machine settings; tours pass at 800p, 720p, 1080p and Retina 2560×1600 | Physical Deck, docked display and suspend/resume checks |
+| Platform seam | Resource owners enforce cleanup order; normal and early-exit tests pass; overlay opening, active and closing frames block input | Real overlay callbacks |
+| Achievements | 29 stable IDs; local Collection Awards; final 16-file macOS/Linux suites and late-callback retry contracts pass | Real store callbacks |
+| Steam-aware controllers | Raw Valve access gated by launch environment or successful Steam initialization | Real Steam Input and standalone controller checks |
+| Steam module | Full macOS game builds; real Spacewar initialization/query/manual dispatch, SDK failure fallback and missing-stats cleanup pass | Store callbacks and real overlay cycle |
+| Compiler | Isolated candidate `b35b6d04` (ABI 12); focused regressions, main gate and complete battery pass | No further compiler work required for this test phase |
+| Steam build and harness | Separate targets; plain build without SDK, link separation and clean plain package verified | Steam release package remains gated by assigned App ID; account/hardware checks |
+| Native Linux and Deck | Final SDK builds and 16-file suite pass; strict runtime graphics/audio, two direct stress runs and normal exit pass; both test archives verified locally | Physical Deck checks |
+| Steamworks setup | Deferred until testing is complete | Assigned App ID, achievements, controller configuration, Cloud, depots and review |
+
+**Baseline defect diagnosed:** an imported C `clock` declaration overwrote a
+different module's With function signature. Debugger evidence established the
+collision; the compiler candidate now passes the reduced cross-module runtime
+regression. Darwin availability-runtime support needed by SDL is also fixed,
+and the plain macOS game builds without a Steam dynamic dependency. The earlier
+session's 11-file pass remains historical evidence until the new suite passes.
 
 ---
 
@@ -26,7 +49,7 @@ resolution handling, or Steamworks code.
   with no changes.
 - Every Steam feature has a platform-neutral owner in the game.
   Achievements are computed from the save and shown in the Collection.
-  Settings live in WIPE's own options screen. Controllers go through SDL.
+  Settings live in WIPE's pause menu. Controllers go through SDL.
   Saves are plain files that Steam Cloud copies without the game knowing.
   Steam mirrors state the game already has. It never owns that state.
 - Steam Deck is a set of defaults, not a mode. Detecting a Deck may choose
@@ -35,9 +58,8 @@ resolution handling, or Steamworks code.
 
 **With only.** No C or C++ source, no shim library, no wrapper `.so`
 compiled from C++. Steamworks is reached through its C-linkage flat API,
-imported from `steam_api_flat.h` with `c_import` (§6). The two C files under `native/glfw/` are leftovers
-from the GLFW Steam Controller experiment. The build does not reference
-them, so delete them.
+imported from `steam_api_flat.h` with `c_import` (§6). The unused C files from
+the earlier `native/glfw/` controller experiment have been removed.
 
 ---
 
@@ -57,9 +79,11 @@ them, so delete them.
 
 ---
 
-## 3. Settings file (done on `options-display`)
+## 3. Settings file (implemented and merged)
 
-There is no options screen, because there is no resolution to choose (§4).
+The 2026-09-29 decision supersedes the original resolution-picker and
+separate Options-screen request: the view follows the display (§4).
+There is no separate options screen.
 Volume, deadzone and display mode stay in the pause menu, and F11 toggles
 fullscreen anywhere.
 
@@ -84,8 +108,9 @@ fullscreen anywhere.
 
 ### 4.1 The view takes the screen's aspect ratio (decided 2026-09-29)
 
-Nothing is stretched, squashed, cropped or letterboxed, and the player never
-picks a resolution. The Deck's 1280×800 is the smallest view. A screen of
+At startup the view fills the screen without stretching, cropping or
+letterboxing, and the player never picks a resolution. The Deck's 1280×800
+is the smallest view. A screen of
 another shape grows it in one dimension to match (`view_size`,
 `src/game.w`):
 
@@ -103,34 +128,45 @@ another shape grows it in one dimension to match (`view_size`,
 - **The screen decides the view once, at startup.** The window opens
   hidden, reads the monitor, and shows the view 1:1. It is shrunk
   uniformly only if the screen cannot hold it. Borderless fullscreen then
-  fills the monitor at one scale, because the aspect ratios match.
+  fills the monitor at one scale, because the aspect ratios match. Changing
+  to a different aspect ratio during play preserves the recorded view and
+  fits it uniformly; bars can appear until the next launch.
 - **Menus, pause and the boost cards keep their 1280×800 layout** in a
   frame centered in the view (`begin_frame`), and the mouse is offset to
   match. The HUD and world overlays anchor to the view's edges.
-- **Rendering:** the scene and both bloom tiers are sized by the view. The
-  grid shader takes the view as a uniform, replacing its hard-coded `800`.
+- **Rendering:** the logical view controls projection; the scene and both
+  bloom tiers follow output pixel density (§4.2). The grid shader takes the
+  view as a uniform, replacing its hard-coded `800`.
 - **On a Deck,** gamescope reports 1280×800, so the view is unchanged. If
   the player sets Steam's per-game Game Resolution while docked, gamescope
   reports that screen, and the view follows it.
 - **Verified:** the tour at 1280×800, 1422×800 and 1280×960
   (`WIPE_TOUR_VIEW=WxH`).
 
-### 4.2 Sharpness above 800 lines (open)
+### 4.2 Sharpness above 800 lines (implemented; visual acceptance pending)
 
-The view is measured in world units, so on a 1920×1080 screen a 1422×800
-scene is upscaled 1.35× and looks soft. Rendering at the output resolution
-is possible later:
-- the scene surface at output size, under one scale transform;
-- 1-pixel `DrawRectangleLines`/`DrawCircleLines` moved to their thickness
-  variants;
-- optionally a TTF font instead of raylib's 10 px bitmap.
+The scene and bloom surfaces follow the physical framebuffer while drawing
+uses the logical view's projection. Resizing allocates replacements first and
+keeps the old surfaces if allocation fails. Minimized windows retain their
+surfaces. Grid coordinates and bloom radius account for output density.
+The tour exercises resize, reuse and minimize behavior before its captures.
+The bitmap font has a centralized size-20 floor and consistent measurement.
+Actual lowercase alpha bounds give 10 visible pixels at 800p and 9 at 720p;
+the tour asserts those bounds. Captures at 800p, 720p and 1080p were reviewed.
+The final Mac Retina tour also verifies a 2560×1600 framebuffer and full-frame
+captures from a 1280×800 logical window. The capture helper reads actual
+framebuffer pixels and checks the dimensions; raylib 6's `TakeScreenshot`
+applies the DPI scale twice and is no longer used by this tour.
 
 ### 4.3 Frame pacing
 
-- **Done:** the frame time is clamped to 0.1 s in `main`, so the first
+- **Done:** the frame time is clamped to 0.1 s in `src/run.w`, so the first
   frame after the Deck wakes cannot jump the menus or the attract run.
-- **Open:** `SetTargetFPS(60)` is a sleep-based limiter. VSync is not
-  enabled; the Deck OLED runs at 90 Hz.
+- **Implemented:** VSync defaults on; the frame limiter follows the display
+  refresh by default, with optional 30/40/45/60/90/120 caps in pause settings.
+- **Fixed:** the 120 Hz simulation retains fractional steps between render
+  frames. The previous local accumulator lost simulation time at 90 Hz.
+  A regression checks 30, 40, 45, 60, 90, 120, 144 and 240 Hz plus wake spikes.
 
 ---
 
@@ -140,32 +176,36 @@ is possible later:
 presents a virtual Xbox-style gamepad. SDL (2.0.8 and later, including
 SDL3) honors Steam's instruction to hide the raw device, so the game sees
 exactly one pad. WIPE's SDL path needs no Steam Input API to pass Verified.
-In Steamworks, set the default controller configuration to the **Gamepad**
-template, or publish a custom one: sticks as sticks, right trackpad as
-mouse for menus. Opt in the Steam Deck and the Steam Controller.
+In Steamworks, start with the **Gamepad** template, which Valve's
+[gamepad-emulation guide](https://partner.steamgames.com/doc/features/steam_controller/steam_input_gamepad_emulation_bestpractices)
+recommends for twin-stick games. Opt in the Steam Deck and the Steam
+Controller. A custom mouse-emulating trackpad configuration needs the
+prompt checks below before it becomes the default.
 
-**Changes in `src/gamepads.w`:**
+**Implemented in `src/gamepads.w`:**
 
 - `SDL_JOYSTICK_HIDAPI_STEAM=1` (`:46`) and the lizard-mode report
   (`:136-150`) exist for bare Steam Controller use without Steam. Under
   Steam, Steam already manages lizard mode, and grabbing the physical
   device fights Steam Input. The Steam Virtual Gamepad also reports Valve's
-  vendor ID, so `self.valve` (`:85`) is true for it today. Skip both when
-  running under Steam (`SteamAppId` or `SteamGameId` set in the
-  environment, or when Steamworks initialized).
+  vendor ID. Both operations are now skipped when `SteamAppId` or
+  `SteamGameId` is set, or when successful Steam initialization is passed
+  through the platform seam. This also covers a direct launch with
+  `steam_appid.txt` and no launch environment variables.
 - Keep everything else. SDL's own Steam Deck HIDAPI driver still covers
   running outside Steam, for example from Desktop Mode or another store.
 
 **Button prompts (a Verified requirement).** Valve's criteria: on-screen
 glyphs must match the input in use, and keyboard or mouse glyphs must not
-show when they are not the active input. Today prompts mix devices:
-`[A / SPACE] LAUNCH` (`src/app.w:666`), `ESC / Q QUIT HOLD B ON A
-CONTROLLER` (`:674`), `[B / START] RESUME [ESC / Q] TITLE` (`:813`), and
-the equivalents in `src/presentation.w`.
+show when they are not the active input. Prompts now use one action/device
+mapping across menus and gameplay, with captured keyboard and pad variants.
 
-- Track the last-used device, keyboard/mouse or pad. `Input.pad_aim`
-  already does this for aiming. Render only that device's prompt, through
-  one `prompt(action)` helper instead of literal strings.
+- The last meaningful keyboard/mouse or pad input selects prompts. Passive
+  device discovery does not change the active device.
+- Test the shipped Steam Input configuration too: if its right trackpad
+  emits mouse events, touching it must not inadvertently replace Deck
+  button prompts with keyboard hints. Start with the Gamepad template;
+  add mouse-emulating bindings only with a verified device-detection path.
 - Xbox letters (A, B, X, Y, LB, RB) match the Deck's physical labels. Start
   is the Deck's ☰ Menu button. Say MENU, or draw the glyph, instead of
   START when the pad is a Deck or a Steam Virtual Gamepad.
@@ -175,8 +215,7 @@ the equivalents in `src/presentation.w`.
 
 **Other items:**
 
-- Hide the OS cursor while the pad is active (`HideCursor`) and show it on
-  mouse movement (`ShowCursor`). Nothing hides it today.
+- The OS cursor hides while the pad is active and returns on mouse movement.
 - The Steam button, and the overlay in general, must pause a run (§7.3).
   Under gamescope, opening the overlay does not necessarily take focus from
   the window, so the focus-loss pause alone is not enough.
@@ -195,7 +234,10 @@ convention: `SteamAPI_InitFlat`, `SteamAPI_SteamUserStats_v013()`,
 name)`, and so on. Interfaces are opaque pointers passed as `self`. That
 surface is exactly what With's FFI calls.
 
-The headers that declare it are C++:
+The headers that declare it are C++. Importing `steam_api_flat.h` also
+imports the requested `steam_api.h` through its include chain; no C or
+C++ source or shim is added to WIPE. Valve documents this as the
+[flat interface for other languages](https://partner.steamgames.com/doc/sdk/api).
 
 - `steam_api_flat.h` declares the flat functions, but its first lines
   `#include "steam/steam_api.h"` and the game-server headers.
@@ -206,7 +248,7 @@ The headers that declare it are C++:
 A C parser stops at the first `class` before it reaches any flat
 declaration. The functions are callable. The header is the problem.
 
-**What With's `c_import` does today** (paths in the compiler repo):
+**Compiler baseline before this work** (paths in the compiler repo):
 
 - `c_import` runs libclang in C mode, always: `-x c` is hard-coded at
   every parse site (`src/compiler/ClangBridge.w:1989`). There is no
@@ -222,15 +264,14 @@ declaration. The functions are callable. The header is the problem.
   (`src/SemaFacade.w:3696`). Hand-declared functions get no facade
   rendering, so Steam's safe surface is ordinary With written by hand.
 
-So `c_import` of the Steam headers is not possible with today's compiler.
-The decision (§14) is to make it possible, minimally, and link the
-library:
+The isolated candidate now supports the approved (§14) C++ mode and links
+the library directly:
 
 ```with
 use c_import("steam/steam_api_flat.h", lang: "c++", link: "steam_api")
 ```
 
-- **The compiler work** is planned in
+- **The compiler work** implements
   `/Users/eric/with/docs/plans/c++_import.md`:
   - a `lang: "c++"` option that imports only the `extern "C"` surface;
   - a layout check that makes C++ classes opaque;
@@ -240,8 +281,8 @@ use c_import("steam/steam_api_flat.h", lang: "c++", link: "steam_api")
   It was checked against SDK 1.65: the header parses as C++ with no
   errors. The 34 flat functions that take C++ references are skipped, and
   WIPE uses none of them.
-- **Only `src/steam.w` imports the header,** and only the `wipe-steam`
-  target builds `src/steam.w`.
+- **Only `src/steam.w` imports the header,** and only the `wipe-steam` and
+  `steam-uat` targets build `src/steam.w`.
 - **Nothing derived from the headers is committed.** They stay local to
   each build machine (§10), and `c_import` reads them at build time.
 - **Rejected:**
@@ -307,9 +348,10 @@ target gets its own layout.
   - **Windows** searches the executable's directory.
   - **macOS:** the library's install name is
     `@loader_path/libsteam_api.dylib`.
-  - **Linux** needs an `$ORIGIN` rpath in the executable. With's linker
-    cannot write one today (no `rpath`, `$ORIGIN`, or `@executable_path`
-    anywhere in the compiler). Section 5 of the compiler plan adds it.
+  - **Linux:** the candidate compiler's per-target `rpath` setting writes
+    `$ORIGIN` into the executable. The SDK-built game resolves the library
+    beside itself inside Steam Runtime 4. Search paths also participate in
+    build caching, so changing one causes a relink.
 - **Consequence:** the Steam build needs its library, and every Steam
   depot ships it. A missing Steam *client* is still handled at runtime
   (§6.3). The plain build has no dependency at all.
@@ -321,10 +363,11 @@ value, and the app calls it:
 
 ```with
 trait Platform:
-    fn frame(mut self: Self) -> PlatformEvents     // overlay opened/closed, shutdown requested
+    fn frame(mut self: Self) -> PlatformFrame     // overlay opening/active/closing
     fn sync_achievements(mut self: Self, earned: &Vec[str])
-    fn default_config(self: &Self) -> HardwareDefault   // from GetSteamHardwareDefaultConfig, or the environment
-    fn notice(self: &Self) -> Option[str]          // "Steam isn't running: achievements will sync next time."
+    fn notice(self: &Self) -> str                 // empty when no notice is needed
+    fn manages_controllers(self: &Self) -> bool
+    fn shutdown(mut self: Self)
 ```
 
 - `src/platform.w`: the trait and `NoPlatform`, which does nothing. The
@@ -340,6 +383,43 @@ architecture only, and `with.toml [features]` is not visible to source.
 Separate entry files are the mechanism `std.build` supports. The harnesses
 and tests use `NoPlatform`.
 
+### 6.6 Adapter implementation and required acceptance
+
+The adapter owns successful initialization separately from the stats pointer.
+`run` declares the platform, window and audio owners before their dependent
+resources. Reverse destruction releases those resources before closing their
+devices, then shuts Steam down last, including on early returns. Shutdown is
+idempotent. Manual dispatch checks callback size and payload,
+frees every delivered message, and stops using interfaces after Steam shutdown.
+
+`AchievementSync` remembers only successful queries/sets, keeps new unlocks
+dirty during an in-flight store, retries failed stores and callbacks with a
+2–60 second backoff, and recovers after a 15-second callback timeout.
+Invalid-parameter results invalidate the observed cache. Accepted stores remain
+counted through timeouts so a late response cannot confirm a newer retry. The
+save remains the source of facts across launches. These retry contracts pass.
+Real Spacewar initialization, query/manual dispatch and missing-stats cleanup
+pass. The compiled `--store-unchanged` harness can test store callbacks without
+unlock/reset calls; its account-data submission still requires approval.
+The separate unlock/restore check also remains unapproved.
+
+The pinned v013 interface synchronizes before process launch and has removed
+`RequestCurrentStats`. The adapter uses its versioned accessors directly.
+Overlay opening, active and closing frames suppress input, consume controller
+edges, and clear per-frame sound events. Closing leaves gameplay paused.
+Successful Steam initialization is passed to SDL's controller ownership gate.
+
+`wipe-steam` and `steam-uat` have their own header/library paths and loader
+search paths. The default remains `wipe`. Local packaging uses an explicit
+allowlist, excludes development App ID files, and refuses App ID 0 or 480 for
+a Steam release. The production ID is intentionally unset during this test
+phase. A normal game launch under Spacewar keeps WIPE achievements local;
+only `steam-uat` opts into the test achievement, verifies stores and restores
+its original state.
+
+These paths require downstream builds, real no-client/Spacewar checks, and
+hardware acceptance before calling the integration complete.
+
 ---
 
 ## 7. Steam features
@@ -350,10 +430,12 @@ Spec §15: achievements mirror the unlock list one-to-one, plus milestones
 (first clear, first merge, every boss, 10, 50, and 100 runs). They trigger
 on the run fact, immediately.
 
-- **`src/achievements.w`, platform-neutral:** a table of `{ api_name,
-  condition }` over the existing `Condition` type, and `earned(save) ->
-  Vec[str]`. This works whether or not Steam exists, and the Collection can
-  show it.
+- **Implemented in `src/achievements.w`, platform-neutral:** an explicit
+  `ACHIEVEMENT_IDS` table and `achievement_met` mapping reuse the existing
+  unlock conditions, with `earned(save) -> Vec[str]`. This works whether
+  or not Steam exists. A dedicated display of all achievement milestones
+  in the Collection remains to be added if required; computing the table
+  does not itself add that UI.
 
   | Group | Count | Source |
   |---|---|---|
@@ -364,8 +446,10 @@ on the run fact, immediately.
   | Bosses | 3 | `boss_slain` |
   | Milestones | 5 | first clear, first merge, 10, 50, and 100 runs |
 
-  That is about 29 achievements. API names are stable identifiers such as
-  `SHIP_DART` and `BOSS_2`. Never rename one after release.
+  That is exactly 29 achievements. The committed API names include
+  `SHIP_DART`, `BOSS_WARDEN`, `BOSS_LANCER`, and `BOSS_HIVE`.
+  Use `ACHIEVEMENT_IDS` as the configuration source, and never rename an
+  ID after release.
 - **Sync, not events.** At startup, after stats are available, and after
   every `persist()`, Steam gets `SetAchievement` for each earned name it
   does not have yet, then one `StoreStats`. This is idempotent and
@@ -377,6 +461,10 @@ on the run fact, immediately.
   `earned(record_run(save, &game).0)` once a second so that, for example,
   "survive five minutes" pops at 5:00 and not on the results screen.
   Run-count milestones only count finished runs.
+  This provisional evaluation and the one-second sync call are implemented
+  in `App.achievements_now` and `run`; upload is implemented in `steam`. Verify
+  first-clear, boss, merge and run-count boundaries, and synchronization
+  after persisted changes and before normal exit.
 - **Progress (optional):** `progress(c, s)` (`src/account.w:148`) already
   returns (have, need). Pass it to `IndicateAchievementProgress` at
   25/50/75%, or back the counters with Steam stats.
@@ -421,8 +509,8 @@ Configure Auto-Cloud in Steamworks. There is no API use.
 - **Framerate reporting (SDK 1.65):** `ISteamApps::SetGameRenderResolution`
   and `SetGamePerformanceSetting` tell Steam the render resolution and
   preset in use. Valve attaches them to the anonymous framerate data of
-  players who opted in. Call them whenever the Options screen changes
-  either value.
+  players who opted in. If adopted, report the actual render size at
+  startup and whenever the renderer changes it.
 
 ---
 
@@ -451,7 +539,8 @@ source in the game.
 
 **Runtime environment:**
 
-- Valve recommends **Steam Linux Runtime 4.0** for new native games. Build
+- Valve recommends **Steam Linux Runtime 4.0** for new native games in its
+  [Steam Runtime documentation](https://github.com/ValveSoftware/steam-runtime). Build
   against the `steamrt4` SDK, or make sure the binary's glibc and library
   symbol versions are no newer than the runtime's. Select the runtime in
   the app's Linux launch option in Steamworks.
@@ -480,22 +569,27 @@ developer mode.
 
 ## 9. Steam Deck Verified checklist
 
+Valve's [current compatibility criteria](https://partner.steamgames.com/doc/steamhardware/compat)
+are the release authority; the table below is a local readiness assessment,
+not a Verified result. Suspend/resume and speaker checks are additional
+WIPE acceptance work.
+
 | Criterion (Valve) | Today | Work |
 |---|---|---|
-| Default controller config reaches all content | Pass, with the Gamepad template; every screen is pad-navigable | Keep the new Options screen pad-navigable |
-| Glyphs match the active input | Fail: prompts mix keyboard and pad | §5 prompts |
-| No keyboard or mouse glyphs when they are not the active input | Fail | §5 prompts |
+| Default controller config reaches all content | Pad navigation exists; shipped Steam Input configuration untested | Verify every screen, including pause settings, on the Deck |
+| Glyphs match the active input | Implemented and captured for keyboard and pad | Verify Deck's active Steam Input configuration |
+| No keyboard or mouse glyphs when they are not the active input | Prompts follow the last meaningful input; pad hides cursor | Physical input-switching acceptance |
 | Text input possible with a controller | Pass: no text entry | — |
-| Runs at a Deck resolution (1280×800 preferred) | Pass: the canvas is 1280×800 | §4 so docked and other resolutions also work |
-| Smallest character at least 9 px tall at 1280×800 | Unknown: many labels use size 10 of raylib's 10 px bitmap font, and capitals are shorter than the cell | Measure on captured frames. Raise the floor to 12 to 14, or use a TTF (§4.2) |
+| Runs at a Deck resolution (1280×800 preferred) | Implemented: minimum view 1280×800, screen aspect ratio followed | Confirm handheld 1280×800, 1280×720 override and docked output on hardware |
+| Smallest character at least 9 px tall at 1280×800 | Actual lowercase bitmap bounds measure 10px at 800p and 9px at 720p; captures reviewed | Confirm handheld readability on Deck |
 | No compatibility warnings or launcher | Pass | — |
 | 30 fps at 800p on default settings | Unmeasured on the Deck. The spec target is 60 fps at 1,000 enemies | Run the `uat` bench and F3 stress on the device |
-| Suspend and resume | Runs clamp the delta, but attract does not | §4.4 clamp. Test sleep mid-run, then resume |
+| Suspend and resume | Shared loop clamps menu, attract and run frame time (§4.3) | Test sleep mid-run, controller reconnection, audio and Steam recovery |
 | Speaker mix (spec §3) | Unchecked | Listen on the Deck speakers and record it in `docs/verification/report.md` |
 
-Steam Machine is tested against the same input criteria and 30 fps at
-1080p, without the display tests. Verified on Deck implies Verified on
-Steam Machine, and §4 covers the TV case.
+Steam Machine has the same input criteria and a 30 fps target at 1080p,
+without the Deck display tests. Record its result separately if targeted;
+do not treat WIPE's unmeasured Deck performance as TV acceptance.
 
 ---
 
@@ -513,7 +607,7 @@ commands. The plain `wipe` build needs neither.
 Not code, but release-blocking:
 
 - The app ID. `steam_appid.txt` is for development only.
-- Depots: Linux (`wipe`, `assets/`, `libsteam_api.so`); macOS (`wipe`,
+- Depots: Linux (`wipe-steam`, `assets/`, `libsteam_api.so`); macOS (`wipe-steam`,
   `assets/`, `libsteam_api.dylib`, signed and notarized); Windows only if a
   Windows build exists. Upload with SteamPipe.
 - Launch options per OS. On Linux, select Steam Linux Runtime 4.0.
@@ -532,9 +626,16 @@ Not code, but release-blocking:
   `fit` filling it at one scale; `earned()` on the veteran fixture
   (`WIPE_PLAY_VETERAN`) returns every achievement, and on a fresh save
   returns none; API names are unique.
-- **The plain build stays plain:** `wipe` has no `SteamAPI_` strings and no
-  `libsteam_api` in its dynamic dependencies (`strings`, `otool -L`,
-  `ldd`). `wipe-steam` resolves `libsteam_api` from its own directory: `ldd`
+- **Lifecycle/retry contracts:** initialization failure, missing stats
+  interface after successful initialization, early game exit, failed set,
+  failed store and failed completion callback, repeated earned snapshots,
+  overlay-open input suppression and shutdown. Use a platform-neutral
+  fake for state transitions, then the real SDK harness for ABI behavior.
+- **The plain build stays plain:** `wipe` has no unresolved Steam API symbols
+  and no `libsteam_api` in its dynamic dependencies (`nm -u`, `otool -L`,
+  `ldd`). SDL's static archive contains optional Steam storage function-name
+  strings, so string absence is not a valid dependency test. `wipe-steam`
+  resolves `libsteam_api` from its own directory: `ldd`
   shows it found through `$ORIGIN`, and `otool -L` through
   `@loader_path`.
 - **Nothing from the SDK but the libraries is tracked:** `git ls-files
@@ -542,9 +643,13 @@ Not code, but release-blocking:
 - **Binding check without our app ID:** a `steam-uat` executable run with
   `steam_appid.txt` = 480 (Valve's Spacewar test app, which has test
   achievements). It checks init, the accessors, manual dispatch, setting
-  and clearing an achievement, and the overlay callback. It also checks
-  that the game continues when Steam is closed.
-- **Tour:** screenshots at three output sizes, plus the Options screen.
+  and restoring a test achievement's original state, and the overlay
+  callback. Use a test account and Spacewar IDs, never WIPE achievement
+  IDs against app 480. The test requires an initially locked achievement;
+  Steam may retain unlock history after the visible flag is restored. The
+  macOS read-only probe and missing-stats cleanup pass. The deterministic
+  disabled-Steam path passes; actual disconnected-client acceptance remains.
+- **Tour:** screenshots at three output sizes, plus the pause settings.
 - **Hardware, recorded in `docs/verification/report.md`:**
   - Deck handheld in Game Mode, docked at 1080p and 4K, and in Desktop
     Mode.
@@ -557,24 +662,34 @@ Not code, but release-blocking:
 
 ## 12. Order of work
 
-Each step leaves the game shippable without Steam.
+The plain game remains a first-class deliverable at every step. The
+display/settings work and the platform/achievement foundation are already
+committed; do not recreate them.
 
-1. **`settings.txt`, the aspect-ratio view, borderless fullscreen, and the
-   frame-time clamp.** Done on `options-display` (§3, §4).
-2. **Prompts by active device, cursor hiding, a text-size floor, and
-   deleting `native/glfw/`.**
-3. **Linux build** on a Linux host or the `steamrt4` SDK container (§8).
-   Run it on desktop Linux and on the Deck without Steam.
-4. **Render at output resolution (§4.2).** Can move after step 6 if
-   docked sharpness can wait.
-5. **The `Platform` seam, `src/steam.w` importing `steam_api_flat.h`,
-   the `wipe-steam` target with linking and rpath, and the Spacewar
-   harness.** This needs the compiler plan (`c++_import.md`, including its
-   rpath section) to land first.
-6. **Achievement table and sync, overlay pause, gating the lizard-mode
-   code under Steam.**
-7. **Steamworks configuration, depots, Deck hardware acceptance, and the
-   Verified review.**
+1. **Baseline restored.** The `clock` collision is fixed; all 16 WIPE test
+   files pass on macOS and Linux with the isolated compiler.
+2. **Compiler prerequisites complete, in With.** C++ C-linkage imports,
+   honest opaque layouts, callback constants, cache separation, per-target
+   library paths and rpaths are implemented. The real SDK layout checks and
+   full compiler battery pass. Changes are local commits; publishing remains
+   deferred.
+3. **Steam module and targets implemented.** Both binaries and the harness
+   build with the intended dependencies. Read-only Spacewar, SDK failure,
+   missing-stats and cleanup checks pass. Store callbacks and a real overlay
+   cycle remain acceptance checks (§6.6).
+4. **Deck UI implemented.** Active-device prompts, cursor hiding, measured
+   text-size floor and controller navigation pass automated checks. The unused
+   `native/glfw/` experiment is removed. Physical controls remain to be tested.
+5. **Linux test packaging complete.** Both Steam Runtime SDK-built variants
+   pass strict-runtime launch, cleanup, graphics and audio checks. Allowlisted
+   test archives and verified checksums are in `out/verification/linux/`.
+6. **Rendering and pacing implemented.** Output-resolution surfaces, VSync
+   and frame caps pass desktop checks, including Retina. LCD/OLED performance,
+   docking and suspend/resume still require the Deck and its displays.
+7. **Release configuration deferred.** Assigned App ID, achievement schemas,
+   Cloud, controller defaults, depots and Verified submission await the later
+   publishing phase. Real offline recovery and hardware acceptance must be
+   recorded before that phase is considered complete.
 
 ---
 
@@ -586,8 +701,8 @@ Common Steam Deck advice, checked against this tree:
 |---|---|
 | "Query the display with `SDL_GetCurrentDisplayMode`." | raylib and GLFW own the window. SDL is initialized only for gamepads. `GetMonitorWidth/Height` and `GetRenderWidth/Height` give the same answer. (That snippet is also SDL2; the tree uses SDL3.) |
 | "Render to a virtual framebuffer and let gamescope letterbox." | Not needed: the view takes the screen's aspect ratio (§4.1), so there is nothing to letterbox, on SteamOS or anywhere else. |
-| "Use OpenGL 3.3+ or Vulkan; use `SDL_Renderer` with VSync." | Already OpenGL 3.3 core through raylib. `SDL_Renderer` is not involved. VSync becomes an option (§4.4). The Deck's panels are fixed 60 or 90 Hz, not variable refresh. |
-| "Steam has a C-compatible ABI you can call with that header." | The ABI half is right: the flat functions have C linkage and the C calling convention, and With calls them. The header half is not. The flat functions are declared in `steam_api_flat.h`, which includes the C++ `steam_api.h`, so neither header parses as C, and With's `c_import` is C-only (§6.1). |
+| "Use OpenGL 3.3+ or Vulkan; use `SDL_Renderer` with VSync." | Already OpenGL 3.3 core through raylib. `SDL_Renderer` is not involved. VSync/frame caps are implemented (§4.3). Test the available LCD/OLED refresh settings. |
+| "Steam has a C-compatible ABI you can call with that header." | The flat functions have C linkage and the C calling convention. The header is C++: `steam_api_flat.h` includes `steam_api.h`. The compiler candidate's explicit `lang: "c++"` mode handles that boundary (§6.1). |
 | "`SteamAPI_Init()` and `SteamAPI_SteamUserStats_v012()`." | `SteamAPI_Init` is an inline C++ wrapper in current SDKs; the flat entry point is `SteamAPI_InitFlat`. Accessor suffixes change between SDK versions and must match the shipped SDK (§6.3). |
 | "If `SteamAPI_Init` fails, print and exit." | That breaks rule 1. The game continues without Steam. |
 | "Call `SteamAPI_RunCallbacks()` every frame." | That dispatches to C++ callback objects. From With, use manual dispatch (§6.2). |
@@ -615,26 +730,21 @@ Common Steam Deck advice, checked against this tree:
      generator and no table of function pointers.
    - **The Steam build ships and links its library;** the plain build
      never sees it.
-4. **Keep the hotkey title and add OPTIONS on the Menu button** (§3).
-   - **It fits the spec.** The spec's pillars require every screen within
-     two presses and the same buttons doing the same things everywhere
-     (spec §11). A vertical list would put Options four presses away, so
-     it would need a direct button anyway.
-   - **It keeps the instant launch.** "A launches" stays one press.
-   - **The harnesses keep working.** The playtest driver and the tour
-     drive the title through confirm, shop, and collection, which stay the
-     same.
-   - **A face-button prompt row is a normal console title.** The Deck
-     Verified work on this screen is the same either way: prompts for the
-     active device.
+4. **Display/settings decision updated 2026-09-29:** retain the hotkey
+   title, follow the screen's aspect ratio automatically, and keep volume,
+   deadzone and fullscreen in the pause menu (§3–4). This supersedes the
+   earlier proposal for an OPTIONS screen and resolution selector.
+   Controller prompts now reflect the active device.
+
+5. **Render at output resolution (§4.2).** Implemented 2026-09-30. The view
+   follows the screen's aspect ratio with no resolution setting; scene and
+   bloom surfaces follow the actual framebuffer. Docked and Retina acceptance
+   remains a hardware check.
 
 **Open:**
-
-5. **Render at output resolution (§4.2) before release.** Recommended:
-   yes, for docked play, Steam Machine on a TV, and Retina Macs. Resolved
-   separately: the view follows the screen's aspect ratio with no
-   resolution setting (§4.1, 2026-09-29).
-6. **Depots.** Recommended: Linux and macOS, the two builds that exist.
-   Add Windows only if a Windows build is made.
+6. **Depots.** Target Linux and macOS; both have desktop build and runtime
+   evidence, and Linux test bundles are ready. Deck acceptance remains. Add Windows
+   only if a Windows build is made and tested.
 7. **`ISteamInput`.** Recommended: not for the first release. SDL plus
-   Steam Input's gamepad emulation meets the Verified criteria.
+   Steam Input's gamepad emulation can provide the controls; the shipped
+   configuration, glyphs and every screen still need acceptance (§5, §9).

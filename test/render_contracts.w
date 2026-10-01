@@ -6,6 +6,9 @@ use metrics
 use loadout
 fn main:
     verify_colors()
+    assert(text_size(10) == 20 and text_size(16) == 20 and text_size(20) == 20 and text_size(32) == 32)
+    // A five-pixel lowercase body at 2x remains nine pixels at 720p.
+    assert(5.0 * (MIN_TEXT_SIZE as f64 / 10.0) * fit(1280, 720, 1422, 800).scale >= 9.0)
     // The window at the scene's size draws it 1:1; fullscreen letterboxes.
     let own = fit(WIDTH, HEIGHT)
     assert(own.x == 0.0 and own.y == 0.0 and own.scale == 1.0)

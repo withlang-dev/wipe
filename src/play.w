@@ -16,6 +16,7 @@ use save
 use account
 use input
 use presentation
+use devices
 use app
 
 const DT: f64 = 1.0 / 60.0
@@ -113,10 +114,10 @@ fn main:
         eprint("play: set WIPE_SAVE_DIR to a scratch directory")
         return 1
     SetTraceLogLevel(LOG_WARNING)
-    SetConfigFlags(FLAG_MSAA_4X_HINT)
+    SetConfigFlags(FLAG_MSAA_4X_HINT as u32)
     InitWindow(WIDTH, HEIGHT, "WIPE: SURVIVAL | playtest")
     if not IsWindowReady(): return 1
-    defer: CloseWindow()
+    let window_device = WindowDevice {}
     SetExitKey(KEY_NULL)
     SetTargetFPS(0)
     let renderer = Renderer.open()

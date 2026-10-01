@@ -41,7 +41,7 @@ fn main:
         let (_, s) = fly(test_game(.Claw, seed), .Stationary, 120.0)
         stand += s.seconds
     let mean = stand / SEEDS as f64
-    print(f"stationary Claw dies at {mean as i32} s on average")
+    eprint(f"stationary Claw dies at {mean as i32} s on average")
     // A little easier than Vampire Survivors' 10 to 13, from playtesting.
     assert(mean >= 15.0 and mean <= 45.0)
     var failures = 0
@@ -60,6 +60,6 @@ fn main:
             if not in_band(phase, want[phase], counts[phase]):
                 failures += 1
                 print(f"{ship.name()} {names[phase]}: {counts[phase]}/{SEEDS} is outside {ratings[want[phase]]}")
-        print(f"{ship.name()}: {counts[0]} {counts[1]} {counts[2]} of {SEEDS}")
+        eprint(f"{ship.name()}: {counts[0]} {counts[1]} {counts[2]} of {SEEDS}")
     assert(failures == 0)
     print("UAT passed: Vampire Survivors opening, ship profiles")

@@ -60,7 +60,8 @@ An unavailable audio device permits silent play.
 | Boost: reroll, skip, banish | R, K, N | X, Y, LB |
 | Retry as a newly unlocked ship | Tab | RB |
 | Stage, tabs, shop sort | Q, E | LB, RB |
-| Pause (volume, deadzone) | Escape in a run | Start |
+| Pause and settings | Escape in a run | Menu/Start |
+| Fullscreen | F11, or pause settings | Pause settings |
 | Leave the run for the title | Escape or Q in pause | Quit to title in pause |
 | Quit | Escape or Q on the title | Hold B on the title |
 | Performance overlay and session metrics | F1 | — |
@@ -76,6 +77,59 @@ mapped controller stays selected until it disconnects; WIPE then looks for a
 replacement twice per second. Both sticks have a radial deadzone, and centered
 aim retains the last direction. Moving the mouse returns to mouse aiming.
 Gameplay input is ignored while the game window is unfocused.
+
+The view follows the display's aspect ratio, with a 1280×800 minimum; the
+scene renders at the output's pixel size. Pause settings include fullscreen,
+VSync, and a frame limit (display refresh, 30, 40, 45, 60, 90, or 120 FPS).
+Prompts follow the last used input device. The Collection's Awards tab shows
+all 29 local achievements, including in the plain build.
+
+## Testing the optional Steam build
+
+The default `wipe` target runs independently of Steam. The separate
+`wipe-steam` target adds achievement synchronization and pauses play when the
+Steam overlay opens. It remains playable if Steam initialization fails.
+When Steam manages controllers, WIPE accepts its mapped gamepad through SDL.
+
+This work currently needs the candidate With compiler with C++-header
+`c_import`, `Target.library_path`, and `Target.rpath` support. Supply the local
+[Steamworks SDK headers](vendor/steamworks/README.md), then use that compiler:
+
+```sh
+with build :wipe-steam
+with build :steam-uat
+WIPE_STEAM_DISABLE=1 ./out/bin/steam-uat
+```
+
+For the real SDK test, use a Steam test account with Spacewar and a local
+`steam_appid.txt` containing `480` in the working directory. Run
+`./out/bin/steam-uat`; it queries, clears, stores, sets, and restores one
+Spacewar achievement. `--overlay` also waits for an overlay open/close cycle.
+The test achievement must initially be locked, so an existing unlock's
+timestamp is never replaced. Use a disposable test account: Steam may retain
+unlock history even after the visible flag is restored.
+`--probe` checks initialization and query without changing achievements;
+`--store-unchanged` queries the original test achievement flag, submits the
+client's unchanged stats through `StoreStats`, waits for a successful
+manual-dispatch store callback, and verifies the flag is unchanged. It adds
+no earned achievements and makes no unlock or reset calls. This mode still
+submits stats to Steam; it is separate from the mutation test above.
+`--overlay-only` checks overlay callbacks without changing achievements;
+`--no-stats` checks cleanup after a successful initialization with an
+unavailable stats interface. With Steam disconnected, `--expect-unavailable`
+checks the actual SDK failure path.
+The harness refuses achievement changes for any App ID other than 480 and
+reports failure if it cannot confirm restoration. The file is ignored by Git.
+Never test WIPE's achievement IDs against Spacewar.
+
+`src/steam_config.w` deliberately has no production App ID yet. Local
+packaging uses an explicit file list: `with build :package` stages the plain
+game; `:package-steam` requires WIPE's assigned App ID. Neither command uploads
+or publishes anything. Development App ID files and SDK headers are excluded.
+Hardware checks and outstanding acceptance are tracked in
+[the Steam and Deck plan](docs/steam-and-steam-deck-support.md).
+
+## Standalone Steam Controller setup
 
 For the Steam Controller, quit Steam and Steam Controller Bridge, connect the
 Puck over USB, and wake the paired controller. Steam Input, keyboard/mouse
@@ -222,6 +276,12 @@ mkdir -p out/tour
 WIPE_SAVE_DIR=/tmp/wipe-tour ./out/bin/tour
 ```
 
+Set `WIPE_TOUR_HIGHDPI=1` to exercise the production window's high-density
+framebuffer on a Retina display. The default keeps fixed-size output captures
+unchanged. `WIPE_TOUR_VIEW=1422x800` chooses logical coordinates, and
+`WIPE_TOUR_OUTPUT=1920x1080` chooses the window size; the tour logs the actual
+window, framebuffer, and rendering surface sizes separately.
+
 The audio acceptance runner checks real playback, wrap across the loop seam,
 and music continuity through a game reset. Subjective listening and controller
 hardware acceptance are tracked separately in `docs/verification/report.md`.
@@ -245,7 +305,10 @@ an automated fixture, not a human playthrough or a hardware certification.
 
 ## Code and assets
 
-- `src/main.w`: window, devices, and the frame loop.
+- `src/main.w`, `src/main_steam.w`: plain and optional Steam entry points.
+- `src/run.w`: window, devices, and the shared frame loop.
+- `src/platform.w`, `src/steam.w`, `src/achievement_sync.w`: optional platform
+  services, Steam callbacks, and achievement upload retries.
 - `src/app.w`: the screens of spec §11 (title, ship select, run, pause,
   results, shop, collection) and every transition between them.
 - `src/game.w`: the deterministic simulation: arena, camera, timeline,

@@ -52,12 +52,12 @@ fn main:
         Err(_) => assert(false)
     let settings_file = SettingsFile.open(file.directory)
     assert(settings_file.load().is_none())
-    assert(settings_file.store(&Settings { volume: 0.25, deadzone: 0.1, fullscreen: true }))
+    assert(settings_file.store(&Settings { volume: 0.25, deadzone: 0.1, fullscreen: true, vsync: false, frame_limit: 40 }))
     match settings_file.load():
         Some(read) => {
             near(read.volume, 0.25)
             near(read.deadzone, 0.1)
-            assert(read.fullscreen)
+            assert(read.fullscreen and not read.vsync and read.frame_limit == 40)
         }
         None => assert(false)
     // Out-of-range and unknown lines are clamped or ignored.
@@ -65,6 +65,14 @@ fn main:
     near(odd.volume, 1.0)
     near(odd.deadzone, 0.05)
     assert(not odd.fullscreen)
+    let legacy_settings = Settings.parse_text("volume 0.5\nfullscreen true\n")
+    assert(legacy_settings.vsync and legacy_settings.frame_limit == 0)
+    let invalid_pacing = Settings.parse_text("vsync maybe\nframe_limit 9999\n")
+    assert(invalid_pacing.vsync and invalid_pacing.frame_limit == 0)
+    assert(frame_target(&Settings {}, 90) == 90)
+    assert(frame_target(&Settings {}, 0) == 60)
+    assert(frame_target(&Settings { frame_limit: 40 }, 90) == 40)
+    assert(next_frame_limit(0, -1) == 120 and next_frame_limit(120, 1) == 0)
     // A second write keeps the first as the backup.
     var s2 = back
     s2.credits = 5

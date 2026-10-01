@@ -45,8 +45,8 @@ pub type Gamepads {
     under_steam: bool = false,
 }
 
-pub fn Gamepads.open(preferred_id: u32 = 0) -> Result[Gamepads, str]:
-    let under_steam = env("SteamAppId").len() > 0 or env("SteamGameId").len() > 0
+pub fn Gamepads.open(preferred_id: u32 = 0, platform_managed: bool = false) -> Result[Gamepads, str]:
+    let under_steam = platform_managed or env("SteamAppId").len() > 0 or env("SteamGameId").len() > 0
     SDL_SetHint("SDL_JOYSTICK_HIDAPI", "1")
     // Without Steam, SDL drives the Steam Controller's USB puck directly.
     // Under Steam that would fight Steam Input for the device.

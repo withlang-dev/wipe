@@ -3,14 +3,15 @@ use c_import("raylib.h")
 use audio
 use game
 use tuning
+use devices
 
 fn main:
     SetTraceLogLevel(LOG_WARNING)
     InitWindow(480, 160, "WIPE audio acceptance")
-    defer: CloseWindow()
     if not IsWindowReady(): return 1
+    let window_device = WindowDevice {}
     InitAudioDevice()
-    defer: CloseAudioDevice()
+    let audio_device = AudioDevice {}
     if not IsAudioDeviceReady():
         eprint("Audio UAT requires an output device.")
         return 1

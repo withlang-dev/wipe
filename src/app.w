@@ -20,10 +20,10 @@ pub enum Screen { | Title | Select | Maps | Run | Pause | Results | Shop | Colle
 impl Copy for Screen
 impl Eq for Screen
 
-pub enum Tab { | Ships | Weapons | Passives | Merges | Registry | Bosses | Stages }
+pub enum Tab { | Ships | Weapons | Passives | Merges | Registry | Bosses | Stages | Achievements }
 impl Copy for Tab
 impl Eq for Tab
-pub const TAB_COUNT: i32 = 7
+pub const TAB_COUNT: i32 = 8
 fn tab_at(i: i32) -> Tab:
     match i:
         0 => .Ships
@@ -32,7 +32,8 @@ fn tab_at(i: i32) -> Tab:
         3 => .Merges
         4 => .Registry
         5 => .Bosses
-        _ => .Stages
+        6 => .Stages
+        _ => .Achievements
 extend Tab:
     fn index(self: &Self) -> i32:
         match self:
@@ -43,6 +44,7 @@ extend Tab:
             .Registry => 4
             .Bosses => 5
             .Stages => 6
+            .Achievements => 7
     fn name(self: &Self) -> str:
         match self:
             .Ships => "SHIPS"
@@ -52,6 +54,7 @@ extend Tab:
             .Registry => "REGISTRY"
             .Bosses => "BOSSES"
             .Stages => "MAPS"
+            .Achievements => "AWARDS"
     fn count(self: &Self) -> i32:
         match self:
             .Ships => SHIP_COUNT
@@ -61,6 +64,7 @@ extend Tab:
             .Registry => KIND_COUNT
             .Bosses => 3
             .Stages => STAGE_COUNT
+            .Achievements => ACHIEVEMENT_COUNT
 
 // What the results screen shows, captured once when the run ends.
 pub type ResultsView {
@@ -98,7 +102,7 @@ pub type App {
     tab: Tab = .Ships, collection_cursor: i32 = 0,
     results: ResultsView,
     metrics: Metrics,
-    death_timer: f64 = 0.0,
+    death_timer: f64 = 0.0, sim_accumulator: f64 = 0.0,
     quit: bool = false, quit_hold: f64 = 0.0,
     // Escape on the title asks once: backing out of menus must not quit.
     quit_armed: f64 = 0.0,
@@ -127,6 +131,7 @@ pub fn App.open() -> App:
     if not ship_unlocked(app.ship, &app.save): app.ship = .Claw
     app.ship_cursor = app.ship.index()
     app.input.deadzone = settings.deadzone
+    if under_gamescope(): app.menu.device = .Pad
     // Live tuning: WIPE_TUNING, or tuning.txt beside the save. The defaults
     // file lists every knob with its current value.
     let override = env("WIPE_TUNING")
@@ -153,6 +158,16 @@ fn pilot(g: &Game, frame: i32) -> Controls:
             nearest = length2(delta)
             aim = delta
     Controls { motion: scale(sub(goal, g.player), 1.0 / 70.0), aim }
+
+// Keep fractional steps between render frames: 90 Hz must advance the same
+// 120 Hz simulation as 60 Hz. A resume spike contributes at most 0.1 seconds.
+pub fn simulation_steps(remainder: f64, elapsed: f64) -> (f64, i32):
+    var pending = remainder + limit(elapsed, 0.0, 0.1)
+    var count = 0
+    while pending + 0.000000001 >= 1.0 / 120.0:
+        pending -= 1.0 / 120.0
+        count += 1
+    (limit(pending, 0.0, 1.0 / 120.0), count)
 
 fn wrap(value: i32, count: i32) -> i32:
     if count <= 0: 0 else: ((value % count) + count) % count
@@ -219,6 +234,7 @@ extend App:
         self.screen = .Run
         self.boost_cursor = 0
         self.death_timer = 0.0
+        self.sim_accumulator = 0.0
 
     // Bank the run, star the bests, compute the open loops, save at once.
     pub fn finish_run(mut self: Self):
@@ -339,7 +355,8 @@ extend App:
             self.screen = .Pause
             self.pause_cursor = 0
             self.confirm_abandon = false
-        var m = self.menu.sample(pad)
+        var m = self.menu.sample(pad, self.settings.deadzone)
+        if self.menu.device == .Pad: HideCursor() else: ShowCursor()
         // Menus, pause and the boost cards are laid out in the 1280x800
         // frame centered in the view; their hit tests read frame coordinates.
         m.mouse = sub(m.mouse, frame_offset(self.view_w, self.view_h))
@@ -348,11 +365,17 @@ extend App:
         let controls = if self.screen == .Run: self.input.sample(screen_player, self.game.aim, pad) else: Controls { aim: self.game.aim }
         self.step(m, controls, dt)
 
-    // One frame from any source: the devices, or the playtest driver.
-    pub fn step(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
+    // Events last for exactly one presented frame, including transitions to
+    // pause and frames where a platform overlay suppresses input entirely.
+    pub fn clear_frame_events(mut self: Self):
+        self.game.clear_events()
         self.ui_move = false
         self.ui_confirm = false
         self.ui_buy = false
+
+    // One frame from any source: the devices, or the playtest driver.
+    pub fn step(mut self: Self, m: MenuInput, controls: Controls, dt: f64):
+        self.clear_frame_events()
         self.notice_timer = limit(self.notice_timer - dt, 0.0, 10.0)
         self.shop_flash = limit(self.shop_flash - dt, 0.0, 1.0)
         if m.debug: self.debug = not self.debug
@@ -427,17 +450,14 @@ extend App:
             self.confirm_abandon = false
             return
         if g.phase == .Boost: self.update_boost(m)
-        self.game.clear_events()
-        var steps = 0
-        var accumulator = limit(dt, 0.0, 0.1)
+        let (remainder, steps) = simulation_steps(self.sim_accumulator, dt)
+        self.sim_accumulator = remainder
         // The simulation only ever sees quantized controls: what is recorded
         // is exactly what was simulated.
         let exact = quantize(controls)
-        while accumulator >= 1.0 / 120.0 - 0.00001:
+        for _ in 0..steps:
             self.rec.tick(exact, true)
             self.game.tick(exact, 1.0 / 120.0)
-            accumulator -= 1.0 / 120.0
-            steps += 1
         if steps == 0:
             self.rec.tick(exact, false)
             self.game.tick(exact, 0.0)
@@ -492,7 +512,7 @@ extend App:
         self.persist()
 
     fn update_pause(mut self: Self, m: MenuInput):
-        let items = 6
+        let items = 8
         if m.up or m.down:
             self.pause_cursor = wrap(self.pause_cursor + (if m.down: 1 else: -1), items)
             self.confirm_abandon = false
@@ -504,6 +524,8 @@ extend App:
                 self.settings.deadzone = limit(self.settings.deadzone + step * 0.5, 0.05, 0.5)
                 self.input.deadzone = self.settings.deadzone
             if self.pause_cursor == 3: self.toggle_fullscreen()
+            if self.pause_cursor == 6: self.settings.vsync = not self.settings.vsync
+            if self.pause_cursor == 7: self.settings.frame_limit = next_frame_limit(self.settings.frame_limit, if m.right: 1 else: -1)
             self.ui_move = true
         // Escape and Q head for the title, banking the run; the pad's B and
         // Start resume.
@@ -524,6 +546,8 @@ extend App:
                     self.screen = .Run
                 }
                 3 => self.toggle_fullscreen()
+                6 => self.settings.vsync = not self.settings.vsync
+                7 => self.settings.frame_limit = next_frame_limit(self.settings.frame_limit, 1)
                 4 => {
                     if self.confirm_abandon:
                         // Abandoning banks what the run earned so far.
@@ -591,10 +615,15 @@ extend App:
             self.ui_move = true
         if m.click:
             for t in 0..TAB_COUNT:
-                if inside(m.mouse, 60 + t * 130, 70, 120, 28): self.tab = tab_at(t)
+                if inside(m.mouse, 40 + t * 148, 70, 144, 54):
+                    self.tab = tab_at(t)
+                    self.collection_cursor = 0
+                    return
+            let page = self.collection_cursor / 20
             for i in 0..count:
-                let (x, y) = collection_card_origin(i)
-                if inside(m.mouse, x, y, 140, 104): self.collection_cursor = i
+                if i / 20 != page: continue
+                let (x, y) = collection_card_origin(i % 20)
+                if inside(m.mouse, x, y, 152, 120): self.collection_cursor = i
         if m.back: self.go(self.return_to)
 
     // ----- draw -----------------------------------------------------------------
@@ -603,13 +632,13 @@ extend App:
         match self.screen:
             .Run => {
                 let cam = renderer.begin_world(&self.game, clock, 1.0)
-                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits }
+                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, device: self.menu.device }
                 let info = self.debug_info()
                 renderer.draw_run(&self.game, cam, hud, self.boost_cursor, clock, if self.debug: Some(&info) else: None)
             }
             .Pause => {
                 let cam = renderer.begin_world(&self.game, clock, 1.0)
-                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, show_hints: false }
+                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, device: self.menu.device, show_hints: false }
                 renderer.draw_run(&self.game, cam, hud, self.boost_cursor, clock, None)
                 DrawRectangle(0, 0, self.view_w, self.view_h, ink(0.6))
                 begin_frame(self.view_w, self.view_h)
@@ -704,7 +733,7 @@ extend App:
 
     fn credits_corner(self: &Self):
         neon_right(commas(self.save.credits), 1250, 24, 28, gold(1.0))
-        label("CREDITS", 1250 - MeasureText("CREDITS", 10), 56, 10, gold(0.6))
+        label("CREDITS", 1250 - text_width("CREDITS", 10), 56, 10, gold(0.6))
 
     fn notice_line(self: &Self):
         if self.notice_timer <= 0.0: return
@@ -716,18 +745,20 @@ extend App:
         if text.len() > 0: centered(text, 740, 14, magenta(limit(self.notice_timer, 0.0, 1.0)))
         else if self.platform_notice.len() > 0: centered(self.platform_notice.clone(), 740, 14, white(0.6 * limit(self.notice_timer, 0.0, 1.0)))
 
+    fn key(self: &Self, action: Action) -> str: prompt(self.menu.device, action)
+
     fn draw_title(self: &Self, clock: f64):
         centered("W I P E : S U R V I V A L", 190, 54, cyan(1.0))
         draw_ship(.Claw, V2 { x: 640.0, y: 330.0 }, V2 { x: cos(clock * 0.6), y: sin(clock * 0.6) }, 1.0, 3.2)
-        centered("[A / SPACE]  LAUNCH", 440, 22, white(0.7 + 0.3 * sin(clock * 3.0)))
-        neon("[X]  SHOP", 480, 486, 16, gold(0.9))
-        neon("[Y / C]  COLLECTION", 660, 486, 16, lime(0.9))
+        centered(f"[{self.key(.Confirm)}]  LAUNCH", 440, 22, white(0.7 + 0.3 * sin(clock * 3.0)))
+        neon(f"[{self.key(.Shop)}]  SHOP", 480, 486, 16, gold(0.9))
+        neon(f"[{self.key(.Collection)}]  COLLECTION", 660, 486, 16, lime(0.9))
         var best = 0.0
         for i in 0..SHIP_COUNT:
             if self.save.best_time[i] > best: best = self.save.best_time[i]
         let footer = f"BEST {stamp(best)}   ·   RUNS {commas(self.save.runs)}   ·   KILLS {commas(self.save.kills)}   ·   CREDITS {commas(self.save.credits)}   ·   v0.2"
         centered(footer, 690, 14, white(0.55))
-        centered("ESC / Q  QUIT     HOLD B ON A CONTROLLER", 716, 10, white(0.3))
+        centered(f"[{self.key(.Quit)}]  QUIT", 716, 10, white(0.3))
         if self.quit_hold > 0.0: DrawRectangle(540, 734, (200.0 * self.quit_hold) as i32, 3, magenta(0.9))
         self.notice_line()
 
@@ -787,7 +818,7 @@ extend App:
         let py = 580
         if open:
             neon(stage.name().to_upper(), 60, py, 26, white(1.0))
-            label(stage.kind(), 60 + MeasureText(stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
+            label(stage.kind(), 60 + text_width(stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
             label(stage.describe(), 60, py + 40, 16, white(0.8))
         else:
             neon("LOCKED", 60, py, 26, white(0.6))
@@ -797,7 +828,7 @@ extend App:
             DrawRectangle(60, py + 70, 400, 8, white(0.15))
             DrawRectangle(60, py + 70, (400.0 * f) as i32, 8, gold(0.9))
         let _ = clock
-        centered("[A] LAUNCH     [B] BACK", 730, 14, white(0.7))
+        centered(f"[{self.key(.Confirm)}] LAUNCH     [{self.key(.Back)}] BACK", 730, 14, white(0.7))
 
     fn draw_select(self: &Self, clock: f64):
         neon("SELECT SHIP", 40, 24, 30, cyan(1.0))
@@ -826,47 +857,51 @@ extend App:
         neon(ship.name().to_upper(), x, 274, 36, white(1.0))
         if unlocked:
             label("BASE WEAPON", x, 330, 12, white(0.5))
-            neon(ship.base_weapon().name(), x + 150, 326, 18, gold(1.0))
-            label("STRENGTH", x, 364, 12, white(0.5))
-            label(ship.strength(), x + 150, 362, 16, lime(1.0))
-            label("GROWTH", x, 394, 12, white(0.5))
-            label(ship.growth(), x + 150, 392, 16, cyan(1.0))
-            label("WEAKNESS", x, 424, 12, white(0.5))
-            label(ship.weakness(), x + 150, 422, 16, magenta(1.0))
+            neon(ship.base_weapon().name(), x + 170, 330, 20, gold(1.0))
+            var detail_y = 362
+            label("STRENGTH", x, detail_y, 20, white(0.5))
+            detail_y = wrapped_label(ship.strength(), x + 160, detail_y, 510, 20, lime(1.0)) + 12
+            label("GROWTH", x, detail_y, 20, white(0.5))
+            detail_y = wrapped_label(ship.growth(), x + 160, detail_y, 510, 20, cyan(1.0)) + 12
+            label("WEAKNESS", x, detail_y, 20, white(0.5))
+            detail_y = wrapped_label(ship.weakness(), x + 160, detail_y, 510, 20, magenta(1.0)) + 16
             let best = self.save.best_time[ship.index()]
-            label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[ship.index()]}", x, 470, 16, white(0.75))
+            label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[ship.index()]}", x, detail_y, 20, white(0.75))
             let cleared: bool = self.save.cleared[ship.index()]
             if cleared:
                 let mode = if self.endless: "ENDLESS" else: "20:00 RUN"
-                neon(f"MODE  {mode}", x, 510, 18, if self.endless: magenta(1.0) else: white(0.9))
-                label("[UP / DOWN] TOGGLE", x + 220, 514, 10, white(0.5))
-                if self.endless: label(f"BEST ENDLESS  {stamp(self.save.best_endless[ship.index()])}", x, 540, 14, magenta(0.8))
+                neon(f"MODE  {mode}", x, detail_y + 36, 20, if self.endless: magenta(1.0) else: white(0.9))
+                label(f"[{self.key(.Toggle)}] TOGGLE", x, detail_y + 64, 20, white(0.5))
+                if self.endless: label(f"BEST ENDLESS  {stamp(self.save.best_endless[ship.index()])}", x, detail_y + 92, 20, magenta(0.8))
         else:
             let c = ship.condition()
             label("LOCKED", x, 330, 14, white(0.5))
             let text = if ship.secret(): f"Hint: \"{c.describe()}\"" else: c.describe()
-            label(text, x, 360, 18, white(1.0))
+            let condition_end = wrapped_label(text, x, 360, 660, 20, white(1.0))
             let f = fraction(c, &self.save)
             if not ship.secret() or self.save.clears > 0:
-                DrawRectangle(x, 400, 400, 8, white(0.15))
-                DrawRectangle(x, 400, (400.0 * f) as i32, 8, gold(0.9))
-                label(f"{(f * 100.0) as i32}%", x + 410, 398, 12, gold(0.9))
-        let controls = "[A] LAUNCH     [B] BACK     [X] SHOP     [Y] COLLECTION"
+                DrawRectangle(x, condition_end + 20, 400, 8, white(0.15))
+                DrawRectangle(x, condition_end + 20, (400.0 * f) as i32, 8, gold(0.9))
+                label(f"{(f * 100.0) as i32}%", x + 410, condition_end + 14, 20, gold(0.9))
+        let controls = f"[{self.key(.Confirm)}] LAUNCH     [{self.key(.Back)}] BACK     [{self.key(.Shop)}] SHOP     [{self.key(.Collection)}] COLLECTION"
         centered(controls, 690, 14, white(0.7))
 
     fn draw_pause(self: &Self):
-        panel(440, 220, 400, 374, cyan(1.0))
-        centered("PAUSED", 240, 30, cyan(1.0))
+        panel(360, 158, 560, 514, cyan(1.0))
+        centered("PAUSED", 180, 30, cyan(1.0))
         let vol = (self.settings.volume * 100.0 + 0.5) as i32
         let dz = (self.settings.deadzone * 100.0 + 0.5) as i32
-        let abandon = if self.confirm_abandon: "ABANDON RUN? PRESS A AGAIN" else: "ABANDON RUN (BANKS CREDITS)"
+        let abandon = if self.confirm_abandon: f"ABANDON? [{self.key(.Confirm)}] AGAIN" else: "ABANDON RUN (BANKS CREDITS)"
         let screen_mode = if self.settings.fullscreen: "FULLSCREEN" else: "WINDOWED"
-        let items = ["RESUME", f"VOLUME  < {vol}% >", f"DEADZONE  < {dz}% >", f"DISPLAY  < {screen_mode} >", abandon, "QUIT TO TITLE"]
-        for i in 0..6:
+        let sync = if self.settings.vsync: "ON" else: "OFF"
+        let cap = if self.settings.frame_limit == 0: "DISPLAY" else: f"{self.settings.frame_limit} FPS"
+        let items = ["RESUME", f"VOLUME  < {vol}% >", f"DEADZONE  < {dz}% >", f"DISPLAY  < {screen_mode} >", abandon, "QUIT TO TITLE", f"VSYNC  < {sync} >", f"FRAME LIMIT  < {cap} >"]
+        for i in 0..8:
             let selected = i == self.pause_cursor
-            centered(items[i].clone(), 300 + i * 44, 20, if selected: white(1.0) else: white(0.45))
-            if selected: DrawRectangle(470, 300 + i * 44 + 26, 340, 2, cyan(0.8))
-        centered("[B / START] RESUME     [ESC / Q] TITLE     [F11] FULLSCREEN", 564, 12, white(0.5))
+            centered(items[i].clone(), 240 + i * 46, 20, if selected: white(1.0) else: white(0.45))
+            if selected: DrawRectangle(410, 240 + i * 46 + 26, 460, 2, cyan(0.8))
+        centered(if self.menu.device == .Pad: f"[{self.key(.Resume)}] RESUME" else: "[SPACE] SELECT   [ESC / Q] TITLE", 620, 20, white(0.5))
+        if self.menu.device == .Keyboard: centered("[F11] DISPLAY", 648, 20, white(0.5))
 
     fn draw_results(self: &Self, clock: f64):
         let r = &self.results
@@ -878,47 +913,48 @@ extend App:
         let shown_bank = r.bank - r.earned + (r.earned as f64 * counting) as i32
         neon_right(commas(shown_bank), 1240, 24, 30, gold(1.0))
         neon_right(f"+{commas(r.earned)} THIS RUN", 1240, 58, 14, gold(0.9))
-        label("BANKED", 1240 - MeasureText("BANKED", 10), 78, 10, gold(0.6))
+        label("BANKED", 1240 - text_width("BANKED", 10), 78, 10, gold(0.6))
         // The near miss first and largest.
-        let delta_line = if r.new_best and r.previous_best <= 0.0: f"SURVIVED {stamp(r.elapsed)}   FIRST RECORD"
-            else if r.new_best: f"SURVIVED {stamp(r.elapsed)}   NEW BEST BY {gap_text(r.elapsed - r.previous_best)}"
-            else: f"SURVIVED {stamp(r.elapsed)}   {gap_text(r.previous_best - r.elapsed)} SHORT OF YOUR BEST {stamp(r.previous_best)}"
-        neon(delta_line, 60, 96, 32, if r.new_best: gold(1.0) else: white(1.0))
+        let delta_line = if r.new_best and r.previous_best <= 0.0: "FIRST RECORD"
+            else if r.new_best: f"NEW BEST BY {gap_text(r.elapsed - r.previous_best)}"
+            else: f"{gap_text(r.previous_best - r.elapsed)} SHORT OF YOUR BEST {stamp(r.previous_best)}"
+        neon(f"SURVIVED {stamp(r.elapsed)}", 60, 96, 32, if r.new_best: gold(1.0) else: white(1.0))
+        label(delta_line, 60, 136, 20, if r.new_best: gold(1.0) else: white(0.85))
         if r.new_best: DrawPoly(Vector2 { x: 40.0, y: 112.0 }, 5, (10.0 + 2.0 * sin(clock * 6.0)) as f32, -90.0, gold(1.0))
-        if t > 0.2: neon(r.cause.clone(), 60, 140, 18, magenta(0.95))
+        if t > 0.2: neon(r.cause.clone(), 60, 164, 20, magenta(0.95))
         if t > 0.35:
-            label(f"LEVEL {r.level}     BEST COMBO x{r.best_combo}     KILLS {commas(r.kills)}     SHIP {r.ship.name().to_upper()}     STAGE {r.stage.name().to_upper()}", 60, 180, 14, white(0.8))
+            label(f"LEVEL {r.level}     BEST COMBO x{r.best_combo}     KILLS {commas(r.kills)}     SHIP {r.ship.name().to_upper()}     STAGE {r.stage.name().to_upper()}", 60, 200, 20, white(0.8))
             var kline = ""
             for i in 0..KIND_COUNT:
                 if r.kills_by_kind[i] == 0: continue
                 let part = f"{kind_at(i).name()} {commas(r.kills_by_kind[i])}"
                 kline = if kline.len() == 0: part else: kline ++ "  ·  " ++ part
-            label(kline, 60, 204, 12, white(0.55))
+            let _ = wrapped_label(kline, 60, 230, 1160, 20, white(0.55))
             // The build, as icons with levels.
             var x = 60.0
             for slot in 0..SLOT_COUNT:
                 let s: WeaponSlot = r.build.weapons[slot]
                 if s.level == 0: continue
-                draw_weapon_icon(s.weapon, V2 { x: x + 14.0, y: 252.0 }, 11.0, clock, 1.0)
-                label(f"{s.weapon.name()} {roman(s.level)}", (x + 32.0) as i32, 246, 12, weapon_tint(s.weapon))
-                x += 40.0 + MeasureText(f"{s.weapon.name()} {roman(s.level)}", 12) as f64
+                draw_weapon_icon(s.weapon, V2 { x: x + 14.0, y: 296.0 }, 11.0, clock, 1.0)
+                label(f"{s.weapon.name()} {roman(s.level)}", (x + 32.0) as i32, 286, 20, weapon_tint(s.weapon))
+                x += 40.0 + text_width(f"{s.weapon.name()} {roman(s.level)}", 12) as f64
             x = 60.0
             for slot in 0..SLOT_COUNT:
                 let s: PassiveSlot = r.build.passives[slot]
                 if s.level == 0: continue
-                draw_passive_icon(s.passive, V2 { x: x + 14.0, y: 284.0 }, 9.0, 1.0)
-                label(f"{s.passive.name()} {roman(s.level)}", (x + 32.0) as i32, 278, 12, lime(0.9))
-                x += 40.0 + MeasureText(f"{s.passive.name()} {roman(s.level)}", 12) as f64
+                draw_passive_icon(s.passive, V2 { x: x + 14.0, y: 328.0 }, 9.0, 1.0)
+                label(f"{s.passive.name()} {roman(s.level)}", (x + 32.0) as i32, 318, 20, lime(0.9))
+                x += 40.0 + text_width(f"{s.passive.name()} {roman(s.level)}", 12) as f64
         // The open loops slide in last.
         if t > 0.6:
-            var y = 340
+            var y = 368
             match &r.next_unlock:
                 Some(u) => {
                     neon(f"NEXT UNLOCK   {u.name}", 60, y, 18, white(1.0))
                     label(u.condition.describe(), 60, y + 24, 14, white(0.7))
-                    DrawRectangle(600, y + 6, 300, 8, white(0.15))
-                    DrawRectangle(600, y + 6, (300.0 * u.fraction) as i32, 8, gold(0.9))
-                    label(f"{(u.fraction * 100.0) as i32}%", 910, y + 4, 12, gold(0.9))
+                    DrawRectangle(960, y + 6, 240, 8, white(0.15))
+                    DrawRectangle(960, y + 6, (240.0 * u.fraction) as i32, 8, gold(0.9))
+                    label(f"{(u.fraction * 100.0) as i32}%", 960, y + 24, 20, gold(0.9))
                 }
                 None => neon("EVERY UNLOCK IS OPEN", 60, y, 18, gold(1.0))
             y += 60
@@ -927,9 +963,9 @@ extend App:
                     neon(f"NEXT RANK   {n.item.name()} {n.rank} for {commas(n.price)} credits", 60, y, 18, white(1.0))
                     label(n.item.effect(n.rank), 60, y + 24, 14, white(0.7))
                     let f = limit(r.bank as f64 / n.price as f64, 0.0, 1.0)
-                    DrawRectangle(600, y + 6, 300, 8, white(0.15))
-                    DrawRectangle(600, y + 6, (300.0 * f) as i32, 8, if f >= 1.0: lime(0.9) else: gold(0.9))
-                    label(if f >= 1.0: "AFFORDABLE" else: f"{(f * 100.0) as i32}%", 910, y + 4, 12, if f >= 1.0: lime(0.9) else: gold(0.9))
+                    DrawRectangle(960, y + 6, 240, 8, white(0.15))
+                    DrawRectangle(960, y + 6, (240.0 * f) as i32, 8, if f >= 1.0: lime(0.9) else: gold(0.9))
+                    label(if f >= 1.0: "AFFORDABLE" else: f"{(f * 100.0) as i32}%", 960, y + 24, 20, if f >= 1.0: lime(0.9) else: gold(0.9))
                 }
                 None => neon("THE SHOP IS COMPLETE", 60, y, 18, gold(1.0))
             y += 60
@@ -942,15 +978,18 @@ extend App:
             if r.unlocks.len() > 0:
                 var text = "UNLOCKED  "
                 for u in r.unlocks: text = text ++ u ++ "   "
-                neon(text, 60, y + 6, 18, lime(1.0))
-                y += 36
+                y = wrapped_label(text, 60, y + 6, 680, 20, lime(1.0))
             if r.new_ships.len() > 0:
                 let ship = r.new_ships[0]
                 panel(760, 560, 460, 90, gold(1.0))
                 draw_ship(ship, V2 { x: 810.0, y: 605.0 }, V2 { x: 0.0, y: -1.0 }, 1.0, 1.8)
                 neon(f"NEW SHIP: {ship.name().to_upper()}", 860, 576, 22, gold(1.0))
-                label("[RB / TAB]  RETRY AS IT", 860, 610, 14, white(0.8))
-        centered("[A] RETRY     [B] SHIP SELECT     [X] SHOP     [Y] COLLECTION", 730, 16, white(0.75))
+                label(f"[{self.key(.Next)}]  RETRY AS IT", 860, 610, 14, white(0.8))
+        centered_at(f"[{self.key(.Confirm)}] RETRY", 300, 730, 16, white(0.75))
+        centered_at(if self.menu.device == .Pad: f"[{self.key(.Back)}] SHIP SELECT" else: "SHIP SELECT", 520, 730, 16, white(0.75))
+        centered_at(f"[{self.key(.Shop)}] SHOP", 740, 730, 16, white(0.75))
+        centered_at(f"[{self.key(.Collection)}] COLLECTION", 970, 730, 16, white(0.75))
+        if self.menu.device == .Keyboard: centered("[ESC] TITLE", 764, 16, white(0.5))
 
     fn draw_shop(self: &Self, clock: f64):
         neon("SHOP", 40, 24, 30, gold(1.0))
@@ -983,16 +1022,18 @@ extend App:
                 label(f"{(f * 100.0) as i32}%", 790, y + 5, 12, gold(0.8))
         let item = self.shop_row(self.shop_cursor)
         let rank = self.save.ranks[item.index()]
-        panel(900, 110, 340, 200, gold(1.0))
+        panel(900, 110, 340, 280, gold(1.0))
         neon(item.name(), 920, 126, 24, white(1.0))
         if rank < item.max_rank():
             label(f"Rank {rank + 1}:", 920, 170, 14, white(0.6))
-            label(item.effect(rank + 1), 920, 190, 14, lime(1.0))
-            label("Now:", 920, 222, 14, white(0.6))
-            label(if rank == 0: "nothing" else: item.effect(rank), 920, 242, 14, white(0.8))
-        else: label(item.effect(rank), 920, 170, 14, lime(1.0))
-        let refund = if self.confirm_refund: f"[Y] CONFIRM REFUND OF {commas(self.save.spent)}" else: f"[Y] REFUND ALL ({commas(self.save.spent)})"
-        centered(f"[A] BUY     [B] BACK     {refund}     [LB / RB] SORT", 720, 14, if self.confirm_refund: magenta(1.0) else: white(0.7))
+            let after_y = wrapped_label(item.effect(rank + 1), 920, 198, 300, 20, lime(1.0))
+            label("Now:", 920, after_y + 10, 20, white(0.6))
+            let _ = wrapped_label(if rank == 0: "nothing" else: item.effect(rank), 920, after_y + 38, 300, 20, white(0.8))
+        else:
+            let _ = wrapped_label(item.effect(rank), 920, 170, 300, 20, lime(1.0))
+        let refund = if self.confirm_refund: f"[{self.key(.Collection)}] CONFIRM REFUND OF {commas(self.save.spent)}" else: f"[{self.key(.Collection)}] REFUND ALL ({commas(self.save.spent)})"
+        centered(f"[{self.key(.Confirm)}] BUY     [{self.key(.Back)}] BACK     [{self.key(.Tabs)}] SORT", 696, 20, white(0.7))
+        centered(refund, 730, 20, if self.confirm_refund: magenta(1.0) else: white(0.7))
         let _ = clock
 
     fn draw_collection(self: &Self, clock: f64):
@@ -1001,18 +1042,20 @@ extend App:
         for t in 0..TAB_COUNT:
             let tab = tab_at(t)
             let (have, total) = self.tab_counts(tab)
-            let text = f"{tab.name()} {have}/{total}"
             let selected = tab == self.tab
-            neon(text.clone(), 40 + t * 120, 74, 12, if selected: white(1.0) else: white(0.4))
-            if selected: DrawRectangle(40 + t * 120, 92, MeasureText(text, 12), 2, lime(1.0))
+            neon(tab.name(), 40 + t * 148, 70, 20, if selected: white(1.0) else: white(0.4))
+            label(f"{have}/{total}", 40 + t * 148, 96, 20, if selected: lime(1.0) else: white(0.4))
+            if selected: DrawRectangle(40 + t * 148, 122, 136, 2, lime(1.0))
         let count = self.tab.count()
+        let page = self.collection_cursor / 20
         for i in 0..count:
-            let (x, y) = collection_card_origin(i)
+            if i / 20 != page: continue
+            let (x, y) = collection_card_origin(i % 20)
             let selected = i == self.collection_cursor
             let open = self.entry_open(self.tab, i)
-            DrawRectangle(x, y, 140, 104, ink(0.9))
-            DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 140.0, height: 104.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: lime(0.3))
-            let center = V2 { x: (x + 70) as f64, y: (y + 42) as f64 }
+            DrawRectangle(x, y, 152, 120, ink(0.9))
+            DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 152.0, height: 120.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: lime(0.3))
+            let center = V2 { x: (x + 76) as f64, y: (y + 34) as f64 }
             let alpha = if open: 1.0 else: 0.18
             match self.tab:
                 .Ships => {
@@ -1023,7 +1066,7 @@ extend App:
                 .Passives => draw_passive_icon(passive_at(i), center, 16.0, alpha)
                 .Merges => {
                     if open: draw_weapon_icon(recipes()[i].result, center, 18.0, clock, 1.0)
-                    else: centered_at("? + ?", x + 70, y + 34, 18, white(0.3))
+                    else: centered_at("? + ?", x + 76, y + 24, 20, white(0.3))
                 }
                 .Registry => draw_enemy(kind_at(i), center, 18.0, clock, 0.0, V2 { x: 0.0, y: -1.0 }, paint(kind_at(i).tint(), alpha), 0.85)
                 .Bosses => {
@@ -1031,20 +1074,23 @@ extend App:
                     else: mystery(center, 30, white(0.3))
                 }
                 .Stages => {
-                    if open: draw_stage_preview(stage_at(i), x + 20, y + 12, 100, 60, true)
+                    if open: draw_stage_preview(stage_at(i), x + 26, y + 10, 100, 50, true)
                     else: mystery(center, 30, white(0.3))
                 }
-            centered_at(if open: self.entry_name(self.tab, i) else: "LOCKED", x + 70, y + 80, 12, if open: white(0.9) else: white(0.3))
+                .Achievements => {
+                    outline(center, 6, 26.0, clock * 0.2, if open: gold(1.0) else: white(0.3), 2.0)
+                    centered_at(if open: "OK" else: f"{i + 1}", x + 76, y + 24, 20, if open: gold(1.0) else: white(0.5))
+                }
+            let _ = wrapped_label(if open or self.tab == .Achievements: self.entry_name(self.tab, i) else: "LOCKED", x + 8, y + 68, 136, 20, if open: white(0.9) else: white(0.3), true)
         // Detail panel.
-        panel(880, 120, 360, 520, lime(1.0))
+        panel(880, 140, 360, 516, lime(1.0))
         let i = self.collection_cursor
         let open = self.entry_open(self.tab, i)
-        neon(if open: self.entry_name(self.tab, i) else: "LOCKED", 900, 138, 24, white(1.0))
-        var y = 184
+        var y = wrapped_label(if open or self.tab == .Achievements: self.entry_name(self.tab, i) else: "LOCKED", 900, 158, 320, 24, white(1.0)) + 16
         for line_text in self.entry_detail(self.tab, i):
-            label(line_text.clone(), 900, y, 14, white(0.8))
-            y += 22
-        centered("[LB / RB] TAB     [B] BACK", 720, 14, white(0.7))
+            y = wrapped_label(line_text.clone(), 900, y, 320, 16, white(0.8)) + 6
+        if count > 20: label(f"PAGE {page + 1}/{(count + 19) / 20}   KEEP MOVING TO BROWSE", 40, 674, 20, white(0.6))
+        centered(f"[{self.key(.Tabs)}] TAB     [{self.key(.Back)}] BACK", 720, 14, white(0.7))
 
     fn tab_counts(self: &Self, tab: Tab) -> (i32, i32):
         var have = 0
@@ -1065,6 +1111,7 @@ extend App:
             .Registry => self.save.registry_kills[i] > 0
             .Bosses => self.boss_slain(i)
             .Stages => stage_unlocked(stage_at(i), &self.save)
+            .Achievements => achievement_met(ACHIEVEMENT_IDS[i], &self.save)
 
     fn entry_name(self: &Self, tab: Tab, i: i32) -> str:
         match tab:
@@ -1075,6 +1122,7 @@ extend App:
             .Registry => kind_at(i).name()
             .Bosses => BOSS_NAMES[i].clone()
             .Stages => stage_at(i).name()
+            .Achievements => achievement_name(i)
 
     fn entry_detail(self: &Self, tab: Tab, i: i32) -> Vec[str]:
         var out: Vec[str] = Vec.new()
@@ -1139,6 +1187,11 @@ extend App:
                     out.push(f"Arrives at {minute}:00")
                     out.push("Not yet defeated.")
             }
+            .Achievements => {
+                out.push(if open: "EARNED" else: "NOT YET EARNED")
+                out.push(achievement_description(i))
+                out.push("Earned awards are saved with your progress.")
+            }
             .Stages => {
                 let s = stage_at(i)
                 out.push(s.describe())
@@ -1156,13 +1209,13 @@ fn select_card_origin(i: i32) -> (i32, i32):
     (60 + i * 130, 110)
 
 fn collection_card_origin(i: i32) -> (i32, i32):
-    (40 + (i % 5) * 160, 120 + (i / 5) * 116)
+    (40 + (i % 5) * 166, 140 + (i / 5) * 132)
 
 
 
 // A locked ship is a question mark: its shape is part of the reward.
 fn mystery(at: V2, size: i32, color: Color):
-    neon("?", at.x as i32 - MeasureText("?", size) / 2, at.y as i32 - size / 2, size, color)
+    neon("?", at.x as i32 - text_width("?", size) / 2, at.y as i32 - size / 2, size, color)
 
 fn pick_label(p: Pick) -> str:
     match p:

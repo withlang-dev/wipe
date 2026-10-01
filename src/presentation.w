@@ -4,11 +4,15 @@ use loadout
 use ships
 use tuning
 use shaders
+use input
+use c_import("rlgl.h")
 
 // ----- palette and text ---------------------------------------------------
 
+fn paint_alpha(color: Color, alpha: f64) -> Color: Fade(color, alpha as f32)
+
 pub fn rgba(r: i32, g: i32, b: i32, a: f64) -> Color:
-    Fade(Color { r: r as u8, g: g as u8, b: b as u8, a: 255 }, limit(a, 0.0, 1.0) as f32)
+    paint_alpha(Color { r: r as u8, g: g as u8, b: b as u8, a: 255 }, limit(a, 0.0, 1.0))
 pub fn cyan(a: f64) -> Color: rgba(87, 237, 255, a)
 pub fn magenta(a: f64) -> Color: rgba(255, 74, 220, a)
 pub fn lime(a: f64) -> Color: rgba(105, 255, 56, a)
@@ -34,29 +38,54 @@ pub fn rv(p: V2) -> Vector2: Vector2 { x: p.x as f32, y: p.y as f32 }
 pub fn line(a: V2, b: V2, width: f64, color: Color):
     DrawLineEx(rv(a), rv(b), width as f32, color)
 pub fn glow_line(a: V2, b: V2, color: Color):
-    line(a, b, 6.0, Fade(color, 0.10))
-    line(a, b, 3.0, Fade(color, 0.35))
+    line(a, b, 6.0, paint_alpha(color, 0.10))
+    line(a, b, 3.0, paint_alpha(color, 0.35))
     line(a, b, 1.6, color)
 pub fn circle(p: V2, radius: f64, color: Color):
     DrawCircleV(rv(p), radius as f32, color)
 pub fn ring(p: V2, radius: f64, color: Color):
-    DrawCircleLinesV(rv(p), radius as f32, color)
+    circle_outline(rv(p), radius as f32, color)
+// Filled geometry retains its one-view-unit thickness at every output scale.
+fn circle_outline(center: Vector2, radius: f32, color: Color):
+    DrawRing(center, radius - 0.5, radius + 0.5, 0.0, 360.0, 0, color)
+fn stroke_box(x: i32, y: i32, width: i32, height: i32, color: Color):
+    DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: width as f32, height: height as f32 }, 1.0, color)
 pub fn label(text: str, x: i32, y: i32, size: i32, color: Color):
-    DrawText(text, x, y, size, color)
+    DrawText(text, x, y, text_size(size), color)
 // Bright text gets a soft duplicate underneath so bloom lifts it like the vectors.
 pub fn neon(text: str, x: i32, y: i32, size: i32, color: Color):
-    DrawText(text, x - 1, y, size, Fade(color, 0.28))
-    DrawText(text, x + 1, y, size, Fade(color, 0.28))
-    DrawText(text, x, y - 1, size, Fade(color, 0.22))
-    DrawText(text, x, y + 1, size, Fade(color, 0.22))
-    DrawText(text, x, y, size, color)
+    DrawText(text, x - 1, y, text_size(size), paint_alpha(color, 0.28))
+    DrawText(text, x + 1, y, text_size(size), paint_alpha(color, 0.28))
+    DrawText(text, x, y - 1, text_size(size), paint_alpha(color, 0.22))
+    DrawText(text, x, y + 1, text_size(size), paint_alpha(color, 0.22))
+    DrawText(text, x, y, text_size(size), color)
 pub fn neon_right(text: str, right: i32, y: i32, size: i32, color: Color):
-    neon(text, right - MeasureText(text, size), y, size, color)
+    neon(text, right - text_width(text, size), y, text_size(size), color)
 pub fn centered(text: str, y: i32, size: i32, color: Color):
-    neon(text, (WIDTH - MeasureText(text, size)) / 2, y, size, color)
+    neon(text, (WIDTH - text_width(text, size)) / 2, y, text_size(size), color)
 pub fn centered_at(text: str, cx: i32, y: i32, size: i32, color: Color):
-    neon(text, cx - MeasureText(text, size) / 2, y, size, color)
-pub fn text_width(text: str, size: i32) -> i32: MeasureText(text, size)
+    neon(text, cx - text_width(text, size) / 2, y, text_size(size), color)
+// The default font's lowercase body is five pixels in its ten-pixel cell.
+// At size 20 that is ten pixels at 800p and nine at the 720p view scale.
+pub const MIN_TEXT_SIZE: i32 = 20
+pub fn text_size(size: i32) -> i32: if size < MIN_TEXT_SIZE: MIN_TEXT_SIZE else: size
+pub fn text_width(text: &str, size: i32) -> i32: MeasureText(text, text_size(size))
+// Return the next free baseline; details remain readable on the 800p panel.
+pub fn wrapped_label(text: str, x: i32, y: i32, width: i32, size: i32, color: Color, centered: bool = false) -> i32:
+    var line_text = ""
+    var line_y = y
+    for word in text.split(" "):
+        let next = if line_text.len() == 0: word.clone() else: line_text ++ " " ++ word
+        if text_width(next, size) > width and line_text.len() > 0:
+            label(line_text.clone(), x + (if centered: (width - text_width(line_text, size)) / 2 else: 0), line_y, size, color)
+            line_y += text_size(size) + 6
+            line_text = word.clone()
+        else: line_text = next
+    if line_text.len() > 0:
+        label(line_text.clone(), x + (if centered: (width - text_width(line_text, size)) / 2 else: 0), line_y, size, color)
+        line_y += text_size(size) + 6
+    line_y
+
 pub fn stamp(seconds: f64) -> str:
     let total = seconds as i32
     let minutes = total / 60
@@ -82,7 +111,7 @@ pub fn roman(level: i32) -> str:
         _ => f"{level}"
 pub fn panel(x: i32, y: i32, w: i32, h: i32, accent: Color):
     DrawRectangle(x, y, w, h, ink(0.92))
-    DrawRectangleLines(x, y, w, h, Fade(accent, 0.35))
+    stroke_box(x, y, w, h, paint_alpha(accent, 0.35))
     DrawRectangle(x, y, w, 2, accent)
 pub fn mouse() -> V2:
     let m = GetMousePosition()
@@ -92,7 +121,7 @@ pub fn inside(p: V2, x: i32, y: i32, w: i32, h: i32) -> bool:
 
 // Polygon outline with a halo; bloom does the heavy lifting afterwards.
 pub fn outline(pos: V2, sides: i32, radius: f64, angle: f64, color: Color, core: f64):
-    DrawPolyLinesEx(rv(pos), sides, radius as f32, angle as f32, 5.0, Fade(color, 0.16))
+    DrawPolyLinesEx(rv(pos), sides, radius as f32, angle as f32, 5.0, paint_alpha(color, 0.16))
     DrawPolyLinesEx(rv(pos), sides, radius as f32, angle as f32, core as f32, color)
 
 // ----- silhouettes ---------------------------------------------------------
@@ -141,7 +170,7 @@ pub fn draw_ship(ship: Ship, pos: V2, aim: V2, alpha: f64, scale_by: f64):
         .Halo => {
             glow_line(at(14.0, 0.0), at(-6.0, 10.0), tint)
             glow_line(at(14.0, 0.0), at(-6.0, -10.0), tint)
-            DrawCircleLinesV(rv(pos), (13.0 * scale_by) as f32, accent)
+            circle_outline(rv(pos), (13.0 * scale_by) as f32, accent)
             glow_line(at(-6.0, 10.0), at(-12.0, 0.0), accent)
             glow_line(at(-6.0, -10.0), at(-12.0, 0.0), accent)
         }
@@ -199,8 +228,8 @@ pub fn draw_enemy(kind: Kind, pos: V2, radius: f64, clock: f64, speed: f64, towa
             let rad = angle * 0.0174533
             let a = V2 { x: cos(rad), y: sin(rad) }
             let b = V2 { x: -a.y, y: a.x }
-            line(sub(pos, scale(a, radius)), add(pos, scale(a, radius)), 1.3, Fade(color, dim_by))
-            line(sub(pos, scale(b, radius)), add(pos, scale(b, radius)), 1.3, Fade(color, dim_by))
+            line(sub(pos, scale(a, radius)), add(pos, scale(a, radius)), 1.3, paint_alpha(color, dim_by))
+            line(sub(pos, scale(b, radius)), add(pos, scale(b, radius)), 1.3, paint_alpha(color, dim_by))
         }
         .Dart => {
             // Dart: an arrowhead that faces its target.
@@ -208,14 +237,14 @@ pub fn draw_enemy(kind: Kind, pos: V2, radius: f64, clock: f64, speed: f64, towa
             outline(pos, 3, radius, heading, color, 2.4)
             let back = sub(pos, scale(toward, radius * 0.5))
             let side = V2 { x: -toward.y, y: toward.x }
-            line(add(back, scale(side, radius * 0.45)), sub(back, scale(side, radius * 0.45)), 1.3, Fade(color, dim_by))
+            line(add(back, scale(side, radius * 0.45)), sub(back, scale(side, radius * 0.45)), 1.3, paint_alpha(color, dim_by))
         }
         .Weaver => {
             // Weaver: nested squares turning against each other.
             let angle = clock * 40.0 + speed
             outline(pos, 4, radius, angle, color, 2.0)
-            DrawPolyLinesEx(rv(pos), 4, (radius * 0.62) as f32, (-angle * 1.5) as f32, 1.4, Fade(color, dim_by))
-            DrawPolyLinesEx(rv(pos), 4, (radius * 0.3) as f32, angle as f32, 1.0, Fade(color, dim_by))
+            DrawPolyLinesEx(rv(pos), 4, (radius * 0.62) as f32, (-angle * 1.5) as f32, 1.4, paint_alpha(color, dim_by))
+            DrawPolyLinesEx(rv(pos), 4, (radius * 0.3) as f32, angle as f32, 1.0, paint_alpha(color, dim_by))
         }
         .Skimmer => {
             // Skimmer: a thin chevron that always faces its target.
@@ -225,43 +254,43 @@ pub fn draw_enemy(kind: Kind, pos: V2, radius: f64, clock: f64, speed: f64, towa
             let r = sub(sub(pos, scale(toward, radius * 0.7)), scale(side, radius))
             glow_line(l, nose, color)
             glow_line(nose, r, color)
-            line(l, sub(pos, scale(toward, radius * 0.2)), 1.2, Fade(color, dim_by))
-            line(r, sub(pos, scale(toward, radius * 0.2)), 1.2, Fade(color, dim_by))
+            line(l, sub(pos, scale(toward, radius * 0.2)), 1.2, paint_alpha(color, dim_by))
+            line(r, sub(pos, scale(toward, radius * 0.2)), 1.2, paint_alpha(color, dim_by))
         }
         .Well => {
             // Well: concentric rings turning inward, a dark center.
             for i in 0..3:
                 let r = radius * (1.0 - i as f64 * 0.28)
-                DrawPolyLinesEx(rv(pos), 8, r as f32, (clock * (40.0 + i as f64 * 30.0) * (if i % 2 == 0: 1.0 else: -1.0)) as f32, 1.4, Fade(color, 0.9 - i as f64 * 0.2))
+                DrawPolyLinesEx(rv(pos), 8, r as f32, (clock * (40.0 + i as f64 * 30.0) * (if i % 2 == 0: 1.0 else: -1.0)) as f32, 1.4, paint_alpha(color, 0.9 - i as f64 * 0.2))
             circle(pos, radius * 0.22, ink(1.0))
-            ring(pos, radius * 1.6 + sin(clock * 3.0) * 4.0, Fade(color, 0.18))
+            ring(pos, radius * 1.6 + sin(clock * 3.0) * 4.0, paint_alpha(color, 0.18))
         }
         .Boss => {
             // Boss: a heavy hexagon with a rotating inner triangle and spokes.
             let angle = clock * 20.0
-            DrawPolyLinesEx(rv(pos), 6, radius as f32, angle as f32, 9.0, Fade(color, 0.16))
+            DrawPolyLinesEx(rv(pos), 6, radius as f32, angle as f32, 9.0, paint_alpha(color, 0.16))
             DrawPolyLinesEx(rv(pos), 6, radius as f32, angle as f32, 3.0, color)
-            DrawPolyLinesEx(rv(pos), 3, (radius * 0.6) as f32, (-angle * 2.0) as f32, 2.0, Fade(color, dim_by))
+            DrawPolyLinesEx(rv(pos), 3, (radius * 0.6) as f32, (-angle * 2.0) as f32, 2.0, paint_alpha(color, dim_by))
             for i in 0..6:
                 let a = (angle + i as f64 * 60.0) * 0.0174533
-                line(pos, add(pos, V2 { x: cos(a) * radius, y: sin(a) * radius }), 1.2, Fade(color, dim_by * 0.6))
+                line(pos, add(pos, V2 { x: cos(a) * radius, y: sin(a) * radius }), 1.2, paint_alpha(color, dim_by * 0.6))
         }
         .Null => {
             // The Null: an absence. A ring of nothing with a white edge.
             circle(pos, radius, ink(1.0))
-            DrawCircleLinesV(rv(pos), (radius + 4.0) as f32, Fade(color, 0.2))
-            DrawCircleLinesV(rv(pos), radius as f32, color)
+            circle_outline(rv(pos), (radius + 4.0) as f32, paint_alpha(color, 0.2))
+            circle_outline(rv(pos), radius as f32, color)
             for i in 0..12:
                 let a = clock * 1.4 + i as f64 * 0.5236
                 let r0 = radius * 1.05
                 let r1 = radius * (1.25 + 0.15 * sin(clock * 5.0 + i as f64))
-                line(add(pos, V2 { x: cos(a) * r0, y: sin(a) * r0 }), add(pos, V2 { x: cos(a) * r1, y: sin(a) * r1 }), 1.5, Fade(color, 0.7))
+                line(add(pos, V2 { x: cos(a) * r0, y: sin(a) * r0 }), add(pos, V2 { x: cos(a) * r1, y: sin(a) * r1 }), 1.5, paint_alpha(color, 0.7))
         }
         .Block => {
             // Block: a square framing a slowly counter-rotating diamond.
             let angle = clock * 27.0 + speed * 4.0
             outline(pos, 4, radius, angle, color, 2.0)
-            DrawPolyLinesEx(rv(pos), 4, (radius * 0.66) as f32, (-angle + 45.0) as f32, 1.4, Fade(color, dim_by))
+            DrawPolyLinesEx(rv(pos), 4, (radius * 0.66) as f32, (-angle + 45.0) as f32, 1.4, paint_alpha(color, dim_by))
         }
 
 // Small glyphs for weapons and passives: the same vector language at HUD size.
@@ -276,7 +305,7 @@ pub fn weapon_tint(weapon: Weapon) -> Color:
         .Chain => violet(1.0)
         .Bouncing => magenta(1.0)
 pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f64):
-    let color = Fade(weapon_tint(weapon), alpha as f32)
+    let color = paint_alpha(weapon_tint(weapon), alpha as f32)
     let merged = weapon.is_merged()
     match weapon.family():
         .Aimed => {
@@ -293,7 +322,7 @@ pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f
         .Ring => {
             ring(pos, size * (0.5 + 0.4 * ((clock * 1.5) % 1.0)), color)
             ring(pos, size * 0.3, color)
-            if merged: ring(pos, size * 1.05, Fade(color, 0.5))
+            if merged: ring(pos, size * 1.05, paint_alpha(color, 0.5))
         }
         .Homing => {
             let a = clock * 3.0
@@ -303,13 +332,13 @@ pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f
             if merged: line(pos, add(pos, V2 { x: cos(a + 2.1) * size * 0.8, y: sin(a + 2.1) * size * 0.8 }), 1.5, color)
         }
         .Beam => {
-            line(add(pos, V2 { x: -size, y: 0.0 }), add(pos, V2 { x: size, y: 0.0 }), if merged: 5.0 else: 3.0, Fade(color, 0.5))
+            line(add(pos, V2 { x: -size, y: 0.0 }), add(pos, V2 { x: size, y: 0.0 }), if merged: 5.0 else: 3.0, paint_alpha(color, 0.5))
             line(add(pos, V2 { x: -size, y: 0.0 }), add(pos, V2 { x: size, y: 0.0 }), 1.5, white(alpha))
         }
         .Dropped => {
             DrawPolyLinesEx(rv(pos), 3, (size * 0.8) as f32, -90.0, 2.0, color)
             circle(pos, size * 0.2, white(alpha))
-            if merged: DrawPolyLinesEx(rv(pos), 3, (size * 1.1) as f32, -90.0, 1.0, Fade(color, 0.5))
+            if merged: DrawPolyLinesEx(rv(pos), 3, (size * 1.1) as f32, -90.0, 1.0, paint_alpha(color, 0.5))
         }
         .Chain => {
             let a = add(pos, V2 { x: -size, y: -size * 0.6 })
@@ -319,7 +348,7 @@ pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f
             line(a, b, 2.0, color)
             line(b, c, 2.0, color)
             line(c, d, 2.0, color)
-            if merged: line(a, d, 1.0, Fade(color, 0.5))
+            if merged: line(a, d, 1.0, paint_alpha(color, 0.5))
         }
         .Bouncing => {
             let a = add(pos, V2 { x: -size, y: size * 0.7 })
@@ -348,7 +377,7 @@ pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
             line(add(pos, V2 { x: size * 0.3, y: size * 0.5 }), add(pos, V2 { x: size }), 2.0, color)
         }
         .Magnet => {
-            ring(pos, size * 0.9, Fade(color, 0.4))
+            ring(pos, size * 0.9, paint_alpha(color, 0.4))
             ring(pos, size * 0.5, color)
             circle(pos, size * 0.15, color)
         }
@@ -367,7 +396,7 @@ pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
         .Rebound => {
             line(add(pos, V2 { x: -size, y: size * 0.6 }), add(pos, V2 { x: 0.0, y: -size * 0.6 }), 2.0, color)
             line(add(pos, V2 { x: 0.0, y: -size * 0.6 }), add(pos, V2 { x: size, y: size * 0.6 }), 2.0, color)
-            line(add(pos, V2 { x: -size * 1.1, y: -size * 0.6 }), add(pos, V2 { x: size * 1.1, y: -size * 0.6 }), 1.0, Fade(color, 0.6))
+            line(add(pos, V2 { x: -size * 1.1, y: -size * 0.6 }), add(pos, V2 { x: size * 1.1, y: -size * 0.6 }), 1.0, paint_alpha(color, 0.6))
         }
         .Overclock => {
             DrawPolyLinesEx(rv(pos), 3, size as f32, 90.0, 2.0, red(alpha))
@@ -466,7 +495,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let void_center = to_screen(cam, g.center())
         circle(void_center, g.rules.void_radius, ink(0.9))
         ring(void_center, g.rules.void_radius + 4.0, cyan(0.08))
-        DrawCircleLinesV(rv(void_center), g.rules.void_radius as f32, cyan(0.55 + 0.1 * sin(clock * 2.0)))
+        circle_outline(rv(void_center), g.rules.void_radius as f32, cyan(0.55 + 0.1 * sin(clock * 2.0)))
         ring(void_center, g.rules.void_radius - 2.0, white(0.5))
     // Decorative effects render underneath all solid gameplay silhouettes.
     for i in 0..g.pulse_count:
@@ -474,7 +503,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let remaining = p.life / p.total
         let pos = to_screen(cam, p.pos)
         let radius = 6.0 + (1.0 - remaining) * p.radius
-        DrawCircleLinesV(rv(pos), radius as f32, paint(p.tint, remaining * 0.5))
+        circle_outline(rv(pos), radius as f32, paint(p.tint, remaining * 0.5))
         // A rapidly shrinking remnant gives an enemy's death a visible scale-out.
         if let Some(kind) = p.remnant:
             let size = 15.0 * remaining * remaining
@@ -486,7 +515,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         // A shockwave: a bright leading edge with a soft wake inside it.
         DrawRing(rv(pos), (w.radius - 14.0 * remaining) as f32, w.radius as f32, 0.0, 360.0, 64, cyan(0.10 + remaining * 0.18))
         DrawRing(rv(pos), (w.radius - 3.0) as f32, w.radius as f32, 0.0, 360.0, 64, cyan(0.35 + remaining * 0.6))
-        DrawCircleLinesV(rv(pos), (w.radius - 1.5) as f32, white(remaining))
+        circle_outline(rv(pos), (w.radius - 1.5) as f32, white(remaining))
         ring(pos, w.radius + 8.0, cyan(remaining * 0.18))
     for i in 0..g.particle_count:
         let p: Particle = g.particles[i]
@@ -498,7 +527,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let heading = if speed > 1.0: scale(p.vel, 1.0 / speed) else: V2 { x: cos(p.rotation), y: sin(p.rotation) }
         let tail = sub(pos, scale(heading, 3.0 + speed * 0.055))
         let color = paint(p.tint, remaining)
-        line(pos, tail, p.size + 2.6, Fade(color, remaining * 0.18))
+        line(pos, tail, p.size + 2.6, paint_alpha(color, remaining * 0.18))
         line(pos, tail, p.size, color)
         if remaining > 0.7: line(pos, sub(pos, scale(heading, 2.0 + speed * 0.012)), p.size * 0.7, white((remaining - 0.7) * 2.5))
     // Cores: white-hot diamonds in a cyan glow, so they stand out from the
@@ -539,11 +568,11 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let at = add(pos, V2 { y: bob })
         // Each pickup has its own glyph, larger and brighter than any core.
         let pulse = 0.8 + 0.2 * sin(clock * 5.0 + p.pos.x)
-        ring(at, 22.0 + 2.0 * sin(clock * 3.0), Fade(color, 0.22))
+        ring(at, 22.0 + 2.0 * sin(clock * 3.0), paint_alpha(color, 0.22))
         circle(at, 18.0, ink(0.6))
         match p.kind:
             .Cache => {
-                DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 7.0, Fade(color, 0.2))
+                DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 7.0, paint_alpha(color, 0.2))
                 DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 2.6, color)
                 DrawPolyLinesEx(rv(at), 4, 9.0, (clock * 120.0) as f32, 1.6, white(1.0))
                 for k in 0..4:
@@ -576,11 +605,11 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             .Repair => {
                 glow_line(add(at, V2 { x: -13.0 }), add(at, V2 { x: 13.0 }), color)
                 glow_line(add(at, V2 { y: -13.0 }), add(at, V2 { y: 13.0 }), color)
-                ring(at, 16.0, Fade(color, 0.6))
+                ring(at, 16.0, paint_alpha(color, 0.6))
             }
             .Credits => {
                 ring(at, 11.0, color)
-                ring(at, 7.0, Fade(color, 0.7))
+                ring(at, 7.0, paint_alpha(color, 0.7))
                 circle(at, 3.0, white(pulse))
             }
             .Bundle => {
@@ -589,7 +618,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
                     DrawPolyLinesEx(rv(add(at, off)), 4, 9.0, 45.0, 2.0, color)
                 circle(at, 3.0, white(pulse))
             }
-        centered_at(p.kind.name(), at.x as i32, (at.y - 40.0) as i32, 12, Fade(color, 0.9))
+        centered_at(p.kind.name(), at.x as i32, (at.y - 40.0) as i32, 12, paint_alpha(color, 0.9))
     // Mines.
     for i in 0..g.mine_count:
         let m: Mine = g.mines[i]
@@ -662,14 +691,14 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         draw_enemy(e.kind, pos, radius, clock, e.speed, toward, color, 0.85)
         if e.elite:
             // Elites carry a slow outer ring and a brighter core.
-            DrawPolyLinesEx(rv(pos), 8, (radius + 9.0) as f32, (clock * -30.0) as f32, 1.4, Fade(color, 0.6))
+            DrawPolyLinesEx(rv(pos), 8, (radius + 9.0) as f32, (clock * -30.0) as f32, 1.4, paint_alpha(color, 0.6))
             circle(pos, 3.0, white(1.0))
         if e.age < 0.25:
-            DrawCircleLinesV(rv(pos), (30.0 - growth * 12.0) as f32, Fade(color, (1.0 - growth) * 0.7))
+            circle_outline(rv(pos), (30.0 - growth * 12.0) as f32, paint_alpha(color, (1.0 - growth) * 0.7))
         // Spinners and bosses telegraph their charge with a line to the ship.
         if e.kind == .Boss and e.state == 1:
             let reach = if e.kind == .Boss: 500.0 else: 220.0
-            line(pos, add(pos, scale(toward, reach)), 1.2, Fade(color, 0.25 + 0.2 * sin(clock * 40.0)))
+            line(pos, add(pos, scale(toward, reach)), 1.2, paint_alpha(color, 0.25 + 0.2 * sin(clock * 40.0)))
     for i in 0..g.bullet_count:
         let b: Bullet = g.bullets[i]
         if not g.on_screen(b.pos, 40.0): continue
@@ -686,13 +715,13 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         match b.weapon.family():
             .Bouncing => {
                 let spin = (clock * 400.0 + b.pos.x) as f32
-                line(sub(pos, scale(heading, 22.0)), pos, 5.0, Fade(color, 0.18))
-                DrawPolyLinesEx(rv(pos), 3, 10.0, spin, 6.0, Fade(color, 0.18))
+                line(sub(pos, scale(heading, 22.0)), pos, 5.0, paint_alpha(color, 0.18))
+                DrawPolyLinesEx(rv(pos), 3, 10.0, spin, 6.0, paint_alpha(color, 0.18))
                 DrawPolyLinesEx(rv(pos), 3, 10.0, spin, 2.2, color)
                 circle(pos, 2.2, white(1.0))
             }
             .Homing => {
-                line(sub(pos, scale(heading, 28.0)), pos, 6.0, Fade(color, 0.2))
+                line(sub(pos, scale(heading, 28.0)), pos, 6.0, paint_alpha(color, 0.2))
                 line(sub(pos, scale(heading, 28.0)), pos, 2.0, color)
                 line(sub(pos, scale(heading, 10.0)), pos, 2.0, white(1.0))
                 circle(pos, 3.2, white(1.0))
@@ -704,8 +733,8 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
                     let shift = scale(side, (lane as f64 - (lanes as f64 - 1.0) / 2.0) * 4.4)
                     let head = add(pos, shift)
                     let tail = sub(head, scale(heading, 26.0))
-                    line(tail, head, 5.0, Fade(color, 0.14))
-                    line(tail, head, 1.6, Fade(color, 0.9))
+                    line(tail, head, 5.0, paint_alpha(color, 0.14))
+                    line(tail, head, 1.6, paint_alpha(color, 0.9))
                     line(sub(head, scale(heading, 9.0)), head, 1.8, white(1.0))
                 circle(pos, 2.2, white(1.0))
             }
@@ -797,12 +826,12 @@ fn edge_indicator(g: &Game, cam: Camera, target: V2, color: Color, size: f64, cl
     let tip = add(at, scale(heading, grow))
     let l = add(sub(at, scale(heading, grow * 0.6)), scale(side, grow * 0.8))
     let r = sub(sub(at, scale(heading, grow * 0.6)), scale(side, grow * 0.8))
-    circle(at, grow * 1.1, Fade(color, (0.10 + 0.12 * beat) as f32))
-    DrawTriangle(rv(tip), rv(l), rv(r), Fade(color, (0.35 + 0.35 * beat) as f32))
-    DrawTriangle(rv(tip), rv(r), rv(l), Fade(color, (0.35 + 0.35 * beat) as f32))
-    glow_line(l, tip, Fade(color, (0.7 + 0.3 * beat) as f32))
-    glow_line(tip, r, Fade(color, (0.7 + 0.3 * beat) as f32))
-    glow_line(l, r, Fade(color, (0.5 + 0.3 * beat) as f32))
+    circle(at, grow * 1.1, paint_alpha(color, (0.10 + 0.12 * beat) as f32))
+    DrawTriangle(rv(tip), rv(l), rv(r), paint_alpha(color, (0.35 + 0.35 * beat) as f32))
+    DrawTriangle(rv(tip), rv(r), rv(l), paint_alpha(color, (0.35 + 0.35 * beat) as f32))
+    glow_line(l, tip, paint_alpha(color, (0.7 + 0.3 * beat) as f32))
+    glow_line(tip, r, paint_alpha(color, (0.7 + 0.3 * beat) as f32))
+    glow_line(l, r, paint_alpha(color, (0.5 + 0.3 * beat) as f32))
 
 fn pickup_color(kind: PickupKind) -> Color:
     match kind:
@@ -833,9 +862,9 @@ fn render_indicators(g: &Game, cam: Camera, clock: f64):
 // middle of a view taller than 800; the top band stays at the top.
 fn hud_centered(g: &Game, text: str, y: i32, size: i32, color: Color):
     let lift = if y >= 150: (g.screen_h as i32 - HEIGHT) / 2 else: 0
-    centered_at(text, g.screen_w as i32 / 2, y + lift, size, color)
+    centered_at(text, g.screen_w as i32 / 2, y + lift, text_size(size), color)
 
-pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true }
+pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true, device: Device = .Keyboard }
 impl Copy for Hud
 
 fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
@@ -854,7 +883,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     let bar_color = if health_fraction > 0.5: lime(0.95) else if health_fraction > 0.25: gold(0.95) else: red(1.0)
     DrawRectangle(22, 50, 96, 8, ink(0.8))
     DrawRectangle(22, 50, (96.0 * health_fraction) as i32, 8, bar_color)
-    DrawRectangleLines(22, 50, 96, 8, white(0.25))
+    stroke_box(22, 50, 96, 8, white(0.25))
     label(f"{g.health}/{g.max_health}", 124, 49, 10, bar_color)
     if g.combo > 1:
         // The combo, its credit multiplier, the drain of its window, and the
@@ -863,10 +892,10 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         let color = if tier >= 3: gold(1.0) else if tier >= 1: lime(1.0) else: cyan(1.0)
         neon(f"x{g.combo}", 180, 14, 28, color)
         let pay = COMBO_PAY[tier]
-        label(f"CREDITS x{pay / 10}.{pay % 10}", 180 + MeasureText(f"x{g.combo}", 28) + 12, 16, 12, color)
+        label(f"CREDITS x{pay / 10}.{pay % 10}", 180 + text_width(f"x{g.combo}", 28) + 12, 16, 12, color)
         if tier < 4:
             let next = COMBO_TIERS[tier + 1]
-            label(f"x{next} NEXT", 180 + MeasureText(f"x{g.combo}", 28) + 12, 32, 10, white(0.5))
+            label(f"x{next} NEXT", 180 + text_width(f"x{g.combo}", 28) + 12, 40, 10, white(0.5))
         let fade = limit(g.combo_timer / g.rules.combo_window, 0.0, 1.0)
         DrawRectangle(180, 46, (90.0 * fade) as i32, 4, color)
     // Timer with the best-time marker.
@@ -885,15 +914,15 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         label(f"BEST {stamp(hud.best_time)}", x0 + track_w + 8, 46, 10, gold(0.7))
     else if g.best_crossed:
         hud_centered(g, f"BEST {stamp(g.launch.best_time)}", 52, 10, gold(0.6))
-    neon_right(f"{commas(g.credits)}", 1254, 16, 28, gold(1.0))
-    label("CREDITS", 1254 - MeasureText("CREDITS", 10), 48, 10, gold(0.6))
+    neon_right(f"{commas(g.credits)}", sw - 26, 16, 28, gold(1.0))
+    label("CREDITS", sw - 26 - text_width("CREDITS", 10), 48, 10, gold(0.6))
     // Boss bar.
     if let Some((hp, max_hp)) = g.boss_health():
         let w = 500
         let x0 = (sw - w) / 2
         DrawRectangle(x0, 66, w, 8, ink(0.8))
         DrawRectangle(x0, 66, (w as f64 * limit(hp as f64 / max_hp as f64, 0.0, 1.0)) as i32, 8, red(0.95))
-        DrawRectangleLines(x0, 66, w, 8, red(0.5))
+        stroke_box(x0, 66, w, 8, red(0.5))
         if let Some(name) = g.boss_name(): hud_centered(g, name, 78, 10, red(0.8))
     // Bottom: weapon and passive icons with level pips.
     DrawRectangle(0, sh - 52, sw, 52, ink(0.75))
@@ -902,7 +931,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         let s: WeaponSlot = g.build.weapons[slot]
         let pos = V2 { x, y: g.screen_h - 30.0 }
         if slot < g.build.weapon_slots:
-            DrawRectangleLines((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: white(0.3) else: white(0.08))
+            stroke_box((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: white(0.3) else: white(0.08))
         if s.level > 0:
             draw_weapon_icon(s.weapon, pos, 10.0, clock, 1.0)
             for pip in 0..MAX_WEAPON_LEVEL:
@@ -913,7 +942,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     for slot in 0..PASSIVE_SLOTS:
         let s: PassiveSlot = g.build.passives[slot]
         let pos = V2 { x, y: g.screen_h - 30.0 }
-        DrawRectangleLines((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
+        stroke_box((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
         if s.level > 0:
             draw_passive_icon(s.passive, pos, 9.0, 1.0)
             for pip in 0..MAX_PASSIVE_LEVEL:
@@ -922,10 +951,10 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         x -= 46.0
     // Center bottom: counts of reroll, skip, banish, reboot, and kills.
     let counts = f"KILLS {commas(g.kills)}     REROLL {g.rerolls}   SKIP {g.skips}   BANISH {g.banishes}   REBOOT {g.reboots}"
-    label(counts, (sw - MeasureText(counts, 10)) / 2, sh - 32, 10, white(0.5))
+    label(counts, (sw - text_width(counts, 10)) / 2, sh - 72, 16, white(0.5))
     if hud.show_hints and g.elapsed < 8.0:
-        let hint = "MOVE  WASD / LEFT STICK     AIM  MOUSE / RIGHT STICK     AUTO-FIRE     ESC  PAUSE, ESC AGAIN FOR TITLE"
-        label(hint, (sw - MeasureText(hint, 10)) / 2, sh - 16, 10, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
+        let hint = f"MOVE  {prompt(hud.device, .Move)}     AIM  {prompt(hud.device, .Aim)}     AUTO-FIRE     [{prompt(hud.device, .Pause)}] PAUSE"
+        label(hint, (sw - text_width(hint, 10)) / 2, sh - 94, 16, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
     // Banner.
     if g.banner.life > 0.0:
         let remaining = limit(g.banner.life / g.banner.total, 0.0, 1.0)
@@ -989,7 +1018,7 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
                 let t1 = t0 + 0.19
                 let a = add(pos, add(scale(face, cos(t0) * radius * 1.15), scale(side, sin(t0) * radius * 1.15)))
                 let b = add(pos, add(scale(face, cos(t1) * radius * 1.15), scale(side, sin(t1) * radius * 1.15)))
-                line(a, b, 10.0, Fade(color, 0.2))
+                line(a, b, 10.0, paint_alpha(color, 0.2))
                 glow_line(a, b, color)
             DrawPolyLinesEx(rv(pos), 8, (radius * 0.8) as f32, (clock * 15.0) as f32, 3.0, color)
             let _ = front
@@ -1010,8 +1039,8 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
             glow_line(r, pos, color)
             if e.state == 1:
                 let reach = 900.0
-                line(pos, add(pos, scale(face, reach)), 18.0, Fade(color, 0.08 + 0.08 * sin(clock * 30.0)))
-                line(pos, add(pos, scale(face, reach)), 1.5, Fade(color, 0.5 + 0.3 * sin(clock * 30.0)))
+                line(pos, add(pos, scale(face, reach)), 18.0, paint_alpha(color, 0.08 + 0.08 * sin(clock * 30.0)))
+                line(pos, add(pos, scale(face, reach)), 1.5, paint_alpha(color, 0.5 + 0.3 * sin(clock * 30.0)))
             if e.state == 3:
                 let beat = 0.5 + 0.5 * sin(clock * 14.0)
                 ring(pos, radius * 1.2 + beat * 6.0, white(0.6))
@@ -1022,10 +1051,10 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
             // Hive: a honeycomb core. Shielded while drones live.
             let shielded = drone_count(g) > 0
             for k in 0..3:
-                DrawPolyLinesEx(rv(pos), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.4, Fade(color, 1.0 - k as f64 * 0.25))
+                DrawPolyLinesEx(rv(pos), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.4, paint_alpha(color, 1.0 - k as f64 * 0.25))
             if shielded:
-                ring(pos, radius * 1.35, Fade(color, 0.35 + 0.15 * sin(clock * 6.0)))
-                ring(pos, radius * 1.4, Fade(color, 0.15))
+                ring(pos, radius * 1.35, paint_alpha(color, 0.35 + 0.15 * sin(clock * 6.0)))
+                ring(pos, radius * 1.4, paint_alpha(color, 0.15))
             else:
                 let beat = 0.5 + 0.5 * sin(clock * 10.0)
                 circle(pos, radius * 0.35, white(0.6 + 0.4 * beat))
@@ -1054,7 +1083,7 @@ pub fn draw_boss_icon(index: i32, center: V2, radius: f64, clock: f64):
         }
         _ => {
             for k in 0..3:
-                DrawPolyLinesEx(rv(center), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.0, Fade(color, 1.0 - k as f64 * 0.25))
+                DrawPolyLinesEx(rv(center), 6, (radius * (1.0 - k as f64 * 0.25)) as f32, (clock * (10.0 + k as f64 * 12.0)) as f32, 2.0, paint_alpha(color, 1.0 - k as f64 * 0.25))
             for k in 0..4:
                 let a = clock + k as f64 * 1.5708
                 DrawPolyLinesEx(rv(add(center, V2 { x: cos(a) * radius * 1.4, y: sin(a) * radius * 1.4 })), 4, 5.0, 0.0, 1.5, violet(1.0))
@@ -1114,7 +1143,7 @@ pub fn boost_card_rect(i: i32, count: i32) -> (i32, i32, i32, i32):
     let gap = 22
     let total = count * card_w + (count - 1) * gap
     let x0 = (WIDTH - total) / 2
-    (x0 + i * (card_w + gap), 160, card_w, 470)
+    (x0 + i * (card_w + gap), 160, card_w, 500)
 
 fn fmt1(x: f64) -> str:
     let tenths = (x * 10.0 + 0.5) as i32
@@ -1231,7 +1260,7 @@ pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 20]) -> str:
             }
     ""
 
-fn render_boost(g: &Game, cursor: i32, clock: f64):
+fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
     // The world dims; the build strip along the bottom stays lit so every
     // card can be weighed against what the ship already carries.
     let sw = g.screen_w as i32
@@ -1274,13 +1303,13 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
         let selected = i == cursor
         let accent = if o.pick.is_merge(): gold(1.0) else if selected: white(1.0) else: cyan(0.6)
         DrawRectangle(x, y, card_w, card_h, ink(if selected: 0.97 else: 0.92))
-        DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: card_w as f32, height: card_h as f32 }, if selected: 3.0 else: 1.0, Fade(accent, if selected: 1.0 else: 0.5))
-        if selected: DrawRectangleLinesEx(Rectangle { x: (x - 6) as f32, y: (y - 6) as f32, width: (card_w + 12) as f32, height: (card_h + 12) as f32 }, 1.0, Fade(accent, 0.3 + 0.2 * sin(clock * 6.0)))
+        DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: card_w as f32, height: card_h as f32 }, if selected: 3.0 else: 1.0, paint_alpha(accent, if selected: 1.0 else: 0.5))
+        if selected: DrawRectangleLinesEx(Rectangle { x: (x - 6) as f32, y: (y - 6) as f32, width: (card_w + 12) as f32, height: (card_h + 12) as f32 }, 1.0, paint_alpha(accent, 0.3 + 0.2 * sin(clock * 6.0)))
         let cx = x + card_w / 2
         if o.pick.is_merge(): centered_at("MERGE", cx, y + 12, 14, gold(1.0))
         else if o.unseen: centered_at("UNSEEN", cx, y + 12, 12, magenta(0.9))
         draw_pick_icon(o.pick, V2 { x: cx as f64, y: (y + 58) as f64 }, 24.0, clock, 1.0)
-        centered_at(o.pick.title(), cx, y + 92, 22, white(1.0))
+        let title_end = wrapped_label(o.pick.title(), x + 12, y + 92, card_w - 24, 22, white(1.0), true)
         let sub_text = match o.pick:
             .NewWeapon(_) => "NEW WEAPON"
             .NewPassive(_) => "NEW PASSIVE"
@@ -1291,24 +1320,16 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
                     Some(s) => f"{r.first.name()} + {s.name()}"
                     None => f"{r.first.name()} + {r.key.name()}"
                 None => ""
-        centered_at(sub_text, cx, y + 120, 14, if o.pick.is_merge(): gold(0.9) else: cyan(0.9))
+        let subtitle_end = wrapped_label(sub_text, x + 12, title_end, card_w - 24, 20, if o.pick.is_merge(): gold(0.9) else: cyan(0.9), true)
         let detail = match o.pick:
+            .NewWeapon(.Arc) => "Lightning strikes through enemies. More bolts and chains at higher levels."
+            .UpgradeWeapon(.Arc) => "Lightning strikes through enemies. More bolts and chains at higher levels."
             .NewWeapon(w) => w.describe()
             .UpgradeWeapon(w) => w.describe()
             .Merge(w) => w.describe()
             .NewPassive(p) => p.describe()
             .UpgradePassive(p) => p.describe()
-        // Wrap the description at the card width.
-        var line_text = ""
-        var line_y = y + 144
-        for word in detail.split(" "):
-            let trial = if line_text.len() == 0: word.clone() else: line_text ++ " " ++ word
-            if MeasureText(trial, 12) > card_w - 24 and line_text.len() > 0:
-                centered_at(line_text, cx, line_y, 12, white(0.7))
-                line_y += 15
-                line_text = word.clone()
-            else: line_text = trial
-        if line_text.len() > 0: centered_at(line_text, cx, line_y, 12, white(0.7))
+        let description_end = wrapped_label(detail, x + 12, subtitle_end + 4, card_w - 24, 20, white(0.7), true)
         // The numbers: now, and after this pick.
         var rows: Vec[StatRow] = Vec.new()
         match o.pick:
@@ -1328,22 +1349,22 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
                 let level = g.build.passive_level(p)
                 rows.push(StatRow { name: p.name(), before: passive_total(p, level), after: passive_total(p, level + 1) })
             }
-        var row_y = y + 200
+        var row_y = if description_end + 10 > y + 220: description_end + 10 else: y + 220
         DrawRectangle(x + 14, row_y - 6, card_w - 28, 1, white(0.15))
-        label("NOW", x + card_w - 126, row_y, 12, white(0.45))
-        label("AFTER", x + card_w - 66, row_y, 12, white(0.45))
-        row_y += 22
+        neon_right("NOW", x + card_w - 92, row_y, 20, white(0.45))
+        neon_right("AFTER", x + card_w - 12, row_y, 20, white(0.45))
+        row_y += 26
         for r in rows:
             let changed = r.before != r.after
-            label(r.name.clone(), x + 16, row_y, 17, white(0.8))
-            label(r.before.clone(), x + card_w - 126, row_y, 17, white(0.5))
-            neon(r.after.clone(), x + card_w - 66, row_y, 17, if changed: lime(1.0) else: white(0.8))
+            label(if rows.len() == 1: "TOTAL" else: r.name.clone(), x + 16, row_y, 20, white(0.8))
+            neon_right(r.before.clone(), x + card_w - 92, row_y, 20, white(0.5))
+            neon_right(r.after.clone(), x + card_w - 12, row_y, 20, if changed: lime(1.0) else: white(0.8))
             row_y += 26
         // No merge hints: recipes are the player's to find, and are listed
         // in the collection once found.
-        centered_at(f"{i + 1}", cx, y + card_h - 18, 12, white(0.4))
-    let controls = f"[A / SPACE] TAKE     [X / R] REROLL x{g.rerolls}     [Y / K] SKIP x{g.skips}     [LB / N] BANISH x{g.banishes}"
-    label(controls, (WIDTH - MeasureText(controls, 14)) / 2, 660, 14, white(0.7))
+        if device == .Keyboard: label(f"{i + 1}", x + 12, y + 12, 20, white(0.4))
+    let controls = f"[{prompt(device, .Confirm)}] TAKE     [{prompt(device, .Reroll)}] REROLL x{g.rerolls}     [{prompt(device, .Skip)}] SKIP x{g.skips}     [{prompt(device, .Banish)}] BANISH x{g.banishes}"
+    label(controls, (WIDTH - text_width(controls, 20)) / 2, 686, 20, white(0.7))
     end_frame()
 
 // ----- debug ------------------------------------------------------------------------
@@ -1351,28 +1372,26 @@ fn render_boost(g: &Game, cursor: i32, clock: f64):
 pub type DebugInfo { frame_ms: f64 = 16.67, save_path: str = "", metrics: Vec[str] }
 
 fn render_debug(g: &Game, info: &DebugInfo, cam: Camera):
-    let h = 330 + info.metrics.len() as i32 * 18
-    DrawRectangle(40, 96, 340, h, ink(0.94))
+    let h = 350 + info.metrics.len() as i32 * 26
+    DrawRectangle(40, 96, 920, h, ink(0.94))
     DrawRectangle(40, 96, 3, h, cyan(0.85))
-    label("PERFORMANCE / F1", 55, 110, 14, cyan(1.0))
-    label(f"FPS             {GetFPS()}", 55, 139, 14, white(1.0))
+    label("PERFORMANCE", 55, 110, 20, cyan(1.0))
+    label(f"FPS             {GetFPS()}", 55, 140, 20, white(1.0))
     let tenths = (info.frame_ms * 10.0) as i32
-    label(f"FRAME           {tenths / 10}.{tenths % 10} ms", 55, 160, 14, white(0.8))
-    label(f"ENEMIES         {g.enemy_count}", 55, 181, 14, magenta(1.0))
-    label(f"BULLETS         {g.bullet_count}", 55, 202, 14, white(0.8))
-    label(f"PARTICLES       {g.particle_count}", 55, 223, 14, white(0.8))
-    label(f"CORES           {g.core_count}", 55, 244, 14, cyan(0.8))
+    label(f"FRAME           {tenths / 10}.{tenths % 10} ms", 55, 166, 20, white(0.8))
+    label(f"ENEMIES         {g.enemy_count}", 55, 192, 20, magenta(1.0))
+    label(f"BULLETS         {g.bullet_count}", 55, 218, 20, white(0.8))
+    label(f"PARTICLES       {g.particle_count}", 55, 244, 20, white(0.8))
+    label(f"CORES           {g.core_count}", 55, 270, 20, cyan(0.8))
     let active = g.enemy_count + g.bullet_count + g.particle_count + g.pulse_count + g.core_count + 1
-    label(f"TOTAL           {active}", 55, 265, 14, cyan(1.0))
+    label(f"TOTAL           {active}", 55, 296, 20, cyan(1.0))
     let minute_tenths = (g.table_minute() * 10.0) as i32
     let rate_tenths = (g.rules.spawn_rate(g.table_minute()) * 10.0) as i32
-    label(f"MINUTE {minute_tenths / 10}.{minute_tenths % 10}   SPAWN {rate_tenths / 10}.{rate_tenths % 10}/s   RUN {stamp(g.elapsed)}", 55, 292, 12, white(0.55))
-    label(f"CAMERA {cam.origin.x as i32},{cam.origin.y as i32}   ARENA {g.rules.arena_width as i32}x{g.rules.arena_height as i32}", 55, 310, 12, white(0.55))
-    label(f"SAVE {info.save_path}", 55, 328, 10, white(0.45))
-    var y = 350
+    label(f"MINUTE {minute_tenths / 10}.{minute_tenths % 10}   SPAWN {rate_tenths / 10}.{rate_tenths % 10}/s   RUN {stamp(g.elapsed)}", 55, 330, 20, white(0.55))
+    label(f"CAMERA {cam.origin.x as i32},{cam.origin.y as i32}   ARENA {g.rules.arena_width as i32}x{g.rules.arena_height as i32}", 55, 356, 20, white(0.55))
+    var y = wrapped_label(f"SAVE {info.save_path}", 55, 382, 890, 20, white(0.45)) + 6
     for m in info.metrics:
-        label(m.clone(), 55, y, 12, lime(0.8))
-        y += 18
+        y = wrapped_label(m.clone(), 55, y, 890, 20, lime(0.8))
 
 // ----- renderer ----------------------------------------------------------------------
 
@@ -1386,8 +1405,8 @@ pub type Renderer {
     ship_location: i32, camera_location: i32, visible_location: i32, stage_location: i32, count_location: i32, impulse_locations: Vec[i32],
     bullet_count_location: i32, bullet_locations: Vec[i32],
     threshold_location: i32, direction_location: i32, bloom_location: i32, wide_location: i32,
-    view_location: i32,
-    // The scene's size (the view), and the bloom tiers at a quarter and an eighth of it.
+    view_location: i32, render_scale_location: i32,
+    // Logical view units; surfaces separately follow the physical output.
     view_w: i32, view_h: i32,
 }
 fn surface(width: i32, height: i32) -> RenderTexture2D:
@@ -1408,7 +1427,7 @@ pub fn Renderer.open(view_w: i32 = WIDTH, view_h: i32 = HEIGHT) -> Renderer:
     Renderer {
         scene: surface(view_w, view_h), bloom_a: surface(view_w / 4, view_h / 4), bloom_b: surface(view_w / 4, view_h / 4),
         wide_a: surface(view_w / 8, view_h / 8), wide_b: surface(view_w / 8, view_h / 8),
-        view_location: grid.location("view"), view_w, view_h,
+        view_location: grid.location("view"), render_scale_location: grid.location("renderScale"), view_w, view_h,
         ship_location: grid.location("ship"), camera_location: grid.location("camera"),
         visible_location: grid.location("shipVisible"), stage_location: grid.location("stage"), count_location: grid.location("impulseCount"),
         bullet_count_location: grid.location("bulletCount"), bullet_locations: bullets,
@@ -1459,24 +1478,57 @@ extend Renderer:
         let uniforms = [
             self.ship_location, self.camera_location, self.visible_location, self.stage_location, self.count_location, self.bullet_count_location,
             self.threshold_location, self.direction_location, self.bloom_location,
-            self.wide_location, self.view_location, self.impulse_locations[0], self.bullet_locations[0],
+            self.wide_location, self.view_location, self.render_scale_location, self.impulse_locations[0], self.bullet_locations[0],
         ]
         for location in uniforms:
             if location < 0: return false
         true
 
+    // Reallocate only when the physical framebuffer changes. The view and
+    // all simulation/replay coordinates stay fixed. Allocate before replacing
+    // anything so a GPU allocation failure leaves the old renderer intact.
+    pub fn resize_output(mut self: Self, width: i32, height: i32) -> bool:
+        if width <= 0 or height <= 0: return true
+        let f = fit(width, height, self.view_w, self.view_h)
+        let rw = (self.view_w as f64 * f.scale + 0.5) as i32
+        let rh = (self.view_h as f64 * f.scale + 0.5) as i32
+        if rw < 8 or rh < 8: return true
+        if rw == self.scene.texture.width and rh == self.scene.texture.height: return true
+        let scene = surface(rw, rh)
+        let bloom_a = surface(rw / 4, rh / 4)
+        let bloom_b = surface(rw / 4, rh / 4)
+        let wide_a = surface(rw / 8, rh / 8)
+        let wide_b = surface(rw / 8, rh / 8)
+        var ready = true
+        for target in [scene, bloom_a, bloom_b, wide_a, wide_b]:
+            if not IsRenderTextureValid(target): ready = false
+        if not ready:
+            for target in [scene, bloom_a, bloom_b, wide_a, wide_b]: UnloadRenderTexture(target)
+            return false
+        for target in [self.scene, self.bloom_a, self.bloom_b, self.wide_a, self.wide_b]: UnloadRenderTexture(target)
+        self.scene = scene
+        self.bloom_a = bloom_a
+        self.bloom_b = bloom_b
+        self.wide_a = wide_a
+        self.wide_b = wide_b
+        true
+
     // One horizontal and one vertical blur pass between two equal surfaces.
     fn blur_pair(self: &Self, a: RenderTexture2D, b: RenderTexture2D, width: f64, height: f64):
+        // Glow has a constant radius in view units too; a denser output
+        // improves its sampling without shrinking the halo around a ship.
+        let sx = self.scene.texture.width as f64 / self.view_w as f64
+        let sy = self.scene.texture.height as f64 / self.view_h as f64
         BeginTextureMode(b)
         ClearBackground(BLACK)
-        self.blur.vector2(self.direction_location, (1.0 / width) as f32, 0.0)
+        self.blur.vector2(self.direction_location, (sx / width) as f32, 0.0)
         self.blur.begin()
         blit(a.texture, width, height)
         EndShaderMode()
         EndTextureMode()
         BeginTextureMode(a)
         ClearBackground(BLACK)
-        self.blur.vector2(self.direction_location, 0.0, (1.0 / height) as f32)
+        self.blur.vector2(self.direction_location, 0.0, (sy / height) as f32)
         self.blur.begin()
         blit(b.texture, width, height)
         EndShaderMode()
@@ -1493,6 +1545,7 @@ extend Renderer:
         let ship = zoomed(to_screen(cam, g.player))
         self.grid.vector2(self.stage_location, g.rules.void_radius as f32, zoom as f32)
         self.grid.vector2(self.view_location, self.view_w as f32, self.view_h as f32)
+        self.grid.vector2(self.render_scale_location, self.scene.texture.width as f32 / self.view_w as f32, self.scene.texture.height as f32 / self.view_h as f32)
         self.grid.vector4(self.ship_location, ship.x as f32, ship.y as f32, clock as f32, g.trauma as f32)
         self.grid.vector4(self.camera_location, cam.origin.x as f32, cam.origin.y as f32, g.rules.arena_width as f32, g.rules.arena_height as f32)
         self.grid.scalar(self.visible_location, if g.health > 0: 1.0 else: 0.0)
@@ -1513,6 +1566,12 @@ extend Renderer:
             shots += 1
         self.grid.scalar(self.bullet_count_location, shots as f32)
         BeginTextureMode(self.scene)
+        // One view-space projection for the world and UI. BeginMode2D only
+        // changes modelview, so nested menu/world cameras preserve this scale.
+        rlMatrixMode(RL_PROJECTION)
+        rlLoadIdentity()
+        rlOrtho(0.0, self.view_w as f64, self.view_h as f64, 0.0, 0.0, 1.0)
+        rlMatrixMode(RL_MODELVIEW)
         ClearBackground(ink(1.0))
         self.grid.begin()
         DrawRectangle(0, 0, self.view_w, self.view_h, WHITE)
@@ -1528,15 +1587,15 @@ extend Renderer:
     pub fn draw_run(self: &Self, g: &Game, cam: Camera, hud: Hud, cursor: i32, clock: f64, debug: Option[&DebugInfo]):
         render_indicators(g, cam, clock)
         render_hud(g, hud, clock)
-        if g.phase == .Boost: render_boost(g, cursor, clock)
+        if g.phase == .Boost: render_boost(g, cursor, clock, hud.device)
         if let Some(info) = debug: render_debug(g, info, cam)
 
     // Bloom and composite the scene to the window. Returns CPU submit ms.
     pub fn present(self: &Self) -> f64:
         let started = GetTime()
         EndTextureMode()
-        let (bw, bh) = ((self.view_w / 4) as f64, (self.view_h / 4) as f64)
-        let (ww, wh) = ((self.view_w / 8) as f64, (self.view_h / 8) as f64)
+        let (bw, bh) = (self.bloom_a.texture.width as f64, self.bloom_a.texture.height as f64)
+        let (ww, wh) = (self.wide_a.texture.width as f64, self.wide_a.texture.height as f64)
         BeginTextureMode(self.bloom_a)
         ClearBackground(BLACK)
         self.bright.scalar(self.threshold_location, 0.36)
@@ -1558,7 +1617,7 @@ extend Renderer:
         self.composite.texture(self.wide_location, self.wide_a.texture)
         let f = fit(GetScreenWidth(), GetScreenHeight(), self.view_w, self.view_h)
         DrawTexturePro(self.scene.texture,
-            Rectangle { x: 0.0, y: 0.0, width: self.view_w as f32, height: -self.view_h as f32 },
+            Rectangle { x: 0.0, y: 0.0, width: self.scene.texture.width as f32, height: -self.scene.texture.height as f32 },
             Rectangle { x: f.x as f32, y: f.y as f32, width: (self.view_w as f64 * f.scale) as f32, height: (self.view_h as f64 * f.scale) as f32 },
             Vector2 { x: 0.0, y: 0.0 }, 0.0, WHITE)
         EndShaderMode()

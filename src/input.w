@@ -2,6 +2,56 @@ use c_import("raylib.h")
 use game
 use gamepads
 
+// Prompts are selected once from the last meaningful input, across every
+// screen. MENU is the Deck/Steam virtual pad label and is clear on other pads.
+pub enum Device { | Keyboard | Pad }
+impl Copy for Device
+impl Eq for Device
+pub enum Action { | Confirm | Back | Shop | Collection | Pause | Resume | Quit | Toggle | Tabs | Next | Reroll | Skip | Banish | Move | Aim }
+impl Copy for Action
+pub fn prompt(device: Device, action: Action) -> str:
+    if device == .Pad:
+        match action:
+            .Confirm => "A"
+            .Back => "B"
+            .Shop => "X"
+            .Collection => "Y"
+            .Pause => "MENU"
+            .Resume => "B / MENU"
+            .Quit => "HOLD B"
+            .Toggle => "D-PAD UP / DOWN"
+            .Tabs => "LB / RB"
+            .Next => "RB"
+            .Reroll => "X"
+            .Skip => "Y"
+            .Banish => "LB"
+            .Move => "LEFT STICK"
+            .Aim => "RIGHT STICK"
+    else:
+        match action:
+            .Confirm => "SPACE"
+            .Back => "ESC"
+            .Shop => "X"
+            .Collection => "C"
+            .Pause => "ESC"
+            .Resume => "SPACE ON RESUME"
+            .Quit => "ESC / Q"
+            .Toggle => "UP / DOWN"
+            .Tabs => "Q / E"
+            .Next => "TAB"
+            .Reroll => "R"
+            .Skip => "K"
+            .Banish => "N"
+            .Move => "WASD"
+            .Aim => "MOUSE"
+
+// Drift cannot change prompts. A pad wins simultaneous emulated key/mouse
+// events; a genuine later keyboard press or mouse movement takes over.
+pub fn active_device(previous: Device, keyboard: bool, mouse_moved: bool, pad: PadFrame, deadzone: f64) -> Device:
+    if pad.id != 0 and (pad.pressed != 0 or length2(pad.motion) > deadzone * deadzone or length2(pad.aim) > deadzone * deadzone): return .Pad
+    if keyboard or mouse_moved: return .Keyboard
+    previous
+
 // Radial deadzone preserves analog magnitude without diagonal acceleration.
 pub fn stick(x: f64, y: f64, deadzone: f64 = 0.2) -> V2:
     let v = V2 { x, y }
@@ -56,7 +106,7 @@ impl Copy for MenuInput
 // arrow key) counts once.
 pub type MenuState {
     stick_x: i32 = 0, stick_y: i32 = 0, last_mouse: V2 = V2 {},
-    frame: i32 = 0,
+    frame: i32 = 0, device: Device = .Keyboard, mouse_seen: bool = false,
     // Frame of the last press per direction, per source: 0 keys, 1 pad.
     last_up: [i32; 2] = [-100; 2], last_down: [i32; 2] = [-100; 2],
     last_left: [i32; 2] = [-100; 2], last_right: [i32; 2] = [-100; 2],
@@ -75,7 +125,7 @@ pub fn one_press(seen: [i32; 2], key: bool, pad: bool, frame: i32) -> ([i32; 2],
         marks[1] = frame
     (marks, fired)
 extend MenuState:
-    pub fn sample(mut self: Self, pad: PadFrame) -> MenuInput:
+    pub fn sample(mut self: Self, pad: PadFrame, deadzone: f64 = 0.2) -> MenuInput:
         var m = MenuInput {}
         if not IsWindowFocused(): return m
         m.confirm = IsKeyPressed(KEY_SPACE) or IsKeyPressed(KEY_ENTER) or pad.down(BTN_SOUTH)
@@ -121,12 +171,16 @@ extend MenuState:
         if IsKeyPressed(KEY_FOUR): m.digit = 4
         let raw = GetMousePosition()
         m.mouse = V2 { x: raw.x as f64, y: raw.y as f64 }
-        m.mouse_moved = length2(sub(m.mouse, self.last_mouse)) > 1.0
+        let delta = GetMouseDelta()
+        m.mouse_moved = self.mouse_seen and delta.x * delta.x + delta.y * delta.y > 4.0
+        self.mouse_seen = true
         self.last_mouse = m.mouse
         m.click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
         m.escape = IsKeyPressed(KEY_ESCAPE)
         m.q = IsKeyPressed(KEY_Q)
         m.escape_held = IsKeyDown(KEY_ESCAPE)
         m.debug = IsKeyPressed(KEY_F1)
-        m.any = m.confirm or m.back or m.shop or m.collection or m.click or m.start or GetKeyPressed() != 0
+        let key_pressed = GetKeyPressed() != 0
+        m.any = m.confirm or m.back or m.shop or m.collection or m.click or m.start or key_pressed
+        self.device = active_device(self.device, key_pressed or m.click, m.mouse_moved, pad, deadzone)
         m

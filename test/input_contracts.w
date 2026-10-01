@@ -10,6 +10,22 @@ fn main:
     near(axis_unit(-32768), -1.0)
     near(axis_unit(32767), 1.0)
     near(axis_unit(0), 0.0)
+    // Prompt selection responds to both menu buttons and either stick,
+    // ignores drift/disconnection, and changes back for a real mouse/key use.
+    assert(active_device(.Keyboard, false, false, PadFrame { id: 1, pressed: BTN_START }, 0.2) == .Pad)
+    assert(active_device(.Keyboard, false, false, PadFrame { id: 1, motion: V2 { x: 0.7 } }, 0.2) == .Pad)
+    assert(active_device(.Keyboard, false, false, PadFrame { id: 1, aim: V2 { y: -0.8 } }, 0.2) == .Pad)
+    assert(active_device(.Keyboard, false, false, PadFrame { id: 1, motion: V2 { x: 0.1 } }, 0.2) == .Keyboard)
+    assert(active_device(.Pad, false, false, PadFrame {}, 0.2) == .Pad)
+    assert(active_device(.Pad, false, true, PadFrame {}, 0.2) == .Keyboard)
+    assert(active_device(.Pad, true, false, PadFrame {}, 0.2) == .Keyboard)
+    assert(active_device(.Keyboard, true, true, PadFrame { id: 1, pressed: BTN_SOUTH }, 0.2) == .Pad)
+    assert(prompt(.Pad, .Pause) == "MENU")
+    assert(prompt(.Keyboard, .Confirm) == "SPACE")
+    assert(prompt(.Pad, .Confirm) == "A")
+    assert(prompt(.Pad, .Collection) == "Y" and prompt(.Keyboard, .Collection) == "C")
+    assert(prompt(.Pad, .Reroll) == "X" and prompt(.Keyboard, .Reroll) == "R")
+    assert(prompt(.Pad, .Next) == "RB" and prompt(.Keyboard, .Next) == "TAB")
     var input = Input {}
     let sticks = input.resolve(V2 {}, V2 {}, V2 {}, V2 { x: 1.0 }, PadFrame {
         id: 1, motion: V2 { x: 0.6 }, aim: V2 { y: -1.0 },

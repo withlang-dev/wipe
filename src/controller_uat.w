@@ -4,6 +4,7 @@ use std.process.env
 use gamepads
 use input
 use game
+use devices
 
 fn stick_view(center: Vector2, value: V2, tint: Color):
     DrawCircleLinesV(center, 76.0, Color { r: 48, g: 63, b: 92, a: 255 })
@@ -14,10 +15,10 @@ fn stick_view(center: Vector2, value: V2, tint: Color):
 
 fn main -> i32:
     SetTraceLogLevel(LOG_WARNING)
-    SetConfigFlags(FLAG_MSAA_4X_HINT)
+    SetConfigFlags(FLAG_MSAA_4X_HINT as u32)
     InitWindow(720, 420, "WIPE | Native controller acceptance")
     if not IsWindowReady(): return 1
-    defer: CloseWindow()
+    let window_device = WindowDevice {}
     var pads = match Gamepads.open():
         Ok(controllers) => controllers
         Err(message) => { eprint(message); return 1 }

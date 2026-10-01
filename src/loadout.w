@@ -96,7 +96,7 @@ extend Weapon:
 
     pub fn describe(self: &Self) -> str:
         match self:
-            .Cannon => "Aimed bolts. The one weapon the right stick commands."
+            .Cannon => "Aimed bolts. The one weapon you can aim."
             .Orbit => "Blades circle the ship."
             .Nova => "A ring burst around the ship."
             .Seeker => "Homing bolts at the nearest enemy."

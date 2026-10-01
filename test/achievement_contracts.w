@@ -8,6 +8,7 @@ fn main:
     // The IDs are the Steamworks API names: one per entry, never repeated.
     assert(ACHIEVEMENT_IDS.len() as i32 == ACHIEVEMENT_COUNT)
     for i in 0..ACHIEVEMENT_COUNT:
+        assert(achievement_name(i).len() > 0 and achievement_description(i).len() > 0)
         for j in i + 1..ACHIEVEMENT_COUNT:
             assert(ACHIEVEMENT_IDS[i] != ACHIEVEMENT_IDS[j])
     // A first clear earns exactly the clear and the map it opens.

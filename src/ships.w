@@ -139,7 +139,7 @@ extend Ship:
             .Hull => "-15% move speed"
             .Prism => "Weak first minute"
             .Halo => "Cannot take the Cannon"
-            .Needle => "Cannot aim: no Cannon, the right stick does nothing"
+            .Needle => "Cannot aim: no Cannon"
             .Sapper => "Only 3 weapon slots"
             .Phase => "Max health 1. Reboots do not work"
             .Null => "-25% XP gain. Cannot merge"
