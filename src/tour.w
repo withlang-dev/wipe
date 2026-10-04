@@ -157,7 +157,7 @@ fn main:
     capture("out/tour/5-boost.png")
     while wipe.game.phase == .Boost: wipe.game.choose(0)
     // Late run density.
-    wipe.game.elapsed = 900.0
+    wipe.game.jump_to(900.0)
     wipe.game.stress(1500)
     for _ in 0..240:
         wipe.game.clear_events()
@@ -177,7 +177,7 @@ fn main:
     wipe.game.invulnerable = 0.0
     wipe.game.freeze = 0.0
     wipe.game.hurt(Kind.Skimmer, false, 5)
-    wipe.game.elapsed = 1120.0
+    wipe.game.jump_to(1120.0)
     wipe.game.credits = 412
     wipe.finish_run()
     wipe.results.shown = GetTime() - 2.0
