@@ -42,7 +42,7 @@ pub fn run[P: Platform](opened: P) -> i32:
     ClearWindowState(FLAG_WINDOW_HIDDEN as u32)
     // Escape is a game input (pause, back, quit on the title), never an exit key.
     SetExitKey(KEY_NULL)
-    var pads = match Gamepads.open(platform_managed: session.backend.manages_controllers()):
+    var pads = match Gamepads.open():
         Ok(controllers) => controllers
         Err(message) => { eprint(f"WIPE could not initialize controllers: {message}"); return 1 }
     InitAudioDevice()

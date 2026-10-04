@@ -425,26 +425,26 @@ extend Game:
         None
 
     // Begin a run for a ship with the account's ranks and unlocks.
-    pub fn start(mut self: Self, launch: Launch):
-        self.launch = launch
+    pub fn start(mut self: Self, chosen: Launch):
+        self.launch = chosen
         self.reset()
 
     pub fn reset(mut self: Self):
-        let launch: Launch = self.launch
+        let current: Launch = self.launch
         self.phase = .Running
         self.player = self.clamp_to_arena(self.center(), 60.0)
         self.view = self.player
         self.aim = V2 { x: 1.0, y: 0.0 }
         self.build = Build {
-            weapon_slots: launch.ship.weapon_slots(),
-            unlocked_weapons: launch.unlocked_weapons,
-            unlocked_passives: launch.unlocked_passives,
-            forbidden_weapon: launch.ship.forbidden_weapon(),
+            weapon_slots: current.ship.weapon_slots(),
+            unlocked_weapons: current.unlocked_weapons,
+            unlocked_passives: current.unlocked_passives,
+            forbidden_weapon: current.ship.forbidden_weapon(),
         }
-        self.build.add_weapon(launch.ship.base_weapon())
+        self.build.add_weapon(current.ship.base_weapon())
         self.build.weapons[0].seen = true
-        self.level = launch.ship.starting_level()
-        if launch.ship == .Null:
+        self.level = current.ship.starting_level()
+        if current.ship == .Null:
             // The strongest start: three weapons, already at level three.
             self.build.add_weapon(.Orbit)
             self.build.add_weapon(.Seeker)
@@ -462,10 +462,10 @@ extend Game:
         self.combo_timer = 0.0
         self.credits = 0
         self.credit_energy = 0.0
-        self.rerolls = launch.rerolls + launch.ship.extra_rerolls()
-        self.skips = launch.skips
-        self.banishes = launch.banishes
-        self.reboots = if launch.ship.reboots_work(): launch.reboots else: 0
+        self.rerolls = current.rerolls + current.ship.extra_rerolls()
+        self.skips = current.skips
+        self.banishes = current.banishes
+        self.reboots = if current.ship.reboots_work(): current.reboots else: 0
         self.offer_count = 0
         self.boost_source = .LevelUp
         self.pending_cache_items = 0
@@ -829,10 +829,10 @@ extend Game:
         let Some(pos) = self.spawn_point() else return
         if self.place_enemy(pos, Kind.Boss):
             let at = self.enemy_count - 1
-            let health = (BOSS_HEALTH[which] * self.difficulty()) as i32
+            let boss_health = (BOSS_HEALTH[which] * self.difficulty()) as i32
             self.enemies[at].boss = which
-            self.enemies[at].hp = health
-            self.enemies[at].max_hp = health
+            self.enemies[at].hp = boss_health
+            self.enemies[at].max_hp = boss_health
             self.enemies[at].facing = direction(sub(self.player, pos))
             self.enemies[at].timer = 2.0
             if which == 2: self.spawn_drones(pos)
@@ -1207,10 +1207,10 @@ extend Game:
                     // Fast enough that one blade sweeps the ring before a chaser crosses it.
                     let turn = dt * 6.0
                     self.build.weapons[slot].phase += turn
-                    let phase: f64 = self.build.weapons[slot].phase
+                    let slot_phase: f64 = self.build.weapons[slot].phase
                     var pulsed = false
                     for b in 0..stats.count:
-                        let angle = phase + (b as f64) * 6.283185307 / stats.count as f64
+                        let angle = slot_phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
                         let _ = self.damage_area(blade, 30.0, stats.damage, false, 0.3)
                         self.break_beacons_near(blade, 16.0)
@@ -1542,8 +1542,8 @@ extend Game:
         if self.phase == .Over: return
         self.finish(false)
 
-    fn finish(mut self: Self, cleared: bool):
-        self.cleared = cleared
+    fn finish(mut self: Self, was_cleared: bool):
+        self.cleared = was_cleared
         self.phase = .Over
         // The run's credits: kills, minutes, and the best combo, banked whatever happened.
         // Endless pays half: it is the long tail, not the fastest way to fill the shop.
@@ -1727,8 +1727,8 @@ extend Game:
                 if enemy.timer <= 0.0:
                     // A three-bolt burst at the ship.
                     enemy.timer = 1.8
-                    let aim = direction(sub(self.player, enemy.pos))
-                    let base = atan2(aim.y, aim.x)
+                    let facing = direction(sub(self.player, enemy.pos))
+                    let base = atan2(facing.y, facing.x)
                     for k in 0..3:
                         let a = base + (k as f64 - 1.0) * 0.12
                         self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 230.0, 3 + self.endless_loop)
@@ -1866,8 +1866,8 @@ extend Game:
                                             self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 175.0, shot_damage)
                                     else if beat == 24:
                                         // Then an aimed fan at the ship.
-                                        let aim = direction(sub(self.player, enemy.pos))
-                                        let base = atan2(aim.y, aim.x)
+                                        let facing = direction(sub(self.player, enemy.pos))
+                                        let base = atan2(facing.y, facing.x)
                                         for k in 0..5:
                                             let a = base + (k as f64 - 2.0) * 0.14
                                             self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 260.0, shot_damage)
@@ -1897,8 +1897,8 @@ extend Game:
                                         enemy.state = 3
                                         enemy.timer = if enraged: 1.1 else: 1.8
                                         self.trauma = limit(self.trauma + 0.4, 0.0, 1.0)
-                                        let aim = direction(sub(self.player, enemy.pos))
-                                        let base = atan2(aim.y, aim.x)
+                                        let facing = direction(sub(self.player, enemy.pos))
+                                        let base = atan2(facing.y, facing.x)
                                         for k in 0..9:
                                             let a = base + (k as f64 - 4.0) * 0.18
                                             self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 210.0, shot_damage)

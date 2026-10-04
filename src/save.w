@@ -230,8 +230,8 @@ extend SaveFile:
             let _ = rename_file(self.backup, aside)
         (Save {}, .SetAside)
 
-    fn read_one(self: &Self, path: &str) -> Result[Save, LoadNotice]:
-        match read_file(path):
+    fn read_one(self: &Self, file_path: &str) -> Result[Save, LoadNotice]:
+        match read_file(file_path):
             Ok(text) => Save.parse_text(text)
             Err(_) => Err(.SetAside)
 

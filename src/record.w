@@ -66,10 +66,10 @@ extend Recorder:
         self.flush()
         self.text = self.text ++ line ++ "\n"
 
-    pub fn tuning(mut self: Self, text: &str):
+    pub fn tuning(mut self: Self, body: &str):
         if not self.active: return
         self.flush()
-        self.text = self.text ++ block("u", text)
+        self.text = self.text ++ block("u", body)
 
     // Close the recording with what the run came to, for verification.
     pub fn finish(mut self: Self, g: &Game) -> str:

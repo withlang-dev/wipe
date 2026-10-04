@@ -1494,23 +1494,23 @@ extend Renderer:
         let rh = (self.view_h as f64 * f.scale + 0.5) as i32
         if rw < 8 or rh < 8: return true
         if rw == self.scene.texture.width and rh == self.scene.texture.height: return true
-        let scene = surface(rw, rh)
-        let bloom_a = surface(rw / 4, rh / 4)
-        let bloom_b = surface(rw / 4, rh / 4)
-        let wide_a = surface(rw / 8, rh / 8)
-        let wide_b = surface(rw / 8, rh / 8)
+        let scene_surface = surface(rw, rh)
+        let bloom_a_surface = surface(rw / 4, rh / 4)
+        let bloom_b_surface = surface(rw / 4, rh / 4)
+        let wide_a_surface = surface(rw / 8, rh / 8)
+        let wide_b_surface = surface(rw / 8, rh / 8)
         var ready = true
-        for target in [scene, bloom_a, bloom_b, wide_a, wide_b]:
+        for target in [scene_surface, bloom_a_surface, bloom_b_surface, wide_a_surface, wide_b_surface]:
             if not IsRenderTextureValid(target): ready = false
         if not ready:
-            for target in [scene, bloom_a, bloom_b, wide_a, wide_b]: UnloadRenderTexture(target)
+            for target in [scene_surface, bloom_a_surface, bloom_b_surface, wide_a_surface, wide_b_surface]: UnloadRenderTexture(target)
             return false
         for target in [self.scene, self.bloom_a, self.bloom_b, self.wide_a, self.wide_b]: UnloadRenderTexture(target)
-        self.scene = scene
-        self.bloom_a = bloom_a
-        self.bloom_b = bloom_b
-        self.wide_a = wide_a
-        self.wide_b = wide_b
+        self.scene = scene_surface
+        self.bloom_a = bloom_a_surface
+        self.bloom_b = bloom_b_surface
+        self.wide_a = wide_a_surface
+        self.wide_b = wide_b_surface
         true
 
     // One horizontal and one vertical blur pass between two equal surfaces.

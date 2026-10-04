@@ -2,7 +2,6 @@
 use sdl
 use c_import("SDL3/SDL.h")
 use game
-use std.process.env
 
 pub fn controller_error() -> str:
     SDL_GetError().map(it.to_str_lossy()) ?? "Unknown SDL error"
@@ -40,23 +39,20 @@ pub type Gamepads {
     // Valve controllers: when "lizard mode off" was last sent.
     valve: bool = false, next_controller_mode: u64 = 0,
     report_connections: bool = true, warned: bool = false,
-    // Launched by Steam: Steam Input owns Valve controllers, presents a
-    // virtual pad, and manages lizard mode itself.
-    under_steam: bool = false,
 }
 
-pub fn Gamepads.open(preferred_id: u32 = 0, platform_managed: bool = false) -> Result[Gamepads, str]:
-    let under_steam = platform_managed or env("SteamAppId").len() > 0 or env("SteamGameId").len() > 0
+pub fn Gamepads.open(preferred_id: u32 = 0) -> Result[Gamepads, str]:
     SDL_SetHint("SDL_JOYSTICK_HIDAPI", "1")
-    // Without Steam, SDL drives the Steam Controller's USB puck directly.
-    // Under Steam that would fight Steam Input for the device.
-    if not under_steam: SDL_SetHint("SDL_JOYSTICK_HIDAPI_STEAM", "1")
+    // SDL drives the Steam Controller's USB puck directly. When Steam Input
+    // owns a controller, Steam tells SDL to ignore the physical device and
+    // WIPE sees only Steam's virtual pad, so this never fights Steam.
+    SDL_SetHint("SDL_JOYSTICK_HIDAPI_STEAM", "1")
     // SDL has no window; WIPE gates gameplay on raylib's window focus instead.
     SDL_SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
     if not SDL_InitSubSystem(SDL_INIT_GAMEPAD): return Err(controller_error())
     SDL_SetGamepadEventsEnabled(false)
     SDL_SetJoystickEventsEnabled(false)
-    Gamepads { ready: true, preferred_id, under_steam }
+    Gamepads { ready: true, preferred_id }
 
 impl Drop for Gamepads:
     fn drop(move self: Self):
@@ -83,15 +79,16 @@ extend Gamepads:
             for i in 0..count:
                 let id: u32 = ids[i]
                 if self.preferred_id != 0 and id != self.preferred_id: continue
-                if let Some(pad) = Pad.open(id):
-                    let name = pad.name().map(it.to_str_lossy()) ?? "Gamepad"
-                    if self.report_connections: print(f"Controller connected: {name} (vendor {pad.vendor()}, product {pad.product()})")
+                if let Some(found) = Pad.open(id):
+                    let name = found.name().map(it.to_str_lossy()) ?? "Gamepad"
+                    if self.report_connections: print(f"Controller connected: {name} (vendor {found.vendor()}, product {found.product()})")
                     // Connecting with A held must not automatically restart.
-                    self.south_held = pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
-                    self.held = held_mask(&pad)
-                    self.valve = pad.vendor() == VALVE_VENDOR
+                    self.south_held = found.button(SDL_GAMEPAD_BUTTON_SOUTH)
+                    self.held = held_mask(&found)
+                    // A physical Valve controller, not Steam Input's virtual found.
+                    self.valve = found.vendor() == VALVE_VENDOR and found.product() != STEAM_VIRTUAL_GAMEPAD
                     self.next_controller_mode = 0
-                    self.pad = Some(pad)
+                    self.pad = Some(found)
                     self.warned = false
                     return
                 self.report_failure()
@@ -100,7 +97,7 @@ extend Gamepads:
         if not self.ready: return PadFrame {}
         SDL_UpdateGamepads()
         let disconnected = match &self.pad:
-            Some(pad) => not pad.connected()
+            Some(current) => not current.connected()
             None => false
         if disconnected:
             if self.report_connections: print("Controller disconnected")
@@ -112,21 +109,26 @@ extend Gamepads:
             return PadFrame {}
         if self.pad.is_none(): self.discover()
         self.hold_controller_mode()
-        let Some(pad) = &self.pad else return PadFrame {}
-        let south = pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
-        let held = held_mask(pad)
+        let Some(current) = &self.pad else return PadFrame {}
+        let south = current.button(SDL_GAMEPAD_BUTTON_SOUTH)
+        let held_now = held_mask(current)
         let frame = PadFrame {
-            id: pad.id(),
-            motion: V2 { x: axis_unit(pad.axis(SDL_GAMEPAD_AXIS_LEFTX)), y: axis_unit(pad.axis(SDL_GAMEPAD_AXIS_LEFTY)) },
-            aim: V2 { x: axis_unit(pad.axis(SDL_GAMEPAD_AXIS_RIGHTX)), y: axis_unit(pad.axis(SDL_GAMEPAD_AXIS_RIGHTY)) },
+            id: current.id(),
+            motion: V2 { x: axis_unit(current.axis(SDL_GAMEPAD_AXIS_LEFTX)), y: axis_unit(current.axis(SDL_GAMEPAD_AXIS_LEFTY)) },
+            aim: V2 { x: axis_unit(current.axis(SDL_GAMEPAD_AXIS_RIGHTX)), y: axis_unit(current.axis(SDL_GAMEPAD_AXIS_RIGHTY)) },
             south, retry: south and not self.south_held,
-            held, pressed: held & ~self.held,
+            held: held_now, pressed: held_now & ~self.held,
         }
         self.south_held = south
-        self.held = held
+        self.held = held_now
         frame
 
 pub const VALVE_VENDOR: u16 = 0x28DE
+// Steam Input's virtual gamepad. Seeing it means Steam owns the physical
+// controller, hides it from SDL, and manages its lizard mode; lizard-mode
+// reports go only to a physical Valve controller WIPE holds itself, whether
+// or not Steam is running (a direct launch of the Steam build included).
+pub const STEAM_VIRTUAL_GAMEPAD: u16 = 0x11FF
 
 // A Steam Controller with no software claiming it runs in "lizard mode":
 // its firmware moves the OS cursor and types arrow keys from the d-pad. SDL
@@ -141,20 +143,20 @@ const CONTROLLER_MODE_REPORT_BYTES: i32 = 64
 
 extend Gamepads:
     fn hold_controller_mode(mut self: Self):
-        if not self.valve or self.under_steam: return
+        if not self.valve: return
         let now = SDL_GetTicks()
         if now < self.next_controller_mode: return
         self.next_controller_mode = now + 500
-        let Some(pad) = &self.pad else return
+        let Some(current) = &self.pad else return
         var report: [u8; 64] = [0; 64]
         report[0] = 1
         report[1] = 0x87
         report[2] = 3
         report[3] = 9
         // The controller rejects nothing it can't parse; a non-Triton Valve
-        // pad reports the effect unsupported, which is harmless.
+        // current reports the effect unsupported, which is harmless.
         unsafe:
-            let _ = SDL_SendGamepadEffect(pad.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
+            let _ = SDL_SendGamepadEffect(current.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
 
 fn held_mask(pad: &Pad) -> u32:
     var mask: u32 = 0
