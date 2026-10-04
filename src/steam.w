@@ -8,8 +8,8 @@ use std.time.now_ns
 use std.process.env
 use std.string
 
-const OVERLAY_BYTES: i32 = comptime GameOverlayActivated_t.size() as i32
-const STORED_BYTES: i32 = comptime UserStatsStored_t.size() as i32
+const OVERLAY_BYTES = comptime GameOverlayActivated_t.size() as i32
+const STORED_BYTES = comptime UserStatsStored_t.size() as i32
 
 fn steam_time() -> f64: now_ns() as f64 / 1000000000.0
 

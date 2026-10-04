@@ -60,7 +60,7 @@ pub fn fmt_float(x: f64) -> str:
 pub fn parse_float(s: &str) -> f64:
     // Digits, one optional point, one optional leading minus. Anything else
     // ends the number, as a hand-edited save deserves.
-    var i: i64 = 0
+    var i = 0
     let n = s.len() as i64
     while i < n and s.byte_at(i) as i32 == 32: i += 1
     var negative = false
@@ -285,7 +285,7 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
     // Holding a merged weapon counts as holding its components: merging the
     // Cannon must not lock the player out of "survive holding the Cannon".
     for slot in 0..SLOT_COUNT:
-        let w: WeaponSlot = g.build.weapons[slot]
+        let w = g.build.weapons[slot]
         if w.level == 0: continue
         if w.weapon.is_base():
             if g.elapsed > s.held[w.weapon.index()]: s.held[w.weapon.index()] = g.elapsed
@@ -294,10 +294,10 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
             if let Some(second) = r.second:
                 if g.elapsed > s.held[second.index()]: s.held[second.index()] = g.elapsed
     for i in 0..WEAPON_COUNT:
-        let taken: bool = g.launch.taken_weapons[i]
+        let taken = g.launch.taken_weapons[i]
         if taken: s.taken_weapons[i] = true
     for i in 0..PASSIVE_COUNT:
-        let taken: bool = g.launch.taken_passives[i]
+        let taken = g.launch.taken_passives[i]
         if taken: s.taken_passives[i] = true
     for i in 0..3:
         s.boss_kills[i] += g.boss_kills[i]

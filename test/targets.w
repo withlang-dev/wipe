@@ -8,7 +8,7 @@ use loadout
 use ships
 use pilots
 
-const SEEDS: i32 = 16
+const SEEDS = 16
 
 // A phase's rating: 0 Weak, 1 Even, 2 Strong.
 // Guards, not guarantees: a ship may be weak by design. The test fails only

@@ -53,7 +53,7 @@ pub fn achievement_met(id: &str, s: &Save) -> bool:
 
 // Every achievement the save has earned, in table order.
 pub fn earned(s: &Save) -> Vec[str]:
-    var out: Vec[str] = Vec.new()
+    var out = Vec.new()
     for id in ACHIEVEMENT_IDS:
         if achievement_met(id, s): out.push(id.clone())
     out
@@ -69,7 +69,7 @@ pub fn achievement_name(index: i32) -> str:
 pub fn achievement_description(index: i32) -> str:
     if index >= 0 and index < 8: return ship_at(index + 1).condition().describe()
     if index >= 8 and index < 11:
-        let weapons: [Weapon; 3] = [.Lance, .Mines, .Shard]
+        let weapons = [.Lance, .Mines, .Shard]
         return weapon_condition(weapons[index - 8]).describe()
     if index >= 11 and index < 17:
         let passives: [Passive; 6] = [.Cooldown, .Armor, .Luck, .Credit, .Rebound, .Overclock]

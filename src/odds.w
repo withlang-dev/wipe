@@ -18,7 +18,7 @@ fn fly(g: &Game) -> Controls:
     var aim = g.aim
     var nearest = 1.0e12
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         let d = sub(g.player, e.pos)
         let d2 = length2(d)
         if d2 < nearest:
@@ -27,7 +27,7 @@ fn fly(g: &Game) -> Controls:
         let fear = if e.kind == .Boss or e.kind == .Null: 380.0 else: 230.0
         if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: 400.0 else: 90.0)))
     for i in 0..g.bullet_count:
-        let b: Bullet = g.bullets[i]
+        let b = g.bullets[i]
         if not b.hostile: continue
         let d = sub(g.player, b.pos)
         let d2 = length2(d)
@@ -148,7 +148,7 @@ fn attempt(r: Recipe, seed: i32, rerolls: i32, banishes: i32, skips: i32) -> Out
 fn main:
     let argv = args()
     let runs = if argv.len() > 1: parse(argv[1]) else: 24
-    var picks: Vec[Weapon] = Vec.new()
+    var picks = Vec.new()
     for i in BASE_WEAPON_COUNT..WEAPON_COUNT: picks.push(weapon_at(i))
     print(f"merge odds: {runs} runs each, a player chasing one recipe on the ship that starts with it")
     for plan in 0..2:

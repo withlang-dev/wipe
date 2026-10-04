@@ -25,7 +25,7 @@ pub fn careful(g: &Game) -> Controls:
     var push = V2 {}
     var nearest = 1.0e12
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         let d = sub(g.player, e.pos)
         let d2 = length2(d)
         if d2 < nearest: nearest = d2
@@ -33,13 +33,13 @@ pub fn careful(g: &Game) -> Controls:
         if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: 400.0 else: 90.0)))
     // Circle toward the Warden's back, its weak point.
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         if e.kind == .Boss and e.boss == 0:
             let behind = sub(e.pos, scale(e.facing, 300.0))
             push = add(push, scale(direction(sub(behind, g.player)), 1.6))
     // Step out of a telegraphed charge line.
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         if e.kind == .Boss and e.boss == 1 and (e.state == 1 or e.state == 2):
             let d = sub(g.player, e.pos)
             let along = d.x * e.facing.x + d.y * e.facing.y
@@ -48,7 +48,7 @@ pub fn careful(g: &Game) -> Controls:
             if along > -40.0 and off < 140.0 and off > -140.0:
                 push = add(push, scale(side, if off >= 0.0: 6.0 else: -6.0))
     for i in 0..g.bullet_count:
-        let b: Bullet = g.bullets[i]
+        let b = g.bullets[i]
         if not b.hostile: continue
         let d = sub(g.player, b.pos)
         let d2 = length2(d)
@@ -82,7 +82,7 @@ pub fn pick_card(g: &Game) -> i32:
     var best = 0
     var best_score = -1000.0
     for i in 0..g.offer_count:
-        let o: Offer = g.offers[i]
+        let o = g.offers[i]
         let score = match o.pick:
             .Merge(_) => 100.0
             .UpgradeWeapon(w) => 40.0 + (g.build.weapon_level(w) as f64)

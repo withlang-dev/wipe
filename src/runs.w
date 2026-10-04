@@ -17,7 +17,7 @@ use pilots
 use record
 
 fn recordings(paths: &Vec[str]) -> Vec[str]:
-    var out: Vec[str] = Vec.new()
+    var out = Vec.new()
     for p in paths:
         if p.ends_with(".rec"):
             out.push(p.clone())
@@ -122,7 +122,7 @@ fn main:
         print("usage: runs replay PATH... | runs calibrate [DIR] | runs profile [SEEDS]")
         return 2
     let command = argv[1].clone()
-    var rest: Vec[str] = Vec.new()
+    var rest = Vec.new()
     for i in 2..argv.len() as i32: rest.push(argv[i].clone())
     if rest.len() == 0 and command != "profile": rest.push(f"{save_directory()}/runs")
     if command == "replay": return cmd_replay(rest)

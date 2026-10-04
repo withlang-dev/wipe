@@ -82,7 +82,7 @@ fn main:
         if frame >= 660 * pace:
             debug = true
             g.stress(1800)
-            let tint: Tint = match frame % 3:
+            let tint = match frame % 3:
                 0 => .Cyan
                 1 => .Magenta
                 _ => .Gold

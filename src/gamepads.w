@@ -77,7 +77,7 @@ extend Gamepads:
                 return
             defer: SDL_free(ids)
             for i in 0..count:
-                let id: u32 = ids[i]
+                let id = ids[i]
                 if self.preferred_id != 0 and id != self.preferred_id: continue
                 if let Some(found) = Pad.open(id):
                     let name = found.name().map(it.to_str_lossy()) ?? "Gamepad"
@@ -139,7 +139,7 @@ pub const STEAM_VIRTUAL_GAMEPAD: u16 = 0x11FF
 //
 // The report is the driver's own: report 1, ID_SET_SETTINGS_VALUES (0x87),
 // one three-byte setting, SETTING_LIZARD_MODE (9) = LIZARD_MODE_OFF (0).
-const CONTROLLER_MODE_REPORT_BYTES: i32 = 64
+const CONTROLLER_MODE_REPORT_BYTES = 64
 
 extend Gamepads:
     fn hold_controller_mode(mut self: Self):
@@ -148,7 +148,7 @@ extend Gamepads:
         if now < self.next_controller_mode: return
         self.next_controller_mode = now + 500
         let Some(current) = &self.pad else return
-        var report: [u8; 64] = [0; 64]
+        var report = [0; 64]
         report[0] = 1
         report[1] = 0x87
         report[2] = 3

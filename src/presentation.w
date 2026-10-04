@@ -429,15 +429,15 @@ extend Jitter:
 // a share of the segment's length, repeat. The result zigzags at every scale.
 fn zigzag(a: V2, b: V2, rough: f64, depth: i32, seed: u32) -> Vec[V2]:
     var jit = Jitter { state: seed }
-    var points: Vec[V2] = Vec.new()
+    var points = Vec.new()
     points.push(a)
     points.push(b)
     var spread = sqrt(length2(sub(b, a))) * rough
     for _ in 0..depth:
-        var next: Vec[V2] = Vec.new()
+        var next = Vec.new()
         for k in 0..(points.len() as i32 - 1):
             let p: V2 = points[k]
-            let q: V2 = points[k + 1]
+            let q = points[k + 1]
             let side = perpendicular(direction(sub(q, p)))
             let mid = add(scale(add(p, q), 0.5), scale(side, jit.next() * spread))
             next.push(p)
@@ -464,7 +464,7 @@ fn draw_lightning(a: V2, b: V2, seed: u32, remaining: f64):
     for f in 0..4:
         let at = 3 + ((jit.next() * 0.5 + 0.5) * (n as f64 - 6.0)) as i32
         if at < 1 or at >= n - 1: continue
-        let from: V2 = main[at]
+        let from = main[at]
         let turn = jit.next() * 0.9
         let dir = V2 { x: heading.x * cos(turn) - heading.y * sin(turn), y: heading.x * sin(turn) + heading.y * cos(turn) }
         let reach = length * (0.12 + 0.18 * (jit.next() * 0.5 + 0.5))
@@ -499,7 +499,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         ring(void_center, g.rules.void_radius - 2.0, white(0.5))
     // Decorative effects render underneath all solid gameplay silhouettes.
     for i in 0..g.pulse_count:
-        let p: Pulse = g.pulses[i]
+        let p = g.pulses[i]
         let remaining = p.life / p.total
         let pos = to_screen(cam, p.pos)
         let radius = 6.0 + (1.0 - remaining) * p.radius
@@ -509,7 +509,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             let size = 15.0 * remaining * remaining
             draw_enemy(kind, pos, size, clock, 0.0, V2 { x: 1.0, y: 0.0 }, paint(p.tint, remaining), 0.6)
     for i in 0..g.wave_count:
-        let w: Shockwave = g.waves[i]
+        let w = g.waves[i]
         let pos = to_screen(cam, w.pos)
         let remaining = w.life / w.total
         // A shockwave: a bright leading edge with a soft wake inside it.
@@ -518,7 +518,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle_outline(rv(pos), (w.radius - 1.5) as f32, white(remaining))
         ring(pos, w.radius + 8.0, cyan(remaining * 0.18))
     for i in 0..g.particle_count:
-        let p: Particle = g.particles[i]
+        let p = g.particles[i]
         if not g.on_screen(p.pos, 20.0): continue
         let remaining = p.life / p.total
         let pos = to_screen(cam, p.pos)
@@ -533,7 +533,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     // Cores: white-hot diamonds in a cyan glow, so they stand out from the
     // blue lattice; larger when merged.
     for i in 0..g.core_count:
-        let c: Core = g.cores[i]
+        let c = g.cores[i]
         if not g.on_screen(c.pos, 20.0): continue
         let pos = to_screen(cam, c.pos)
         let size = 6.0 + limit((c.value as f64), 1.0, 40.0) * 0.4
@@ -544,7 +544,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle(pos, size * 0.35, white(1.0))
     // Beacons: gold hexagons, the reason to cross the arena.
     for i in 0..g.beacon_count:
-        let b: Beacon = g.beacons[i]
+        let b = g.beacons[i]
         if not b.alive: continue
         let pos = to_screen(cam, b.pos)
         let spin = clock * 30.0
@@ -554,7 +554,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         ring(pos, 26.0 + 4.0 * sin(clock * 3.0), gold(0.25))
     // Pickups: brighter than cores, labeled.
     for i in 0..g.pickup_count:
-        let p: Pickup = g.pickups[i]
+        let p = g.pickups[i]
         let pos = to_screen(cam, p.pos)
         let color = match p.kind:
             .Cache => gold(1.0)
@@ -621,7 +621,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         centered_at(p.kind.name(), at.x as i32, (at.y - 40.0) as i32, 12, paint_alpha(color, 0.9))
     // Mines.
     for i in 0..g.mine_count:
-        let m: Mine = g.mines[i]
+        let m = g.mines[i]
         let pos = to_screen(cam, m.pos)
         let armed = 0.6 + 0.4 * sin(clock * 8.0 + m.age)
         // A mine is a spiked ring: round where every enemy is a polygon, so
@@ -637,7 +637,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         ring(pos, m.radius, gold(0.06))
     // Beams.
     for i in 0..g.beam_count:
-        let b: Beam = g.beams[i]
+        let b = g.beams[i]
         let remaining = b.life / b.total
         let a = to_screen(cam, b.a)
         let e = to_screen(cam, b.b)
@@ -648,12 +648,12 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle(e, 5.0 * remaining, red(remaining))
     // Lightning: a jagged stroke with forks, a white-hot core in a blue-violet glow.
     for i in 0..g.arc_count:
-        let bolt: ArcBolt = g.arcs[i]
+        let bolt = g.arcs[i]
         let remaining = bolt.life / bolt.total
         draw_lightning(to_screen(cam, bolt.a), to_screen(cam, bolt.b), bolt.seed, remaining)
     // Orbit blades are positions on a ring around the ship.
     for slot in 0..SLOT_COUNT:
-        let s: WeaponSlot = g.build.weapons[slot]
+        let s = g.build.weapons[slot]
         if s.level == 0 or s.weapon.family() != .Orbiting: continue
         let stats = weapon_stats(s.weapon, s.level, g.mods)
         let ship = to_screen(cam, g.player)
@@ -673,7 +673,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             glow_line(sub(blade, scale(radial, 8.0)), add(blade, scale(radial, 8.0)), white(0.9))
             circle(blade, 4.0, white(1.0))
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         if not g.on_screen(e.pos, 120.0): continue
         let pos = to_screen(cam, e.pos)
         let growth = limit(e.age / 0.18, 0.0, 1.0)
@@ -700,7 +700,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             let reach = if e.kind == .Boss: 500.0 else: 220.0
             line(pos, add(pos, scale(toward, reach)), 1.2, paint_alpha(color, 0.25 + 0.2 * sin(clock * 40.0)))
     for i in 0..g.bullet_count:
-        let b: Bullet = g.bullets[i]
+        let b = g.bullets[i]
         if not g.on_screen(b.pos, 40.0): continue
         let pos = to_screen(cam, b.pos)
         let heading = direction(b.vel)
@@ -754,7 +754,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         // Magnet radius, faint.
         ring(pos, g.rules.magnet_radius * g.mods.magnet, cyan(0.05))
     for i in 0..g.popup_count:
-        let p: Popup = g.popups[i]
+        let p = g.popups[i]
         let remaining = p.life / p.total
         let pos = to_screen(cam, p.pos)
         let alpha = limit(remaining * 1.6, 0.0, 1.0)
@@ -845,13 +845,13 @@ fn pickup_color(kind: PickupKind) -> Color:
 
 fn render_indicators(g: &Game, cam: Camera, clock: f64):
     for i in 0..g.pickup_count:
-        let p: Pickup = g.pickups[i]
+        let p = g.pickups[i]
         edge_indicator(g, cam, p.pos, pickup_color(p.kind), if p.kind == .Cache: 18.0 else: 13.0, clock)
     for i in 0..g.beacon_count:
-        let b: Beacon = g.beacons[i]
+        let b = g.beacons[i]
         if b.alive: edge_indicator(g, cam, b.pos, gold(0.8), 10.0, clock)
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         if e.kind == .Boss or e.kind == .Null: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 1.0), 20.0, clock)
         else if e.elite: edge_indicator(g, cam, e.pos, paint(e.kind.tint(), 0.8), 12.0, clock)
 
@@ -928,7 +928,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     DrawRectangle(0, sh - 52, sw, 52, ink(0.75))
     var x = 30.0
     for slot in 0..SLOT_COUNT:
-        let s: WeaponSlot = g.build.weapons[slot]
+        let s = g.build.weapons[slot]
         let pos = V2 { x, y: g.screen_h - 30.0 }
         if slot < g.build.weapon_slots:
             stroke_box((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: white(0.3) else: white(0.08))
@@ -940,7 +940,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
         x += 46.0
     x = g.screen_w - 30.0
     for slot in 0..PASSIVE_SLOTS:
-        let s: PassiveSlot = g.build.passives[slot]
+        let s = g.build.passives[slot]
         let pos = V2 { x, y: g.screen_h - 30.0 }
         stroke_box((x - 18.0) as i32, sh - 48, 36, 36, if s.level > 0: lime(0.3) else: white(0.08))
         if s.level > 0:
@@ -1174,7 +1174,7 @@ fn area_name(f: Family) -> str:
 // The weapon's numbers before and after a pick, with the build's passives
 // and ranks applied: what the player actually gets.
 pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i32, mods: Mods) -> Vec[StatRow]:
-    var rows: Vec[StatRow] = Vec.new()
+    var rows = Vec.new()
     let has_before = before.is_some()
     let b = match before:
         Some((w, l)) => weapon_stats(w, l, mods)
@@ -1298,7 +1298,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
         return
     let count = g.offer_count
     for i in 0..count:
-        let o: Offer = g.offers[i]
+        let o = g.offers[i]
         let (x, y, card_w, card_h) = boost_card_rect(i, count)
         let selected = i == cursor
         let accent = if o.pick.is_merge(): gold(1.0) else if selected: white(1.0) else: cyan(0.6)
@@ -1420,9 +1420,9 @@ pub fn Renderer.open(view_w: i32 = WIDTH, view_h: i32 = HEIGHT) -> Renderer:
     let bright = Effect.open("bright.fs")
     let blur = Effect.open("blur.fs")
     let composite = Effect.open("composite.fs")
-    var locations: Vec[i32] = Vec.with_capacity(16)
+    var locations = Vec.with_capacity(16)
     for i in 0..16: locations.push(grid.location(f"impulses[{i}]"))
-    var bullets: Vec[i32] = Vec.with_capacity(24)
+    var bullets = Vec.with_capacity(24)
     for i in 0..24: bullets.push(grid.location(f"bullets[{i}]"))
     Renderer {
         scene: surface(view_w, view_h), bloom_a: surface(view_w / 4, view_h / 4), bloom_b: surface(view_w / 4, view_h / 4),
@@ -1552,13 +1552,13 @@ extend Renderer:
         let count = if g.pulse_count < 16: g.pulse_count else: 16
         self.grid.scalar(self.count_location, count as f32)
         for i in 0..count:
-            let p: Pulse = g.pulses[i]
+            let p = g.pulses[i]
             let pos = zoomed(to_screen(cam, p.pos))
             self.grid.vector4(self.impulse_locations[i], pos.x as f32, pos.y as f32, (1.0 - p.life / p.total) as f32, (p.radius * zoom) as f32)
         var shots = 0
         for i in 0..g.bullet_count:
             if shots >= 24: break
-            let b: Bullet = g.bullets[i]
+            let b = g.bullets[i]
             if b.hostile or not g.on_screen(b.pos, 0.0): continue
             let pos = zoomed(to_screen(cam, b.pos))
             let heading = direction(b.vel)
@@ -1629,9 +1629,9 @@ extend Renderer:
         cpu_ms
 
 pub fn verify_colors() -> Unit:
-    let bg: Color = ink(1.0)
-    let fg: Color = white(1.0)
-    let enemy: Color = magenta(0.5)
+    let bg = ink(1.0)
+    let fg = white(1.0)
+    let enemy = magenta(0.5)
 
     assert(bg.r == 3 and bg.g == 4 and bg.b == 14 and bg.a == 255)
     assert(fg.r == 227 and fg.g == 248 and fg.b == 245)

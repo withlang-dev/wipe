@@ -36,10 +36,10 @@ pub fn view_size(screen_w: i32, screen_h: i32) -> (i32, i32):
     if aspect >= base: ((HEIGHT as f64 * aspect + 0.5) as i32, HEIGHT)
     else: (WIDTH, (WIDTH as f64 / aspect + 0.5) as i32)
 // The enemy grid covers the largest arena the rules allow.
-const CELL_SIZE: i32 = 64
-const CELL_COLS: i32 = 60
-const CELL_ROWS: i32 = 44
-const CELL_COUNT: i32 = CELL_COLS * CELL_ROWS
+const CELL_SIZE = 64
+const CELL_COLS = 60
+const CELL_ROWS = 44
+const CELL_COUNT = CELL_COLS * CELL_ROWS
 pub const KIND_COUNT: i32 = 8
 // The Phase is invulnerable for PHASE_LENGTH seconds every PHASE_PERIOD.
 pub const PHASE_PERIOD: f64 = 5.0
@@ -281,7 +281,7 @@ impl Copy for Launch
 
 // Allocate and initialize each pool once. Restart resets active lengths only.
 fn storage[T](value: T, capacity: i32) -> Vec[T]:
-    var slots: Vec[T] = Vec.with_capacity(capacity)
+    var slots = Vec.with_capacity(capacity)
     for _ in 0..capacity: slots.push(value)
     slots
 
@@ -424,13 +424,13 @@ extend Game:
         if self.boss_index < 3: Some(minutes[self.boss_index]) else: None
     pub fn boss_name(self: &Self) -> Option[str]:
         for i in 0..self.enemy_count:
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if e.kind == .Boss and e.boss >= 0: return Some(BOSS_NAMES[e.boss].clone())
         None
 
     pub fn boss_health(self: &Self) -> Option[(i32, i32)]:
         for i in 0..self.enemy_count:
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if e.kind == .Boss or e.kind == .Null: return Some((e.hp, e.max_hp))
         None
 
@@ -641,7 +641,7 @@ extend Game:
     // The wall a point is inside, as its index; -1 when none.
     fn wall_at(self: &Self, pos: V2) -> i32:
         for i in 0..self.walls.len() as i32:
-            let w: Wall = self.walls[i]
+            let w = self.walls[i]
             if pos.x > w.x and pos.x < w.x + w.w and pos.y > w.y and pos.y < w.y + w.h: return i
         -1
 
@@ -649,7 +649,7 @@ extend Game:
     // walk downhill to come around walls.
     fn rebuild_flow(mut self: Self):
         for c in 0..CELL_COUNT: self.flow[c] = -1
-        var queue: Vec[i32] = Vec.new()
+        var queue = Vec.new()
         let start = cell_index(self.player)
         self.flow[start] = 0
         queue.push(start)
@@ -657,7 +657,7 @@ extend Game:
         let cols = limit(self.rules.arena_width / CELL_SIZE as f64 + 1.0, 1.0, CELL_COLS as f64) as i32
         let rows = limit(self.rules.arena_height / CELL_SIZE as f64 + 1.0, 1.0, CELL_ROWS as f64) as i32
         while head < queue.len() as i32:
-            let c: i32 = queue[head]
+            let c = queue[head]
             head += 1
             let cx = c % CELL_COLS
             let cy = c / CELL_COLS
@@ -691,7 +691,7 @@ extend Game:
                 let nx = cx + dx
                 let ny = cy + dy
                 if nx < 0 or ny < 0 or nx >= CELL_COLS or ny >= CELL_ROWS: continue
-                let d: i32 = self.flow[ny * CELL_COLS + nx]
+                let d = self.flow[ny * CELL_COLS + nx]
                 if d >= 0 and d < best:
                     best = d
                     goal = V2 { x: (nx as f64 + 0.5) * CELL_SIZE as f64, y: (ny as f64 + 0.5) * CELL_SIZE as f64 }
@@ -780,7 +780,7 @@ extend Game:
     fn pick_kind(mut self: Self) -> Kind:
         let roll = self.random()
         let late = limit(self.table_minute() / 15.0, 0.0, 1.0)
-        let kind: Kind = if roll < 0.5 - late * 0.25: .Block
+        let kind = if roll < 0.5 - late * 0.25: .Block
             else if roll < 0.75 - late * 0.15: .Dart
             else if roll < 0.87: .Spinner
             else if roll < 0.95: .Weaver
@@ -1045,7 +1045,7 @@ extend Game:
                     let bonus = 60 * (e.boss + 1)
                     self.credits += bonus
                     self.popup(add(e.pos, V2 { y: -40.0 }), .Credits(value: bonus))
-                    let known: bool = self.launch.bosses_known[e.boss]
+                    let known = self.launch.bosses_known[e.boss]
                     if not known:
                         self.launch.bosses_known[e.boss] = true
                         let first = 400 * (e.boss + 1)
@@ -1087,12 +1087,12 @@ extend Game:
 
     // Apply damage to one enemy; returns true when it died.
     pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12) -> bool:
-        let target: Enemy = self.enemies[index]
+        let target = self.enemies[index]
         let dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
         self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = cooldown
-        let pos: V2 = self.enemies[index].pos
+        let pos = self.enemies[index].pos
         if self.enemies[index].kind != .Boss and self.enemies[index].kind != .Null:
             self.enemies[index].pos = add(pos, scale(impact, 4.0))
         if self.particle_count < PARTICLE_CAP - 200: self.burst(pos, impact, 3, .Gold, 0.65)
@@ -1119,7 +1119,7 @@ extend Game:
         var best = -1
         var best_d = max_distance * max_distance
         for i in 0..self.enemy_count:
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if skip_cd and e.hit_cd > 0.0: continue
             let d = length2(sub(e.pos, from))
             if d < best_d:
@@ -1140,7 +1140,7 @@ extend Game:
         self.break_beacons_on_segment(a, b, 8.0)
         var i = 0
         while i < self.enemy_count:
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(a, b, e.pos, 10.0 + e.kind.radius() * e.size):
                 if not self.damage_enemy(i, damage, direction(sub(b, a))): i += 1
             else: i += 1
@@ -1150,7 +1150,7 @@ extend Game:
         if self.enemy_count == 0: return -1
         for _ in 0..16:
             let i = (self.random() * (self.enemy_count as f64 - 0.001)) as i32
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if e.hit_cd <= 0.0 and self.on_screen(e.pos, -20.0) and length2(sub(e.pos, self.player)) < 560.0 * 560.0: return i
         -1
 
@@ -1159,7 +1159,7 @@ extend Game:
         for _ in 0..chain:
             let target = self.nearest_enemy(origin, range, true)
             if target < 0: break
-            let pos: V2 = self.enemies[target].pos
+            let pos = self.enemies[target].pos
             if self.arc_count < ARC_CAP:
                 self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos, seed: self.rng }
                 self.arc_count += 1
@@ -1187,7 +1187,7 @@ extend Game:
         var remaining = stats.pierce
         var i = 0
         while i < self.enemy_count and remaining > 0:
-            let e: Enemy = self.enemies[i]
+            let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(from, to, e.pos, 20.0 + e.kind.radius() * e.size):
                 remaining -= 1
                 if not self.damage_enemy(i, stats.damage, heading): i += 1
@@ -1218,7 +1218,7 @@ extend Game:
                     // Fast enough that one blade sweeps the ring before a chaser crosses it.
                     let turn = dt * 6.0
                     self.build.weapons[slot].phase += turn
-                    let slot_phase: f64 = self.build.weapons[slot].phase
+                    let slot_phase = self.build.weapons[slot].phase
                     var pulsed = false
                     for b in 0..stats.count:
                         let angle = slot_phase + (b as f64) * 6.283185307 / stats.count as f64
@@ -1306,7 +1306,7 @@ extend Game:
                             for _ in 0..bolts:
                                 let target = self.random_visible_enemy()
                                 if target < 0: break
-                                let pos: V2 = self.enemies[target].pos
+                                let pos = self.enemies[target].pos
                                 let from = add(self.player, scale(direction(sub(pos, self.player)), 16.0))
                                 if self.arc_count < ARC_CAP:
                                     self.arcs[self.arc_count] = ArcBolt { a: from, b: pos, seed: self.rng }
@@ -1381,7 +1381,7 @@ extend Game:
     // Draw the cards: a ready merge first, then weighted draws without
     // replacement. A cache offers only what the ship already carries.
     fn roll_offers(mut self: Self):
-        var pool: Vec[Pick] = Vec.new()
+        var pool = Vec.new()
         let all = self.build.candidates()
         let cache = self.boost_source == .Cache
         for p in all:
@@ -1404,7 +1404,7 @@ extend Game:
                 if p.is_merge() and self.offer_count < count:
                     self.offers[self.offer_count] = Offer { pick: p, unseen: false }
                     self.offer_count += 1
-        var weights: Vec[f64] = Vec.new()
+        var weights = Vec.new()
         var total = 0.0
         for p in pool:
             let w = self.offer_weight(p)
@@ -1414,7 +1414,7 @@ extend Game:
             var roll = self.random() * total
             var chosen = -1
             for i in 0..pool.len() as i32:
-                let w: f64 = weights[i]
+                let w = weights[i]
                 if w <= 0.0: continue
                 if roll < w:
                     chosen = i
@@ -1423,11 +1423,11 @@ extend Game:
             if chosen < 0:
                 // Rounding at the top of the range: the last live card.
                 for i in 0..pool.len() as i32:
-                    let w: f64 = weights[i]
+                    let w = weights[i]
                     if w > 0.0: chosen = i
             if chosen < 0: break
-            let pick: Pick = pool[chosen]
-            let used: f64 = weights[chosen]
+            let pick = pool[chosen]
+            let used = weights[chosen]
             total -= used
             weights[chosen] = 0.0
             let unseen = match pick:
@@ -1460,7 +1460,7 @@ extend Game:
     // The player takes a card. Presentation ignores input while a cache spins.
     pub fn choose(mut self: Self, index: i32):
         if self.phase != .Boost or index < 0 or index >= self.offer_count or self.cache_reveal > 0.0: return
-        let pick: Pick = self.offers[index].pick
+        let pick = self.offers[index].pick
         match pick:
             .NewWeapon(w) => { self.launch.taken_weapons[w.index()] = true }
             .NewPassive(p) => { self.launch.taken_passives[p.index()] = true }
@@ -1719,7 +1719,7 @@ extend Game:
                         let x = cx + dx
                         let y = cy + dy
                         if x < 0 or x >= CELL_COLS or y < 0 or y >= CELL_ROWS: continue
-                        var other: i32 = self.cell_heads[y * CELL_COLS + x]
+                        var other = self.cell_heads[y * CELL_COLS + x]
                         while other >= 0:
                             if other != e:
                                 let delta = sub(enemy.pos, self.enemies[other].pos)
@@ -1806,7 +1806,7 @@ extend Game:
                         velocity = scale(toward, enemy.speed)
                         if enemy.timer <= 0.0:
                             for b in 0..self.bullet_count:
-                                let bullet: Bullet = self.bullets[b]
+                                let bullet = self.bullets[b]
                                 if bullet.hostile: continue
                                 let rel = sub(enemy.pos, bullet.pos)
                                 let closing = rel.x * bullet.vel.x + rel.y * bullet.vel.y
@@ -1965,7 +1965,7 @@ extend Game:
         var i = 0
         while i < self.enemy_count:
             if self.enemies[i].hp <= 0:
-                let e: Enemy = self.enemies[i]
+                let e = self.enemies[i]
                 if e.kind == .Well and e.pos.x > -1000.0:
                     self.kill_enemy(i, V2 {}, false)
                 else:
@@ -2032,7 +2032,7 @@ extend Game:
                 if bullet.bounces > 0:
                     bullet.bounces -= 1
                     bullet.bounced = true
-                    let w: Wall = self.walls[hit_wall]
+                    let w = self.walls[hit_wall]
                     let from_side = previous.x <= w.x or previous.x >= w.x + w.w
                     if from_side: bullet.vel.x = -bullet.vel.x else: bullet.vel.y = -bullet.vel.y
                     bullet.pos = previous
@@ -2062,12 +2062,12 @@ extend Game:
                         let x = cx + dx
                         let y = cy + dy
                         if x < 0 or x >= CELL_COLS or y < 0 or y >= CELL_ROWS: continue
-                        var other: i32 = self.cell_heads[y * CELL_COLS + x]
+                        var other = self.cell_heads[y * CELL_COLS + x]
                         while other >= 0:
                             if other >= self.enemy_count:
                                 other = self.cell_next[other]
                                 continue
-                            let e: Enemy = self.enemies[other]
+                            let e = self.enemies[other]
                             if e.hit_cd <= 0.0 or bullet.pierce == 0:
                                 if segment_hit(previous, bullet.pos, e.pos, r.bullet_hit_radius + (e.kind.radius() - 14.0) * e.size):
                                     target = other
@@ -2076,7 +2076,7 @@ extend Game:
                         if target >= 0: break
                 if target < 0:
                     for i in 0..self.enemy_count:
-                        let e: Enemy = self.enemies[i]
+                        let e = self.enemies[i]
                         if e.size > 1.2 or e.kind == .Boss or e.kind == .Null:
                             if e.hit_cd <= 0.0 or bullet.pierce == 0:
                                 if segment_hit(previous, bullet.pos, e.pos, r.bullet_hit_radius + e.kind.radius() * e.size):
@@ -2126,10 +2126,10 @@ extend Game:
         var m = 0
         while m < self.mine_count:
             self.mines[m].age += dt
-            let mine: Mine = self.mines[m]
+            let mine = self.mines[m]
             var touched = false
             for i in 0..self.enemy_count:
-                let e: Enemy = self.enemies[i]
+                let e = self.enemies[i]
                 if length2(sub(e.pos, mine.pos)) < (24.0 + e.kind.radius() * e.size) * (24.0 + e.kind.radius() * e.size):
                     touched = true
                     break
@@ -2183,7 +2183,7 @@ extend Game:
                 continue
             var b = 0
             while b < self.bullet_count:
-                let bullet: Bullet = self.bullets[b]
+                let bullet = self.bullets[b]
                 if not bullet.hostile and length2(sub(bullet.pos, beacon.pos)) < 26.0 * 26.0:
                     self.beacons[i] = beacon
                     self.break_beacon(i)
@@ -2197,7 +2197,7 @@ extend Game:
     // A beacon breaks, drops a pickup, and respawns elsewhere later.
     fn break_beacon(mut self: Self, i: i32):
         if not self.beacons[i].alive: return
-        let pos: V2 = self.beacons[i].pos
+        let pos = self.beacons[i].pos
         self.beacons[i].alive = false
         self.beacons[i].respawn = self.rules.beacon_respawn
         self.pulse(pos, 90.0, .Gold)
@@ -2250,7 +2250,7 @@ extend Game:
             .Clear => {
                 var i = 0
                 while i < self.enemy_count:
-                    let e: Enemy = self.enemies[i]
+                    let e = self.enemies[i]
                     if e.kind != .Boss and e.kind != .Null and self.on_screen(e.pos, 40.0):
                         self.kill_enemy(i, V2 {}, false)
                     else: i += 1

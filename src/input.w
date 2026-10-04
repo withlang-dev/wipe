@@ -112,7 +112,7 @@ pub type MenuState {
     last_left: [i32; 2] = [-100; 2], last_right: [i32; 2] = [-100; 2],
 }
 
-const ECHO_FRAMES: i32 = 8
+const ECHO_FRAMES = 8
 
 pub fn one_press(seen: [i32; 2], key: bool, pad: bool, frame: i32) -> ([i32; 2], bool):
     var marks = seen

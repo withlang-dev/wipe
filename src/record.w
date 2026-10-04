@@ -11,7 +11,7 @@ use account
 use pilots
 
 pub const RECORDING_VERSION: i32 = 1
-const Q: f64 = 4096.0
+const Q = 4096.0
 
 fn q_int(v: f64) -> i64:
     if v >= 0.0: (v * Q + 0.5) as i64 else: -((-v * Q + 0.5) as i64)

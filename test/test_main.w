@@ -57,7 +57,7 @@ fn combat_uat:
     g.enemies[0].speed = 0.0
     g.tick(Controls {}, 1.0 / 120.0)
     assert(g.phase == .Over and g.death_event and not g.cleared)
-    let killer: Kind = g.killer.unwrap()
+    let killer = g.killer.unwrap()
     assert(killer == Kind.Spinner and g.health_before == 1)
     let ended: f64 = g.elapsed
     for _ in 0..60: g.tick(Controls { motion: V2 { x: 1.0 } }, 1.0 / 120.0)
@@ -193,7 +193,7 @@ fn bosses_uat:
         var g = boss_game(index)
         let b = boss_at(&g)
         assert(b >= 0)
-        let e: Enemy = g.enemies[b]
+        let e = g.enemies[b]
         assert(e.boss == index - 1)
         assert(e.max_hp >= 1800)
         for _ in 0..1200:
@@ -201,7 +201,7 @@ fn bosses_uat:
             g.tick(Controls {}, 1.0 / 120.0)
         var others = 0
         for i in 0..g.enemy_count:
-            let o: Enemy = g.enemies[i]
+            let o = g.enemies[i]
             if o.kind != .Boss and not o.drone: others += 1
         assert(others == 0)
         // Every boss attacks: hostile fire is in the air.
