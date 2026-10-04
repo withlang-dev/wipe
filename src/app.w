@@ -175,13 +175,13 @@ fn wrap(value: i32, count: i32) -> i32:
 extend App:
     // The view for this screen (view_size): the run, the attract run behind
     // the menus, and every later launch use it.
-    pub fn set_view(mut self: Self, view_w: i32, view_h: i32):
-        self.view_w = view_w
-        self.view_h = view_h
-        self.game.screen_w = view_w as f64
-        self.game.screen_h = view_h as f64
-        self.attract.screen_w = view_w as f64
-        self.attract.screen_h = view_h as f64
+    pub fn set_view(mut self: Self, w: i32, h: i32):
+        self.view_w = w
+        self.view_h = h
+        self.game.screen_w = w as f64
+        self.game.screen_h = h as f64
+        self.attract.screen_w = w as f64
+        self.attract.screen_h = h as f64
 
     // A store overlay opening over a run pauses it, as losing focus does.
     pub fn pause_for_overlay(mut self: Self):
@@ -205,31 +205,31 @@ extend App:
         if not self.settings_file.store(&self.settings):
             eprint(f"WIPE could not write its settings at {self.settings_file.path}")
 
-    fn go(mut self: Self, screen: Screen):
-        if screen == .Shop or screen == .Collection:
+    fn go(mut self: Self, next: Screen):
+        if next == .Shop or next == .Collection:
             if self.screen != .Shop and self.screen != .Collection: self.return_to = self.screen
-        self.screen = screen
+        self.screen = next
         self.ui_confirm = true
-        if screen == .Shop: self.shop_cursor = self.default_shop_cursor()
-        if screen == .Select: self.ship_cursor = self.ship.index()
+        if next == .Shop: self.shop_cursor = self.default_shop_cursor()
+        if next == .Select: self.ship_cursor = self.ship.index()
 
     pub fn launch(mut self: Self):
         self.launch_as(self.ship)
 
-    pub fn launch_as(mut self: Self, ship: Ship):
-        self.ship = ship
-        if self.save.last_ship != ship.index():
-            self.save.last_ship = ship.index()
+    pub fn launch_as(mut self: Self, picked: Ship):
+        self.ship = picked
+        if self.save.last_ship != picked.index():
+            self.save.last_ship = picked.index()
             self.persist()
-        let cleared: bool = self.save.cleared[ship.index()]
-        let endless = self.endless and cleared
+        let cleared: bool = self.save.cleared[picked.index()]
+        let run_endless = self.endless and cleared
         // A fresh game per run, built exactly as a replay builds it.
         let h = Header {
             seed: 1234567 +% (self.save.runs as u32) *% 2654435761 +% (GetTime() * 1000.0) as u32,
-            ship, stage: self.stage, endless, view_w: self.view_w, view_h: self.view_h, save: self.save, tuning: self.tuning_text.clone(),
+            ship: picked, stage: self.stage, endless: run_endless, view_w: self.view_w, view_h: self.view_h, save: self.save, tuning: self.tuning_text.clone(),
         }
         self.game = start_game(&h)
-        self.rec.begin(h.seed, ship, self.stage, endless, self.view_w, self.view_h, self.save.serialize(), self.tuning_text)
+        self.rec.begin(h.seed, picked, self.stage, run_endless, self.view_w, self.view_h, self.save.serialize(), self.tuning_text)
         self.picks = ""
         self.screen = .Run
         self.boost_cursor = 0
@@ -283,9 +283,9 @@ extend App:
         self.metrics.record(self.game.elapsed, unlock_fraction, shop_fraction)
         self.screen = .Results
 
-    fn retry(mut self: Self, ship: Ship):
+    fn retry(mut self: Self, picked: Ship):
         if GetTime() - self.results.shown < 3.0: self.metrics.quick_retries += 1
-        self.launch_as(ship)
+        self.launch_as(picked)
 
     fn default_shop_cursor(self: &Self) -> i32:
         // The cheapest affordable row, or the closest unaffordable one.
@@ -763,8 +763,8 @@ extend App:
         self.notice_line()
 
     // Ship chosen: on to the map.
-    fn pick_ship(mut self: Self, ship: Ship):
-        self.ship = ship
+    fn pick_ship(mut self: Self, picked: Ship):
+        self.ship = picked
         self.stage_cursor = 0
         let order = stage_order()
         for k in 0..STAGE_COUNT:
@@ -800,29 +800,29 @@ extend App:
         label(f"SHIP  {self.ship.name().to_upper()}", 44, 62, 14, white(0.6))
         let order = stage_order()
         for k in 0..STAGE_COUNT:
-            let stage = order[k]
+            let entry_stage = order[k]
             let (x, y) = map_card_origin(k)
-            let open = stage_unlocked(stage, &self.save)
+            let open = stage_unlocked(entry_stage, &self.save)
             let selected = k == self.stage_cursor
             DrawRectangle(x, y, 220, 170, ink(0.9))
             DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 220.0, height: 170.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: cyan(0.35))
             if open:
-                draw_stage_preview(stage, x + 16, y + 14, 188, 104, true)
-                centered_at(stage.name().to_upper(), x + 110, y + 126, 16, white(1.0))
-                centered_at(stage.kind(), x + 110, y + 148, 11, magenta(0.8))
+                draw_stage_preview(entry_stage, x + 16, y + 14, 188, 104, true)
+                centered_at(entry_stage.name().to_upper(), x + 110, y + 126, 16, white(1.0))
+                centered_at(entry_stage.kind(), x + 110, y + 148, 11, magenta(0.8))
             else:
                 mystery(V2 { x: (x + 110) as f64, y: (y + 66) as f64 }, 48, white(0.3))
                 centered_at("LOCKED", x + 110, y + 138, 12, white(0.35))
-        let stage = order[self.stage_cursor]
-        let open = stage_unlocked(stage, &self.save)
+        let entry_stage = order[self.stage_cursor]
+        let open = stage_unlocked(entry_stage, &self.save)
         let py = 580
         if open:
-            neon(stage.name().to_upper(), 60, py, 26, white(1.0))
-            label(stage.kind(), 60 + text_width(stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
-            label(stage.describe(), 60, py + 40, 16, white(0.8))
+            neon(entry_stage.name().to_upper(), 60, py, 26, white(1.0))
+            label(entry_stage.kind(), 60 + text_width(entry_stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
+            label(entry_stage.describe(), 60, py + 40, 16, white(0.8))
         else:
             neon("LOCKED", 60, py, 26, white(0.6))
-            let c = stage_condition(stage)
+            let c = stage_condition(entry_stage)
             label(c.describe(), 60, py + 40, 16, white(0.9))
             let f = fraction(c, &self.save)
             DrawRectangle(60, py + 70, 400, 8, white(0.15))
@@ -834,52 +834,52 @@ extend App:
         neon("SELECT SHIP", 40, 24, 30, cyan(1.0))
         self.credits_corner()
         for i in 0..SHIP_COUNT:
-            let ship = ship_at(i)
+            let entry_ship = ship_at(i)
             let (x, y) = select_card_origin(i)
-            let unlocked = ship_unlocked(ship, &self.save)
+            let unlocked = ship_unlocked(entry_ship, &self.save)
             let selected = i == self.ship_cursor
             DrawRectangle(x, y, 112, 112, ink(0.9))
             DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 112.0, height: 112.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: cyan(0.35))
             let center = V2 { x: (x + 56) as f64, y: (y + 48) as f64 }
             if unlocked:
-                draw_ship(ship, center, V2 { x: 0.0, y: -1.0 }, 1.0, 1.9)
-                centered_at(ship.name().to_upper(), x + 56, y + 88, 14, white(1.0))
+                draw_ship(entry_ship, center, V2 { x: 0.0, y: -1.0 }, 1.0, 1.9)
+                centered_at(entry_ship.name().to_upper(), x + 56, y + 88, 14, white(1.0))
             else:
                 mystery(center, 40, white(0.35))
-                centered_at(if ship.secret(): "?" else: "LOCKED", x + 56, y + 88, 12, white(0.35))
-        let ship = ship_at(self.ship_cursor)
-        let unlocked = ship_unlocked(ship, &self.save)
-        // The detail panel: the ship's card.
+                centered_at(if entry_ship.secret(): "?" else: "LOCKED", x + 56, y + 88, 12, white(0.35))
+        let entry_ship = ship_at(self.ship_cursor)
+        let unlocked = ship_unlocked(entry_ship, &self.save)
+        // The detail panel: the entry_ship's card.
         panel(80, 270, 440, 360, if unlocked: cyan(1.0) else: white(0.3))
-        if unlocked: draw_ship(ship, V2 { x: 300.0, y: 450.0 }, V2 { x: cos(clock * 0.8), y: sin(clock * 0.8) }, 1.0, 5.0)
+        if unlocked: draw_ship(entry_ship, V2 { x: 300.0, y: 450.0 }, V2 { x: cos(clock * 0.8), y: sin(clock * 0.8) }, 1.0, 5.0)
         else: mystery(V2 { x: 300.0, y: 450.0 }, 140, white(0.3))
         let x = 560
-        neon(ship.name().to_upper(), x, 274, 36, white(1.0))
+        neon(entry_ship.name().to_upper(), x, 274, 36, white(1.0))
         if unlocked:
             label("BASE WEAPON", x, 330, 12, white(0.5))
-            neon(ship.base_weapon().name(), x + 170, 330, 20, gold(1.0))
+            neon(entry_ship.base_weapon().name(), x + 170, 330, 20, gold(1.0))
             var detail_y = 362
             label("STRENGTH", x, detail_y, 20, white(0.5))
-            detail_y = wrapped_label(ship.strength(), x + 160, detail_y, 510, 20, lime(1.0)) + 12
+            detail_y = wrapped_label(entry_ship.strength(), x + 160, detail_y, 510, 20, lime(1.0)) + 12
             label("GROWTH", x, detail_y, 20, white(0.5))
-            detail_y = wrapped_label(ship.growth(), x + 160, detail_y, 510, 20, cyan(1.0)) + 12
+            detail_y = wrapped_label(entry_ship.growth(), x + 160, detail_y, 510, 20, cyan(1.0)) + 12
             label("WEAKNESS", x, detail_y, 20, white(0.5))
-            detail_y = wrapped_label(ship.weakness(), x + 160, detail_y, 510, 20, magenta(1.0)) + 16
-            let best = self.save.best_time[ship.index()]
-            label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[ship.index()]}", x, detail_y, 20, white(0.75))
-            let cleared: bool = self.save.cleared[ship.index()]
+            detail_y = wrapped_label(entry_ship.weakness(), x + 160, detail_y, 510, 20, magenta(1.0)) + 16
+            let best = self.save.best_time[entry_ship.index()]
+            label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[entry_ship.index()]}", x, detail_y, 20, white(0.75))
+            let cleared: bool = self.save.cleared[entry_ship.index()]
             if cleared:
                 let mode = if self.endless: "ENDLESS" else: "20:00 RUN"
                 neon(f"MODE  {mode}", x, detail_y + 36, 20, if self.endless: magenta(1.0) else: white(0.9))
                 label(f"[{self.key(.Toggle)}] TOGGLE", x, detail_y + 64, 20, white(0.5))
-                if self.endless: label(f"BEST ENDLESS  {stamp(self.save.best_endless[ship.index()])}", x, detail_y + 92, 20, magenta(0.8))
+                if self.endless: label(f"BEST ENDLESS  {stamp(self.save.best_endless[entry_ship.index()])}", x, detail_y + 92, 20, magenta(0.8))
         else:
-            let c = ship.condition()
+            let c = entry_ship.condition()
             label("LOCKED", x, 330, 14, white(0.5))
-            let text = if ship.secret(): f"Hint: \"{c.describe()}\"" else: c.describe()
+            let text = if entry_ship.secret(): f"Hint: \"{c.describe()}\"" else: c.describe()
             let condition_end = wrapped_label(text, x, 360, 660, 20, white(1.0))
             let f = fraction(c, &self.save)
-            if not ship.secret() or self.save.clears > 0:
+            if not entry_ship.secret() or self.save.clears > 0:
                 DrawRectangle(x, condition_end + 20, 400, 8, white(0.15))
                 DrawRectangle(x, condition_end + 20, (400.0 * f) as i32, 8, gold(0.9))
                 label(f"{(f * 100.0) as i32}%", x + 410, condition_end + 14, 20, gold(0.9))
@@ -980,10 +980,10 @@ extend App:
                 for u in r.unlocks: text = text ++ u ++ "   "
                 y = wrapped_label(text, 60, y + 6, 680, 20, lime(1.0))
             if r.new_ships.len() > 0:
-                let ship = r.new_ships[0]
+                let new_ship = r.new_ships[0]
                 panel(760, 560, 460, 90, gold(1.0))
-                draw_ship(ship, V2 { x: 810.0, y: 605.0 }, V2 { x: 0.0, y: -1.0 }, 1.0, 1.8)
-                neon(f"NEW SHIP: {ship.name().to_upper()}", 860, 576, 22, gold(1.0))
+                draw_ship(new_ship, V2 { x: 810.0, y: 605.0 }, V2 { x: 0.0, y: -1.0 }, 1.0, 1.8)
+                neon(f"NEW SHIP: {new_ship.name().to_upper()}", 860, 576, 22, gold(1.0))
                 label(f"[{self.key(.Next)}]  RETRY AS IT", 860, 610, 14, white(0.8))
         centered_at(f"[{self.key(.Confirm)}] RETRY", 300, 730, 16, white(0.75))
         centered_at(if self.menu.device == .Pad: f"[{self.key(.Back)}] SHIP SELECT" else: "SHIP SELECT", 520, 730, 16, white(0.75))
@@ -1040,10 +1040,10 @@ extend App:
         neon("COLLECTION", 40, 24, 30, lime(1.0))
         self.credits_corner()
         for t in 0..TAB_COUNT:
-            let tab = tab_at(t)
-            let (have, total) = self.tab_counts(tab)
-            let selected = tab == self.tab
-            neon(tab.name(), 40 + t * 148, 70, 20, if selected: white(1.0) else: white(0.4))
+            let entry_tab = tab_at(t)
+            let (have, total) = self.tab_counts(entry_tab)
+            let selected = entry_tab == self.tab
+            neon(entry_tab.name(), 40 + t * 148, 70, 20, if selected: white(1.0) else: white(0.4))
             label(f"{have}/{total}", 40 + t * 148, 96, 20, if selected: lime(1.0) else: white(0.4))
             if selected: DrawRectangle(40 + t * 148, 122, 136, 2, lime(1.0))
         let count = self.tab.count()
@@ -1092,17 +1092,17 @@ extend App:
         if count > 20: label(f"PAGE {page + 1}/{(count + 19) / 20}   KEEP MOVING TO BROWSE", 40, 674, 20, white(0.6))
         centered(f"[{self.key(.Tabs)}] TAB     [{self.key(.Back)}] BACK", 720, 14, white(0.7))
 
-    fn tab_counts(self: &Self, tab: Tab) -> (i32, i32):
+    fn tab_counts(self: &Self, which: Tab) -> (i32, i32):
         var have = 0
         for i in 0..tab.count():
-            if self.entry_open(tab, i): have += 1
-        (have, tab.count())
+            if self.entry_open(which, i): have += 1
+        (have, which.count())
 
     fn boss_slain(self: &Self, i: i32) -> bool:
         let slain: bool = self.save.boss_slain[i]
         slain
 
-    fn entry_open(self: &Self, tab: Tab, i: i32) -> bool:
+    fn entry_open(self: &Self, which: Tab, i: i32) -> bool:
         match tab:
             .Ships => ship_unlocked(ship_at(i), &self.save)
             .Weapons => met(weapon_condition(weapon_at(i)), &self.save)
@@ -1113,7 +1113,7 @@ extend App:
             .Stages => stage_unlocked(stage_at(i), &self.save)
             .Achievements => achievement_met(ACHIEVEMENT_IDS[i], &self.save)
 
-    fn entry_name(self: &Self, tab: Tab, i: i32) -> str:
+    fn entry_name(self: &Self, which: Tab, i: i32) -> str:
         match tab:
             .Ships => ship_at(i).name()
             .Weapons => weapon_at(i).name()
@@ -1124,21 +1124,21 @@ extend App:
             .Stages => stage_at(i).name()
             .Achievements => achievement_name(i)
 
-    fn entry_detail(self: &Self, tab: Tab, i: i32) -> Vec[str]:
+    fn entry_detail(self: &Self, which: Tab, i: i32) -> Vec[str]:
         var out: Vec[str] = Vec.new()
-        let open = self.entry_open(tab, i)
+        let open = self.entry_open(which, i)
         match tab:
             .Ships => {
-                let ship = ship_at(i)
+                let entry_ship = ship_at(i)
                 if open:
-                    out.push(f"Base weapon: {ship.base_weapon().name()}")
-                    out.push(ship.strength())
-                    out.push(ship.growth())
-                    out.push(f"Weakness: {ship.weakness()}")
+                    out.push(f"Base weapon: {entry_ship.base_weapon().name()}")
+                    out.push(entry_ship.strength())
+                    out.push(entry_ship.growth())
+                    out.push(f"Weakness: {entry_ship.weakness()}")
                     out.push(f"Best: {stamp(self.save.best_time[i])}")
                 else:
-                    out.push(ship.condition().describe())
-                    out.push(f"Progress {(fraction(ship.condition(), &self.save) * 100.0) as i32}%")
+                    out.push(entry_ship.condition().describe())
+                    out.push(f"Progress {(fraction(entry_ship.condition(), &self.save) * 100.0) as i32}%")
             }
             .Weapons => {
                 let w = weapon_at(i)
