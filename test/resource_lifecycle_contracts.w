@@ -2,12 +2,12 @@
 use platform
 use platform_session
 
-var events: str = ""
-var platform_open: bool = false
-var window_open: bool = false
-var audio_open: bool = false
-var sound_live: bool = false
-var renderer_live: bool = false
+var events = ""
+var platform_open = false
+var window_open = false
+var audio_open = false
+var sound_live = false
+var renderer_live = false
 
 fn note(event: &str): events = events ++ event ++ " "
 

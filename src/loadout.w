@@ -489,7 +489,7 @@ extend Build:
         self.passive_level(r.key) > 0
 
     pub fn ready_merges(self: &Self) -> Vec[Weapon]:
-        var out: Vec[Weapon] = Vec.new()
+        var out = Vec.new()
         for r in recipes():
             if self.recipe_ready(r): out.push(r.result)
         out

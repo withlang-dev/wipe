@@ -58,7 +58,7 @@ fn main:
         // Discard Steam's borrowed stats pointer so shutdown cannot store it.
         if read_only: platform.stats = null
         platform.shutdown()
-    let none: Vec[str] = Vec.new()
+    let none = Vec.new()
     if env("WIPE_STEAM_DISABLE") == "1" or args().contains("--expect-unavailable"):
         if platform.initialized:
             eprint("Steam initialized; the unavailable-client check requires a disconnected client.")
@@ -97,7 +97,7 @@ fn main:
         print(f"Steam UAT passed: Spacewar initialization, stats accessor, achievement query and manual dispatch; test achievement unlocked={original}; no achievement changes.")
         return 0
     if args().contains("--store-unchanged"):
-        let before: i32 = platform.stores_completed
+        let before = platform.stores_completed
         // Submit the client's current stats through the normal retry path.
         // The empty earned list cannot call SetAchievement; this branch
         // never clears an achievement or enters the mutation test below.
@@ -114,19 +114,19 @@ fn main:
     if original:
         eprint("Steam UAT needs a test account where ACH_WIN_ONE_GAME is still locked. It will not reset an existing achievement's unlock timestamp.")
         return 2
-    var earned: Vec[str] = Vec.new()
+    var earned = Vec.new()
     earned.push(id.clone())
     var ok = true
-    let before_clear: i32 = platform.stores_completed
+    let before_clear = platform.stores_completed
     if not platform.clear_test_achievement(id): ok = false
     else if not platform.wait_for_store(before_clear, &none): ok = false
     if ok and platform.achievement_status(id) != Some(false): ok = false
     if ok:
-        let before_set: i32 = platform.stores_completed
+        let before_set = platform.stores_completed
         if not platform.wait_for_store(before_set, &earned): ok = false
         else if platform.achievement_status(id) != Some(true): ok = false
     // Restore the account's original flag regardless of the test result.
-    let before_restore: i32 = platform.stores_completed
+    let before_restore = platform.stores_completed
     var restored = true
     if original:
         platform.sync.flush()

@@ -6,7 +6,7 @@ use c_import("SDL3/SDL.h")
 use gamepads
 use std.mem.{alloc_zeroed, free_mem}
 
-const DESC_BYTES: i32 = comptime SDL_VirtualJoystickDesc.size() as i32
+const DESC_BYTES = comptime SDL_VirtualJoystickDesc.size() as i32
 
 fn attach() -> u32:
     // SDL requires zeroed storage (including optional C callback pointers).

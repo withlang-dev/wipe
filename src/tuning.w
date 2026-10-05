@@ -205,7 +205,7 @@ extend Stage:
             .Cross => Rules { arena_width: 2600.0, arena_height: 2600.0, layout: 7 }
             .Gridlock => Rules { arena_width: 3200.0, arena_height: 2200.0, layout: 8 }
     pub fn walls(self: &Self) -> Vec[Wall]:
-        var out: Vec[Wall] = Vec.new()
+        var out = Vec.new()
         match self:
             .Pillars => {
                 for cx in [600.0, 1200.0, 1800.0]:
@@ -376,7 +376,7 @@ pub fn apply_tuning(base: Rules, text: &str) -> (Rules, i32, str):
 
 // Exact enough for tuning: digits, one point, one minus.
 pub fn read_number(s: &str) -> f64:
-    var i: i64 = 0
+    var i = 0
     let n = s.len() as i64
     var negative = false
     if i < n and s.byte_at(i) as i32 == 45:

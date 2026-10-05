@@ -19,7 +19,7 @@ use presentation
 use devices
 use app
 
-const DT: f64 = 1.0 / 60.0
+const DT = 1.0 / 60.0
 
 // What the scripted player is doing across frames.
 type Player {
@@ -47,7 +47,7 @@ fn fly(g: &Game) -> Controls:
     var aim = g.aim
     var nearest = 1.0e12
     for i in 0..g.enemy_count:
-        let e: Enemy = g.enemies[i]
+        let e = g.enemies[i]
         let d = sub(g.player, e.pos)
         let d2 = length2(d)
         if d2 < nearest:
@@ -56,7 +56,7 @@ fn fly(g: &Game) -> Controls:
         let fear = if e.kind == .Boss or e.kind == .Null: 380.0 else: 230.0
         if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: 400.0 else: 90.0)))
     for i in 0..g.bullet_count:
-        let b: Bullet = g.bullets[i]
+        let b = g.bullets[i]
         if not b.hostile: continue
         let d = sub(g.player, b.pos)
         let d2 = length2(d)
@@ -87,7 +87,7 @@ fn pick_card(g: &Game) -> i32:
     var best = 0
     var best_score = -1000.0
     for i in 0..g.offer_count:
-        let o: Offer = g.offers[i]
+        let o = g.offers[i]
         let score = match o.pick:
             .Merge(_) => 100.0
             .UpgradeWeapon(w) => 40.0 + (g.build.weapon_level(w) as f64)
@@ -158,7 +158,7 @@ fn main:
     var clock = 0.0
     var over_since = -1.0
     var results_since = -1.0
-    var last_screen: Screen = wipe.screen
+    var last_screen = wipe.screen
     var last_level = 0
     var last_boss = false
     // Pacing: level-up times, boost overlays, chained overlays, boss fights.
@@ -169,11 +169,11 @@ fn main:
     var last_boost_close = -10.0
     var was_boost = false
     var boss_started = 0.0
-    var boss_fights: Vec[f64] = Vec.new()
+    var boss_fights = Vec.new()
     var run_seconds = 0.0
     var caches = 0
-    var gap_sum: [f64; 5] = [0.0; 5]
-    var gap_count: [i32; 5] = [0; 5]
+    var gap_sum = [0.0; 5]
+    var gap_count = [0; 5]
     var first_level_sum = 0.0
     var first_level_runs = 0
     var shots = 0
@@ -353,7 +353,7 @@ fn main:
                     // Another overlay within half a second of the last one closing.
                     if clock - last_boost_close < 0.5: chained += 1
                     if g.boost_source == .LevelUp:
-                        let t: f64 = g.elapsed
+                        let t = g.elapsed
                         if level_times.len() == 0:
                             first_level_sum += t
                             first_level_runs += 1

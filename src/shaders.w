@@ -23,10 +23,10 @@ extend Effect:
     pub fn scalar(self: &Self, location: i32, value: f32) -> Unit:
         unsafe { SetShaderValue(self.program.repr, location, &raw const value, SHADER_UNIFORM_FLOAT) }
     pub fn vector2(self: &Self, location: i32, x: f32, y: f32) -> Unit:
-        let data: [f32; 2] = [x, y]
+        let data = [x, y]
         unsafe { SetShaderValue(self.program.repr, location, &raw const data[0], SHADER_UNIFORM_VEC2) }
     pub fn vector4(self: &Self, location: i32, x: f32, y: f32, z: f32, w: f32) -> Unit:
-        let data: [f32; 4] = [x, y, z, w]
+        let data = [x, y, z, w]
         unsafe { SetShaderValue(self.program.repr, location, &raw const data[0], SHADER_UNIFORM_VEC4) }
     pub fn texture(self: &Self, location: i32, texture: Texture2D) -> Unit:
         SetShaderValueTexture(self.program.repr, location, texture)

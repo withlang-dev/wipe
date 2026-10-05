@@ -30,7 +30,7 @@ fn main:
     for k in 0..STAGE_COUNT:
         let stage = stage_at(k)
         let r = stage.rules()
-        var spots: Vec[V2] = Vec.new()
+        var spots = Vec.new()
         spots.push(V2 { x: 20.0, y: 20.0 })
         spots.push(V2 { x: r.arena_width - 20.0, y: 20.0 })
         spots.push(V2 { x: 20.0, y: r.arena_height - 20.0 })

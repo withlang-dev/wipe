@@ -298,7 +298,7 @@ pub fn next_rank(s: &Save) -> Option[NextRank]:
 
 // Every ship newly unlocked by a run, comparing before and after.
 pub fn new_ships(before: &Save, after: &Save) -> Vec[Ship]:
-    var out: Vec[Ship] = Vec.new()
+    var out = Vec.new()
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         if not ship_unlocked(ship, before) and ship_unlocked(ship, after): out.push(ship)
@@ -306,7 +306,7 @@ pub fn new_ships(before: &Save, after: &Save) -> Vec[Ship]:
 
 // Things a run unlocked, as names.
 pub fn new_unlocks(before: &Save, after: &Save) -> Vec[str]:
-    var out: Vec[str] = Vec.new()
+    var out = Vec.new()
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         if not ship_unlocked(ship, before) and ship_unlocked(ship, after): out.push(f"{ship.name()} ship")
@@ -340,7 +340,7 @@ extend Metrics:
     pub fn median(self: &Self) -> f64:
         let n = self.lengths.len() as i32
         if n == 0: return 0.0
-        var sorted: Vec[f64] = Vec.new()
+        var sorted = Vec.new()
         for v in self.lengths: sorted.push(v)
         for i in 1..n:
             var j = i
@@ -351,7 +351,7 @@ extend Metrics:
                 j -= 1
         return sorted[n / 2]
     pub fn lines(self: &Self) -> Vec[str]:
-        var out: Vec[str] = Vec.new()
+        var out = Vec.new()
         let denominator = if self.results > 0: self.results else: 1
         out.push(f"RUNS THIS SESSION  {self.runs}")
         out.push(f"RETRIES < 3 S      {self.quick_retries}")

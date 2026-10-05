@@ -195,7 +195,7 @@ extend App:
     // the results screen; run counts only count finished runs.
     pub fn achievements_now(self: &Self) -> Vec[str]:
         if self.screen != .Run and self.screen != .Pause: return earned(&self.save)
-        var provisional: Save = record_run(self.save, &self.game).0
+        var provisional = record_run(self.save, &self.game).0
         provisional.runs = self.save.runs
         earned(&provisional)
 
@@ -221,7 +221,7 @@ extend App:
         if self.save.last_ship != picked.index():
             self.save.last_ship = picked.index()
             self.persist()
-        let cleared: bool = self.save.cleared[picked.index()]
+        let cleared = self.save.cleared[picked.index()]
         let run_endless = self.endless and cleared
         // A fresh game per run, built exactly as a replay builds it.
         let h = Header {
@@ -309,7 +309,7 @@ extend App:
     // Shop rows in display order: by category, or by next price.
     fn shop_row(self: &Self, row: i32) -> ShopItem:
         if not self.shop_by_price: return shop_item_at(row)
-        var order: [i32; 16] = [0; 16]
+        var order = [0; 16]
         for i in 0..SHOP_COUNT: order[i] = i
         for i in 1..SHOP_COUNT:
             var j = i
@@ -720,11 +720,11 @@ extend App:
             None => if g.cleared: "cleared" else: "abandoned"
         var weapons = ""
         for slot in 0..SLOT_COUNT:
-            let w: WeaponSlot = g.build.weapons[slot]
+            let w = g.build.weapons[slot]
             if w.level > 0: weapons = weapons ++ f"{w.weapon.name()}:{w.level} "
         var passives = ""
         for slot in 0..SLOT_COUNT:
-            let p: PassiveSlot = g.build.passives[slot]
+            let p = g.build.passives[slot]
             if p.level > 0: passives = passives ++ f"{p.passive.name()}:{p.level} "
         let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\n"
         let _ = write_file(log_path, previous ++ row)
@@ -870,7 +870,7 @@ extend App:
             detail_y = wrapped_label(entry_ship.weakness(), x + 160, detail_y, 510, 20, magenta(1.0)) + 16
             let best = self.save.best_time[entry_ship.index()]
             label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[entry_ship.index()]}", x, detail_y, 20, white(0.75))
-            let cleared: bool = self.save.cleared[entry_ship.index()]
+            let cleared = self.save.cleared[entry_ship.index()]
             if cleared:
                 let mode = if self.endless: "ENDLESS" else: "20:00 RUN"
                 neon(f"MODE  {mode}", x, detail_y + 36, 20, if self.endless: magenta(1.0) else: white(0.9))
@@ -936,14 +936,14 @@ extend App:
             // The build, as icons with levels.
             var x = 60.0
             for slot in 0..SLOT_COUNT:
-                let s: WeaponSlot = r.build.weapons[slot]
+                let s = r.build.weapons[slot]
                 if s.level == 0: continue
                 draw_weapon_icon(s.weapon, V2 { x: x + 14.0, y: 296.0 }, 11.0, clock, 1.0)
                 label(f"{s.weapon.name()} {roman(s.level)}", (x + 32.0) as i32, 286, 20, weapon_tint(s.weapon))
                 x += 40.0 + text_width(f"{s.weapon.name()} {roman(s.level)}", 12) as f64
             x = 60.0
             for slot in 0..SLOT_COUNT:
-                let s: PassiveSlot = r.build.passives[slot]
+                let s = r.build.passives[slot]
                 if s.level == 0: continue
                 draw_passive_icon(s.passive, V2 { x: x + 14.0, y: 328.0 }, 9.0, 1.0)
                 label(f"{s.passive.name()} {roman(s.level)}", (x + 32.0) as i32, 318, 20, lime(0.9))
@@ -1102,7 +1102,7 @@ extend App:
         (have, which.count())
 
     fn boss_slain(self: &Self, i: i32) -> bool:
-        let slain: bool = self.save.boss_slain[i]
+        let slain = self.save.boss_slain[i]
         slain
 
     fn entry_open(self: &Self, which: Tab, i: i32) -> bool:
@@ -1128,7 +1128,7 @@ extend App:
             .Achievements => achievement_name(i)
 
     fn entry_detail(self: &Self, which: Tab, i: i32) -> Vec[str]:
-        var out: Vec[str] = Vec.new()
+        var out = Vec.new()
         let open = self.entry_open(which, i)
         match tab:
             .Ships => {
