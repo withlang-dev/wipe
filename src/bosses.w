@@ -25,7 +25,7 @@ fn armed(index: i32, seed: i32) -> Game:
     g.level = 8 + index * 8
     g.xp_next = 1000000000
     g.boss_index = index
-    g.elapsed = 300.0 * index as f64
+    g.jump_to(300.0 * index as f64)
     g.spawn_boss()
     g
 

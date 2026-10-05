@@ -120,7 +120,7 @@ fn main:
     assert(ship_unlocked(.Claw, &progress_save))
     // Recording a run banks credits, updates bests, and feeds the registry.
     var g = Game.new()
-    g.elapsed = 400.0
+    g.jump_to(400.0)
     g.credits = 120
     g.kills = 50
     g.kills_by_kind[2] = 50
@@ -133,7 +133,7 @@ fn main:
     assert(next_rank(&after).is_some())
     // A merged Cannon still counts as holding the Cannon for its unlock.
     var merged = Game.new()
-    merged.elapsed = 950.0
+    merged.jump_to(950.0)
     merged.build.weapons[0] = WeaponSlot { weapon: .Railgun, level: 1 }
     let (held, _) = record_run(Save {}, &merged)
     near(held.held[Weapon.Cannon.index()], 950.0)

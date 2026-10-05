@@ -152,7 +152,7 @@ fn main:
     shot(&renderer, &down, 55.0, "35-boss-down")
     var telegraph = staged()
     telegraph.event_index = 0
-    telegraph.elapsed = 150.0
+    telegraph.jump_to(150.0)
     telegraph = step(telegraph, 1.0, right)
     shot(&renderer, &telegraph, 56.0, "36-event-telegraph")
     var death = staged()
@@ -180,7 +180,7 @@ fn main:
     // Real contact, a hull that cannot fall: the swarm presses as it would.
     late.max_health = 100000
     late.health = 100000
-    late.elapsed = 840.0
+    late.jump_to(840.0)
     late.boss_index = 3
     late.event_index = 12
     late.build.weapons[0].level = 8
@@ -225,7 +225,7 @@ fn main:
         var fight = staged()
         fight.build.weapons[0] = WeaponSlot { weapon: .Cannon, level: 4 }
         fight.boss_index = index
-        fight.elapsed = 300.0 * index as f64
+        fight.jump_to(300.0 * index as f64)
         fight.spawn_boss()
         fight = step(fight, 7.0, V2 { x: 0.8, y: -0.6 })
         let bname = f"63-boss-{index}"
@@ -234,7 +234,7 @@ fn main:
     for st in [Stage.Gridlock, Stage.Maze]:
         var walled = Game.new(st.rules())
         walled.rules.contact_radius = 0.0
-        walled.elapsed = 300.0
+        walled.jump_to(300.0)
         walled.boss_index = 3
         walled = step(walled, 20.0, V2 { x: 1.0 })
         let name = f"62-map-{st.name()}"

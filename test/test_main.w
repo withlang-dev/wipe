@@ -135,13 +135,13 @@ fn merges_uat:
 
 fn timeline_uat:
     var g = Game.new(Rules { minimum_start: 0.0 })
-    g.elapsed = 299.9
+    g.jump_to(299.9)
     for _ in 0..30: g.tick(Controls {}, 1.0 / 120.0)
     assert(g.boss_alive and g.boss_event or g.boss_alive)
     assert(g.boss_index == 1)
     // Elites arrive on schedule and carry a cache.
     var h = Game.new(Rules { minimum_start: 0.0 })
-    h.elapsed = 239.9
+    h.jump_to(239.9)
     for _ in 0..30: h.tick(Controls {}, 1.0 / 120.0)
     var elites = 0
     for i in 0..h.enemy_count:
@@ -149,7 +149,7 @@ fn timeline_uat:
     assert(elites == 1)
     // The cap spawns the Null and marks the run cleared.
     var n = Game.new(Rules { minimum_start: 0.0 })
-    n.elapsed = 1199.99
+    n.jump_to(1199.99)
     n.boss_index = 3
     for _ in 0..10: n.tick(Controls {}, 1.0 / 120.0)
     assert(n.cleared and n.null_alive)
@@ -165,7 +165,7 @@ fn timeline_uat:
     launch.endless = true
     e.start(launch)
     e.boss_index = 3
-    e.elapsed = 1199.99
+    e.jump_to(1199.99)
     for _ in 0..10: e.tick(Controls {}, 1.0 / 120.0)
     assert(not e.cleared and not e.null_alive)
 
@@ -178,7 +178,7 @@ fn boss_game(index: i32) -> Game:
     g.build.weapons[0].level = 0
     g.stress(60)
     g.boss_index = index
-    g.elapsed = 300.0 * index as f64
+    g.jump_to(300.0 * index as f64)
     g.spawn_boss()
     g
 
@@ -264,7 +264,7 @@ fn abandon_uat:
     // Abandoning banks the same end-of-run credits a death does.
     var g = Game.new(Rules { minimum_start: 0.0 })
     g.kills = 200
-    g.elapsed = 120.0
+    g.jump_to(120.0)
     g.abandon()
     assert(g.phase == .Over and g.credits > 0)
     let banked: i32 = g.credits

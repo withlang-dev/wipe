@@ -28,7 +28,7 @@ fn kills_once(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i3
     g.next_elite = 1.0e9
     g.boss_index = 3
     g.event_index = 12
-    g.elapsed = minute * 60.0
+    g.jump_to(minute * 60.0)
     // No level-ups: their hit-stop would freeze the weapon being measured.
     g.xp_next = 1000000000
     // Weaver bolts still land: an unkillable hull keeps the weapon firing.

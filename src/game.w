@@ -6,6 +6,9 @@ use ships
 // creation. Dense bounded pools use swap removal. A uniform grid over the
 // arena bounds every enemy query so bullets, blades, and separation scale
 // with local density rather than the enemy count.
+// The simulation's fixed step: 120 per second, whatever the frame rate.
+pub const STEPS_PER_SECOND: i64 = 120
+pub const STEP: f64 = 1.0 / 120.0
 pub const ENEMY_CAP: i32 = 2000
 pub const BULLET_CAP: i32 = 512
 pub const CORE_CAP: i32 = 1024
@@ -295,7 +298,10 @@ pub type Game {
     health: i32 = 10, max_health: i32 = 10, regen_bank: f64 = 0.0,
     // The view in world units: 1280x800 on a 16:10 screen (view_size).
     screen_w: f64 = 1280.0, screen_h: f64 = 800.0,
-    kills: i32 = 0, elapsed: f64 = 0.0,
+    kills: i32 = 0,
+    // The run's clock is a count of fixed steps; elapsed is derived from it,
+    // never summed, so minute 20 is exact however long the run.
+    steps: i64 = 0, elapsed: f64 = 0.0,
     level: i32 = 1, xp: i32 = 0, xp_next: i32 = 20, pending_levels: i32 = 0,
     combo: i32 = 0, best_combo: i32 = 0, combo_timer: f64 = 0.0,
     credits: i32 = 0, credit_energy: f64 = 0.0,
@@ -391,6 +397,10 @@ extend Game:
 
     pub fn center(self: &Self) -> V2: V2 { x: self.rules.arena_width / 2.0, y: self.rules.arena_height / 2.0 }
     pub fn minute(self: &Self) -> f64: self.elapsed / 60.0
+    // Benches, the gallery and tests start a run at a given second.
+    pub fn jump_to(mut self: Self, seconds: f64):
+        self.steps = (seconds * STEPS_PER_SECOND as f64 + 0.5) as i64
+        self.elapsed = self.steps as f64 / STEPS_PER_SECOND as f64
     // The minute the spawn tables read: endless loops from minute ten.
     pub fn table_minute(self: &Self) -> f64:
         let m = self.minute()
@@ -456,6 +466,7 @@ extend Game:
         self.health = self.max_health
         self.regen_bank = 0.0
         self.kills = 0
+        self.steps = 0
         self.elapsed = 0.0
         self.combo = 0
         self.best_combo = 0
@@ -2272,7 +2283,9 @@ extend Game:
             self.freeze = limit(self.freeze - dt, 0.0, 1.0)
             return
         if self.phase == .Over: return
-        self.elapsed += dt
+        // dt is one step (STEP) or zero: a zero tick settles without time passing.
+        if dt > 0.0: self.steps += 1
+        self.elapsed = self.steps as f64 / STEPS_PER_SECOND as f64
         // The best-time marker: crossing it is called out once.
         if not self.best_crossed and self.launch.best_time > 0.0 and self.elapsed >= self.launch.best_time:
             self.best_crossed = true

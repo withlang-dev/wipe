@@ -158,7 +158,7 @@ pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, densi
         g.next_elite = 1.0e9
         g.boss_index = 3
         g.event_index = 12
-        g.elapsed = minute * 60.0
+        g.jump_to(minute * 60.0)
         g.xp_next = 1000000000
         g.max_health = 100000000
         g.health = 100000000

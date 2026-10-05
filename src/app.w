@@ -94,7 +94,7 @@ pub type App {
     // The platform's one line for the title ("Steam isn't running..."), shown
     // for the first seconds, like the save notice.
     platform_notice: str = "",
-    game: Game, attract: Game, attract_frame: i32 = 0,
+    game: Game, attract: Game, attract_frame: i32 = 0, attract_pending: f64 = 0.0,
     ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false,
     ship_cursor: i32 = 0, stage_cursor: i32 = 0,
     boost_cursor: i32 = 0, pause_cursor: i32 = 0, confirm_abandon: bool = false,
@@ -397,7 +397,10 @@ extend App:
             self.attract_frame += 1
             let flight = pilot(&self.attract, self.attract_frame)
             self.attract.clear_events()
-            self.attract.tick(flight, dt)
+            // Fixed steps like the run, so the attract clock is exact too.
+            let (pending, count) = simulation_steps(self.attract_pending, dt)
+            self.attract_pending = pending
+            for _ in 0..count: self.attract.tick(flight, STEP)
             self.attract.tick(flight, 0.0)
             if self.attract.phase == .Boost: self.attract.choose(0)
             if self.attract.minute() > 6.0 or self.attract.phase == .Over: self.attract.reset()
