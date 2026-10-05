@@ -4,13 +4,9 @@ use steam_config
 
 fn native_target(kind: BuildKind, name: str, entry: str) -> Target:
     var target = target_new(kind, name, entry)
-    // With's Conan reader currently omits SDL's option-guarded Apple frameworks.
-    // These are SDK libraries required by the pinned static SDL package.
-    if os() == "Macos":
-        for framework in ["CoreVideo", "Foundation", "Cocoa", "Carbon", "CoreAudio", "AudioToolbox", "AVFoundation", "UniformTypeIdentifiers", "CoreMedia", "GameController", "CoreHaptics", "ForceFeedback", "IOKit", "Metal", "QuartzCore"]:
-            target = (move target).link_system_lib("framework:" ++ framework)
-    // Likewise its Windows system libraries: input methods (imm32) and
-    // controller device discovery (setupapi, cfgmgr32).
+    // `with get` supplies the packages' macOS frameworks. On Windows the static
+    // SDL package's system libraries are still named here: input methods
+    // (imm32) and controller device discovery (setupapi, cfgmgr32).
     if os() == "Windows":
         for system_lib in ["imm32", "setupapi", "cfgmgr32"]:
             target = (move target).link_system_lib(system_lib.clone())

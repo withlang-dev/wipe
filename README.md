@@ -34,8 +34,8 @@ named `sdl`). Both native dependencies are pinned in `with.toml`. SDL handles
 native controller transport and mapping; raylib handles graphics and audio.
 
 ```sh
-with get c.raylib@6.0
-with get c.sdl@3.4.14
+with get c.raylib
+with get c.sdl
 with build
 ./out/bin/wipe
 ```
