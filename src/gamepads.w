@@ -31,13 +31,20 @@ pub type PadFrame {
 extend PadFrame:
     pub fn down(self: &Self, bit: u32) -> bool: (self.pressed & bit) != 0
 
-// A single main-thread owner retains its selected controller until disconnect.
-// Discovery allocates only while disconnected, at most twice per second.
-pub type Gamepads {
-    pad: Option[Pad] = None, ready: bool = false, next_scan: u64 = 0,
-    preferred_id: u32 = 0, south_held: bool = false, held: u32 = 0,
-    // Valve controllers: when "lizard mode off" was last sent.
+// Every connected controller stays open, and the one last used drives the
+// game: on a Steam Deck with a Steam Controller on its puck, Steam Input
+// presents two virtual pads (the Deck's own controls first), and holding
+// only the first left the controller in the player's hands dead.
+// Discovery runs at most twice per second.
+type Seat {
+    pad: Pad, south_held: bool = false, held: u32 = 0,
+    // A physical Valve controller: when "lizard mode off" was last sent.
     valve: bool = false, next_controller_mode: u64 = 0,
+}
+
+pub type Gamepads {
+    seats: List[Seat] = List.new(), active: u32 = 0, ready: bool = false, next_scan: u64 = 0,
+    preferred_id: u32 = 0,
     report_connections: bool = true, warned: bool = false,
 }
 
@@ -49,6 +56,11 @@ pub fn Gamepads.open(preferred_id: u32 = 0) -> Result[Gamepads, str]:
     SDL_SetHint("SDL_JOYSTICK_HIDAPI_STEAM", "1")
     // SDL has no window; WIPE gates gameplay on raylib's window focus instead.
     SDL_SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
+    // SDL's SIGINT/SIGTERM handlers only queue SDL_EVENT_QUIT, and WIPE
+    // reads no SDL events, so they swallowed the signal: Steam's "Exit game"
+    // (SIGTERM) left the game running. The default action ends it; the save
+    // is already on disk, written atomically on every change.
+    SDL_SetHint("SDL_NO_SIGNAL_HANDLERS", "1")
     if not SDL_InitSubSystem(SDL_INIT_GAMEPAD): return Err(controller_error())
     SDL_SetGamepadEventsEnabled(false)
     SDL_SetJoystickEventsEnabled(false)
@@ -56,13 +68,28 @@ pub fn Gamepads.open(preferred_id: u32 = 0) -> Result[Gamepads, str]:
 
 impl Drop for Gamepads:
     fn drop(move self: Self):
-        drop(self.pad)
+        drop(self.seats)
         if self.ready: SDL_QuitSubSystem(SDL_INIT_GAMEPAD)
+
+// A stick past half travel is a player's hand, not drift.
+const ACTIVE_STICK = 0.5
+
+fn stick_moved(pad: &Pad, x: SDL_GamepadAxis, y: SDL_GamepadAxis) -> bool:
+    axis_unit(pad.axis(x)).abs() > ACTIVE_STICK or axis_unit(pad.axis(y)).abs() > ACTIVE_STICK
+
+// A button went down or a stick was pushed since this controller was last read.
+fn seat_used(seat: &Seat) -> bool:
+    (held_mask(&seat.pad) & ~seat.held) != 0 or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY) or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY)
 
 extend Gamepads:
     fn report_failure(mut self: Self):
         if not self.warned: eprint(f"WIPE controller access failed: {controller_error()}")
         self.warned = true
+
+    fn holds(self: &Self, id: u32) -> bool:
+        for seat in &self.seats:
+            if seat.pad.id() == id: return true
+        false
 
     fn discover(mut self: Self):
         let now = SDL_GetTicks()
@@ -79,48 +106,61 @@ extend Gamepads:
             for i in 0..count:
                 let id = ids[i]
                 if self.preferred_id != 0 and id != self.preferred_id: continue
+                if self.holds(id): continue
                 if let Some(found) = Pad.open(id):
                     let name = found.name().map(it.to_str_lossy()) ?? "Gamepad"
                     if self.report_connections: print(f"Controller connected: {name} (vendor {found.vendor()}, product {found.product()})")
                     // Connecting with A held must not automatically restart.
-                    self.south_held = found.button(SDL_GAMEPAD_BUTTON_SOUTH)
-                    self.held = held_mask(&found)
-                    // A physical Valve controller, not Steam Input's virtual found.
-                    self.valve = found.vendor() == VALVE_VENDOR and found.product() != STEAM_VIRTUAL_GAMEPAD
-                    self.next_controller_mode = 0
-                    self.pad = Some(found)
+                    let south_held = found.button(SDL_GAMEPAD_BUTTON_SOUTH)
+                    let held = held_mask(&found)
+                    // A physical Valve controller, not Steam Input's virtual pad.
+                    let valve = found.vendor() == VALVE_VENDOR and found.product() != STEAM_VIRTUAL_GAMEPAD
+                    self.seats.push(Seat { pad: found, south_held, held, valve })
+                    if self.active == 0: self.active = id
                     self.warned = false
-                    return
-                self.report_failure()
+                else:
+                    self.report_failure()
 
     pub fn poll(mut self: Self) -> PadFrame:
         if not self.ready: return PadFrame {}
         SDL_UpdateGamepads()
-        let disconnected = match &self.pad:
-            Some(current) => not current.connected()
-            None => false
-        if disconnected:
+        var removed = false
+        var i = 0
+        while i < self.seats.len():
+            if self.seats[i].pad.connected():
+                i += 1
+                continue
             if self.report_connections: print("Controller disconnected")
-            self.pad = None
-            self.south_held = false
-            self.held = 0
+            let gone = self.seats.remove(i)
+            removed = true
+            if gone.pad.id() == self.active: self.active = 0
             self.next_scan = 0
             self.warned = false
-            return PadFrame {}
-        if self.pad.is_none(): self.discover()
+        if self.active == 0 and self.seats.len() > 0: self.active = self.seats[0].pad.id()
+        // A disconnect's frame does not scan, so the next poll scans at once
+        // (a controller that reconnects is picked up without waiting).
+        if not removed: self.discover()
         self.hold_controller_mode()
-        let Some(current) = &self.pad else return PadFrame {}
-        let south = current.button(SDL_GAMEPAD_BUTTON_SOUTH)
-        let held_now = held_mask(current)
-        let frame = PadFrame {
-            id: current.id(),
-            motion: V2 { x: axis_unit(current.axis(SDL_GAMEPAD_AXIS_LEFTX)), y: axis_unit(current.axis(SDL_GAMEPAD_AXIS_LEFTY)) },
-            aim: V2 { x: axis_unit(current.axis(SDL_GAMEPAD_AXIS_RIGHTX)), y: axis_unit(current.axis(SDL_GAMEPAD_AXIS_RIGHTY)) },
-            south, retry: south and not self.south_held,
-            held: held_now, pressed: held_now & ~self.held,
-        }
-        self.south_held = south
-        self.held = held_now
+        // Whichever controller was used this frame takes over the game.
+        for seat in &self.seats:
+            if seat_used(seat): self.active = seat.pad.id()
+        // Edges are each controller's own, kept every frame, so the press
+        // that takes over the game counts on the controller that made it.
+        var frame = PadFrame {}
+        for k in 0..self.seats.len():
+            let seat = &self.seats[k]
+            let south = seat.pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
+            let held_now = held_mask(&seat.pad)
+            if seat.pad.id() == self.active:
+                frame = PadFrame {
+                    id: self.active,
+                    motion: V2 { x: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_LEFTX)), y: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_LEFTY)) },
+                    aim: V2 { x: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_RIGHTX)), y: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_RIGHTY)) },
+                    south, retry: south and not seat.south_held,
+                    held: held_now, pressed: held_now & ~seat.held,
+                }
+            self.seats[k].south_held = south
+            self.seats[k].held = held_now
         frame
 
 pub const VALVE_VENDOR: u16 = 0x28DE
@@ -143,20 +183,19 @@ const CONTROLLER_MODE_REPORT_BYTES = 64
 
 extend Gamepads:
     fn hold_controller_mode(mut self: Self):
-        if not self.valve: return
         let now = SDL_GetTicks()
-        if now < self.next_controller_mode: return
-        self.next_controller_mode = now + 500
-        let Some(current) = &self.pad else return
-        var report = [0; 64]
-        report[0] = 1
-        report[1] = 0x87
-        report[2] = 3
-        report[3] = 9
-        // The controller rejects nothing it can't parse; a non-Triton Valve
-        // current reports the effect unsupported, which is harmless.
-        unsafe:
-            let _ = SDL_SendGamepadEffect(current.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
+        for k in 0..self.seats.len():
+            if not self.seats[k].valve or now < self.seats[k].next_controller_mode: continue
+            self.seats[k].next_controller_mode = now + 500
+            var report = [0; 64]
+            report[0] = 1
+            report[1] = 0x87
+            report[2] = 3
+            report[3] = 9
+            // The controller rejects nothing it can't parse; a non-Triton Valve
+            // controller reports the effect unsupported, which is harmless.
+            unsafe:
+                let _ = SDL_SendGamepadEffect(self.seats[k].pad.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
 
 fn held_mask(pad: &Pad) -> u32:
     var mask: u32 = 0
