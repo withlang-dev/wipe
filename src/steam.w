@@ -69,8 +69,8 @@ extend SteamPlatform:
         if ok: Some(achieved) else: None
 
     // Read-only test diagnostics: connection/schema facts, never account IDs.
-    pub fn diagnostics(self: &Self) -> Vec[str]:
-        var lines: Vec[str] = Vec.new()
+    pub fn diagnostics(self: &Self) -> List[str]:
+        var lines: List[str] = List.new()
         lines.push(f"Steam initialized={self.initialized}, app={self.app_id}, stats={self.stats != null}")
         if not self.initialized: return lines
         unsafe:
@@ -144,7 +144,7 @@ impl Platform for SteamPlatform:
         out.overlay_active = self.overlay
         out
 
-    fn sync_achievements(mut self: Self, earned: &Vec[str]):
+    fn sync_achievements(mut self: Self, earned: &List[str]):
         if not self.initialized or self.stats == null: return
         if self.app_id == 480 and not self.spacewar_test: return
         // SDK 1.65/v013 has the client synchronize stats before the process

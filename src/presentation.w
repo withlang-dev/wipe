@@ -427,14 +427,14 @@ extend Jitter:
 
 // Midpoint displacement: split every segment, push the midpoint sideways by
 // a share of the segment's length, repeat. The result zigzags at every scale.
-fn zigzag(a: V2, b: V2, rough: f64, depth: i32, seed: u32) -> Vec[V2]:
+fn zigzag(a: V2, b: V2, rough: f64, depth: i32, seed: u32) -> List[V2]:
     var jit = Jitter { state: seed }
-    var points = Vec.new()
+    var points = List.new()
     points.push(a)
     points.push(b)
     var spread = sqrt(length2(sub(b, a))) * rough
     for _ in 0..depth:
-        var next = Vec.new()
+        var next = List.new()
         for k in 0..(points.len() as i32 - 1):
             let p: V2 = points[k]
             let q = points[k + 1]
@@ -447,7 +447,7 @@ fn zigzag(a: V2, b: V2, rough: f64, depth: i32, seed: u32) -> Vec[V2]:
         spread *= 0.55
     points
 
-fn polyline(points: &Vec[V2], width: f64, color: Color):
+fn polyline(points: &List[V2], width: f64, color: Color):
     for k in 0..(points.len() as i32 - 1): line(points[k], points[k + 1], width, color)
 
 fn draw_lightning(a: V2, b: V2, seed: u32, remaining: f64):
@@ -1173,8 +1173,8 @@ fn area_name(f: Family) -> str:
 
 // The weapon's numbers before and after a pick, with the build's passives
 // and ranks applied: what the player actually gets.
-pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i32, mods: Mods) -> Vec[StatRow]:
-    var rows = Vec.new()
+pub fn weapon_rows(before: Option[(Weapon, i32)], after: Weapon, after_level: i32, mods: Mods) -> List[StatRow]:
+    var rows = List.new()
     let has_before = before.is_some()
     let b = match before:
         Some((w, l)) => weapon_stats(w, l, mods)
@@ -1331,7 +1331,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
             .UpgradePassive(p) => p.describe()
         let description_end = wrapped_label(detail, x + 12, subtitle_end + 4, card_w - 24, 20, white(0.7), true)
         // The numbers: now, and after this pick.
-        var rows: Vec[StatRow] = Vec.new()
+        var rows: List[StatRow] = List.new()
         match o.pick:
             .NewWeapon(w) => { rows = weapon_rows(None, w, 1, g.mods) }
             .UpgradeWeapon(w) => {
@@ -1369,7 +1369,7 @@ fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
 
 // ----- debug ------------------------------------------------------------------------
 
-pub type DebugInfo { frame_ms: f64 = 16.67, save_path: str = "", metrics: Vec[str] }
+pub type DebugInfo { frame_ms: f64 = 16.67, save_path: str = "", metrics: List[str] }
 
 fn render_debug(g: &Game, info: &DebugInfo, cam: Camera):
     let h = 350 + info.metrics.len() as i32 * 26
@@ -1402,8 +1402,8 @@ pub type Renderer {
     scene: RenderTexture2D, bloom_a: RenderTexture2D, bloom_b: RenderTexture2D,
     wide_a: RenderTexture2D, wide_b: RenderTexture2D,
     grid: Effect, bright: Effect, blur: Effect, composite: Effect,
-    ship_location: i32, camera_location: i32, visible_location: i32, stage_location: i32, count_location: i32, impulse_locations: Vec[i32],
-    bullet_count_location: i32, bullet_locations: Vec[i32],
+    ship_location: i32, camera_location: i32, visible_location: i32, stage_location: i32, count_location: i32, impulse_locations: List[i32],
+    bullet_count_location: i32, bullet_locations: List[i32],
     threshold_location: i32, direction_location: i32, bloom_location: i32, wide_location: i32,
     view_location: i32, render_scale_location: i32,
     // Logical view units; surfaces separately follow the physical output.
@@ -1420,9 +1420,9 @@ pub fn Renderer.open(view_w: i32 = WIDTH, view_h: i32 = HEIGHT) -> Renderer:
     let bright = Effect.open("bright.fs")
     let blur = Effect.open("blur.fs")
     let composite = Effect.open("composite.fs")
-    var locations = Vec.with_capacity(16)
+    var locations = List.with_capacity(16)
     for i in 0..16: locations.push(grid.location(f"impulses[{i}]"))
-    var bullets = Vec.with_capacity(24)
+    var bullets = List.with_capacity(24)
     for i in 0..24: bullets.push(grid.location(f"bullets[{i}]"))
     Renderer {
         scene: surface(view_w, view_h), bloom_a: surface(view_w / 4, view_h / 4), bloom_b: surface(view_w / 4, view_h / 4),

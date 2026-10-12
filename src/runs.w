@@ -16,8 +16,8 @@ use save
 use pilots
 use record
 
-fn recordings(paths: &Vec[str]) -> Vec[str]:
-    var out = Vec.new()
+fn recordings(paths: &List[str]) -> List[str]:
+    var out = List.new()
     for p in paths:
         if p.ends_with(".rec"):
             out.push(p.clone())
@@ -33,7 +33,7 @@ fn stamp(seconds: f64) -> str:
 
 fn first_hit(s: Stats) -> str: if s.first_hit < 0.0: "-" else: stamp(s.first_hit)
 
-fn cmd_replay(paths: Vec[str]) -> i32:
+fn cmd_replay(paths: List[str]) -> i32:
     var bad = 0
     var total = 0
     for path in recordings(&paths):
@@ -59,7 +59,7 @@ fn cmd_replay(paths: Vec[str]) -> i32:
     print(f"{total - bad} of {total} recordings replay exactly")
     if bad > 0: 1 else: 0
 
-fn cmd_calibrate(paths: Vec[str]) -> i32:
+fn cmd_calibrate(paths: List[str]) -> i32:
     print("run                               ship     you: time  hit1  hits<2m kills<1m   bot: time  hit1  hits<2m kills<1m")
     var n = 0
     var you_t = 0.0
@@ -122,7 +122,7 @@ fn main:
         print("usage: runs replay PATH... | runs calibrate [DIR] | runs profile [SEEDS]")
         return 2
     let command = argv[1].clone()
-    var rest = Vec.new()
+    var rest = List.new()
     for i in 2..argv.len() as i32: rest.push(argv[i].clone())
     if rest.len() == 0 and command != "profile": rest.push(f"{save_directory()}/runs")
     if command == "replay": return cmd_replay(rest)

@@ -99,7 +99,7 @@ fn pick_card(g: &Game) -> i32:
             best = i
     best
 
-type Log { lines: Vec[str] }
+type Log { lines: List[str] }
 extend Log:
     fn note(mut self: Self, text: str):
         print(text)
@@ -151,7 +151,7 @@ fn main:
         log_veteran = true
     var p = Player {}
     if log_veteran: p.ship_rotation = 1
-    var log = Log { lines: Vec.new() }
+    var log = Log { lines: List.new() }
     var failures = 0
     var worst_tick = 0.0
     var runs_done = 0
@@ -162,14 +162,14 @@ fn main:
     var last_level = 0
     var last_boss = false
     // Pacing: level-up times, boost overlays, chained overlays, boss fights.
-    var level_times: Vec[f64] = Vec.new()
+    var level_times: List[f64] = List.new()
     var boost_opens = 0
     var boost_seconds = 0.0
     var chained = 0
     var last_boost_close = -10.0
     var was_boost = false
     var boss_started = 0.0
-    var boss_fights = Vec.new()
+    var boss_fights = List.new()
     var run_seconds = 0.0
     var caches = 0
     var gap_sum = [0.0; 5]
@@ -337,7 +337,7 @@ fn main:
                 over_since = -1.0
             if wipe.screen == .Run and last_screen != .Pause:
                 p.paused_once = false
-                level_times = Vec.new()
+                level_times = List.new()
                 last_boss = false
                 let mode = if wipe.game.launch.endless: " ENDLESS" else: ""
                 log.note(f"  launch: {wipe.game.launch.ship.name()} on {wipe.stage.name()}{mode}, best to beat {stamp(wipe.game.launch.best_time)}")

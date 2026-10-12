@@ -109,7 +109,7 @@ pub fn start_game(h: &Header) -> Game:
     g.start(launch_for(h.ship, &h.save, h.endless))
     g
 
-fn take_block(lines: &Vec[str], at: i32) -> (str, i32):
+fn take_block(lines: &List[str], at: i32) -> (str, i32):
     let parts = lines[at].split(" ")
     let count = read_int(parts[1].clone()) as i32
     var text = ""

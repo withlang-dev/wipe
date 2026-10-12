@@ -52,8 +52,8 @@ pub fn achievement_met(id: &str, s: &Save) -> bool:
     false
 
 // Every achievement the save has earned, in table order.
-pub fn earned(s: &Save) -> Vec[str]:
-    var out = Vec.new()
+pub fn earned(s: &Save) -> List[str]:
+    var out = List.new()
     for id in ACHIEVEMENT_IDS:
         if achievement_met(id, s): out.push(id.clone())
     out

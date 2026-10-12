@@ -1,7 +1,7 @@
 // Store-neutral upload bookkeeping. The game owns the achievement facts;
 // this cache only avoids repeated platform calls within one session.
 pub type AchievementSync {
-    known: Vec[str],
+    known: List[str],
     dirty: bool = false,
     waiting: bool = false,
     // Steam's callbacks have no request ID. Timed-out accepted stores still
@@ -13,7 +13,7 @@ pub type AchievementSync {
 }
 
 pub fn AchievementSync.new() -> AchievementSync:
-    AchievementSync { known: Vec.new() }
+    AchievementSync { known: List.new() }
 
 extend AchievementSync:
     pub fn needs(self: &Self, id: &str) -> bool: not self.known.contains(id)

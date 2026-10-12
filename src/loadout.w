@@ -488,8 +488,8 @@ extend Build:
             if self.weapon_level(second) < MAX_WEAPON_LEVEL: return false
         self.passive_level(r.key) > 0
 
-    pub fn ready_merges(self: &Self) -> Vec[Weapon]:
-        var out = Vec.new()
+    pub fn ready_merges(self: &Self) -> List[Weapon]:
+        var out = List.new()
         for r in recipes():
             if self.recipe_ready(r): out.push(r.result)
         out
@@ -552,8 +552,8 @@ extend Build:
                 if second == w: return true
         false
 
-    pub fn candidates(self: &Self) -> Vec[Pick]:
-        var out: Vec[Pick] = Vec.new()
+    pub fn candidates(self: &Self) -> List[Pick]:
+        var out: List[Pick] = List.new()
         for m in self.ready_merges(): out.push(.Merge(result: m))
         let free_weapon = self.weapon_count() < self.weapon_slots
         for i in 0..BASE_WEAPON_COUNT:

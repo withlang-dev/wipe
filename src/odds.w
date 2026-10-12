@@ -148,7 +148,7 @@ fn attempt(r: Recipe, seed: i32, rerolls: i32, banishes: i32, skips: i32) -> Out
 fn main:
     let argv = args()
     let runs = if argv.len() > 1: parse(argv[1]) else: 24
-    var picks = Vec.new()
+    var picks = List.new()
     for i in BASE_WEAPON_COUNT..WEAPON_COUNT: picks.push(weapon_at(i))
     print(f"merge odds: {runs} runs each, a player chasing one recipe on the ship that starts with it")
     for plan in 0..2:

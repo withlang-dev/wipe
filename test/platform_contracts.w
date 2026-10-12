@@ -6,7 +6,7 @@ fn main:
     assert(not plain.manages_controllers())
     assert(plain.notice() == "")
     assert(not plain.frame().blocks_input())
-    let none = Vec.new()
+    let none = List.new()
     plain.sync_achievements(&none)
     plain.shutdown()
     plain.shutdown()

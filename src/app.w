@@ -80,8 +80,8 @@ pub type ResultsView {
     next_rank: Option[NextRank] = None,
     bar: f64 = 0.0,
     merge: Option[(Weapon, i32)] = None,
-    new_ships: Vec[Ship],
-    unlocks: Vec[str],
+    new_ships: List[Ship],
+    unlocks: List[str],
     shown: f64 = 0.0,
 }
 
@@ -124,7 +124,7 @@ pub fn App.open() -> App:
     var app = App {
         file, save, notice, settings, settings_file,
         game: Game.new(), attract: Game.new(),
-        results: ResultsView { new_ships: Vec.new(), unlocks: Vec.new() },
+        results: ResultsView { new_ships: List.new(), unlocks: List.new() },
         metrics: Metrics.new(),
     }
     app.ship = ship_at(limit(save.last_ship as f64, 0.0, (SHIP_COUNT - 1) as f64) as i32)
@@ -193,7 +193,7 @@ extend App:
     // Every achievement earned so far. During a run the save is judged as if
     // the run ended now, so an achievement arrives when it is earned, not on
     // the results screen; run counts only count finished runs.
-    pub fn achievements_now(self: &Self) -> Vec[str]:
+    pub fn achievements_now(self: &Self) -> List[str]:
         if self.screen != .Run and self.screen != .Pause: return earned(&self.save)
         var provisional = record_run(self.save, &self.game).0
         provisional.runs = self.save.runs
@@ -1127,8 +1127,8 @@ extend App:
             .Stages => stage_at(i).name()
             .Achievements => achievement_name(i)
 
-    fn entry_detail(self: &Self, which: Tab, i: i32) -> Vec[str]:
-        var out = Vec.new()
+    fn entry_detail(self: &Self, which: Tab, i: i32) -> List[str]:
+        var out = List.new()
         let open = self.entry_open(which, i)
         match tab:
             .Ships => {
