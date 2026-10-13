@@ -21,7 +21,7 @@ pub trait Platform:
     // Every achievement the save has earned; the platform mirrors any it
     // does not have yet. Called about once a second, so it must be cheap
     // when nothing changed.
-    fn sync_achievements(mut self: Self, earned: &Vec[str])
+    fn sync_achievements(mut self: Self, earned: &List[str])
     // A line for the title screen, once: "" when there is nothing to say.
     fn notice(self: &Self) -> str
     // True when the platform owns physical controllers and exposes its
@@ -34,7 +34,7 @@ pub type NoPlatform {}
 
 impl Platform for NoPlatform:
     fn frame(mut self: Self) -> PlatformFrame: PlatformFrame {}
-    fn sync_achievements(mut self: Self, earned: &Vec[str]): ()
+    fn sync_achievements(mut self: Self, earned: &List[str]): ()
     fn notice(self: &Self) -> str: ""
     fn manages_controllers(self: &Self) -> bool: false
     fn shutdown(mut self: Self): ()

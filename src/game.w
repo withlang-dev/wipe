@@ -280,8 +280,8 @@ pub type Launch {
 impl Copy for Launch
 
 // Allocate and initialize each pool once. Restart resets active lengths only.
-fn storage[T](value: T, capacity: i32) -> Vec[T]:
-    var slots = Vec.with_capacity(capacity)
+fn storage[T](value: T, capacity: i32) -> List[T]:
+    var slots = List.with_capacity(capacity)
     for _ in 0..capacity: slots.push(value)
     slots
 
@@ -333,25 +333,25 @@ pub type Game {
     enemy_count: i32 = 0, bullet_count: i32 = 0, core_count: i32 = 0, particle_count: i32 = 0,
     pulse_count: i32 = 0, popup_count: i32 = 0, pickup_count: i32 = 0, beacon_count: i32 = 0,
     mine_count: i32 = 0, beam_count: i32 = 0, arc_count: i32 = 0, wave_count: i32 = 0,
-    enemies: Vec[Enemy],
-    cell_heads: Vec[i32],
-    cell_next: Vec[i32],
-    bullets: Vec[Bullet],
-    cores: Vec[Core],
-    particles: Vec[Particle],
-    pulses: Vec[Pulse],
-    popups: Vec[Popup],
-    pickups: Vec[Pickup],
-    beacons: Vec[Beacon],
-    mines: Vec[Mine],
-    beams: Vec[Beam],
-    arcs: Vec[ArcBolt],
-    waves: Vec[Shockwave],
+    enemies: List[Enemy],
+    cell_heads: List[i32],
+    cell_next: List[i32],
+    bullets: List[Bullet],
+    cores: List[Core],
+    particles: List[Particle],
+    pulses: List[Pulse],
+    popups: List[Popup],
+    pickups: List[Pickup],
+    beacons: List[Beacon],
+    mines: List[Mine],
+    beams: List[Beam],
+    arcs: List[ArcBolt],
+    waves: List[Shockwave],
     rng: u32 = 1234567,
     // The stage's walls, and for maze stages a distance field on the enemy
     // grid toward the ship, rebuilt a few times a second.
-    walls: Vec[Wall],
-    flow: Vec[i32],
+    walls: List[Wall],
+    flow: List[i32],
     flow_timer: f64 = 0.0,
     uses_paths: bool = false,
     shot_event: bool = false, hit_event: bool = false,
@@ -379,7 +379,7 @@ pub fn Game.new(rules: Rules = Rules {}) -> Game:
         beams: storage(Beam {}, BEAM_CAP),
         arcs: storage(ArcBolt {}, ARC_CAP),
         waves: storage(Shockwave {}, SHOCKWAVE_CAP),
-        walls: Vec.new(),
+        walls: List.new(),
         flow: storage(-1, CELL_COUNT),
     }
     // A default launch has every launch weapon and passive so tests and the
@@ -649,7 +649,7 @@ extend Game:
     // walk downhill to come around walls.
     fn rebuild_flow(mut self: Self):
         for c in 0..CELL_COUNT: self.flow[c] = -1
-        var queue = Vec.new()
+        var queue = List.new()
         let start = cell_index(self.player)
         self.flow[start] = 0
         queue.push(start)
@@ -1381,7 +1381,7 @@ extend Game:
     // Draw the cards: a ready merge first, then weighted draws without
     // replacement. A cache offers only what the ship already carries.
     fn roll_offers(mut self: Self):
-        var pool = Vec.new()
+        var pool = List.new()
         let all = self.build.candidates()
         let cache = self.boost_source == .Cache
         for p in all:
@@ -1404,7 +1404,7 @@ extend Game:
                 if p.is_merge() and self.offer_count < count:
                     self.offers[self.offer_count] = Offer { pick: p, unseen: false }
                     self.offer_count += 1
-        var weights = Vec.new()
+        var weights = List.new()
         var total = 0.0
         for p in pool:
             let w = self.offer_weight(p)

@@ -16,7 +16,7 @@ extend SteamPlatform:
             WaitTime(0.05)
         None
 
-    fn wait_for_store(mut self: Self, after: i32, earned: &Vec[str]) -> bool:
+    fn wait_for_store(mut self: Self, after: i32, earned: &List[str]) -> bool:
         let deadline = now_ns() + 20000000000
         while self.initialized and now_ns() < deadline:
             self.frame()
@@ -58,7 +58,7 @@ fn main:
         // Discard Steam's borrowed stats pointer so shutdown cannot store it.
         if read_only: platform.stats = null
         platform.shutdown()
-    let none = Vec.new()
+    let none = List.new()
     if env("WIPE_STEAM_DISABLE") == "1" or args().contains("--expect-unavailable"):
         if platform.initialized:
             eprint("Steam initialized; the unavailable-client check requires a disconnected client.")
@@ -114,7 +114,7 @@ fn main:
     if original:
         eprint("Steam UAT needs a test account where ACH_WIN_ONE_GAME is still locked. It will not reset an existing achievement's unlock timestamp.")
         return 2
-    var earned = Vec.new()
+    var earned = List.new()
     earned.push(id.clone())
     var ok = true
     let before_clear = platform.stores_completed

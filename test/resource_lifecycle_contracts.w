@@ -14,7 +14,7 @@ fn note(event: &str): events = events ++ event ++ " "
 type TestPlatform {}
 impl Platform for TestPlatform:
     fn frame(mut self: Self) -> PlatformFrame: PlatformFrame {}
-    fn sync_achievements(mut self: Self, earned: &Vec[str]): ()
+    fn sync_achievements(mut self: Self, earned: &List[str]): ()
     fn notice(self: &Self) -> str: "test"
     fn manages_controllers(self: &Self) -> bool: false
     fn shutdown(mut self: Self):

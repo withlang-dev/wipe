@@ -297,16 +297,16 @@ pub fn next_rank(s: &Save) -> Option[NextRank]:
     best
 
 // Every ship newly unlocked by a run, comparing before and after.
-pub fn new_ships(before: &Save, after: &Save) -> Vec[Ship]:
-    var out = Vec.new()
+pub fn new_ships(before: &Save, after: &Save) -> List[Ship]:
+    var out = List.new()
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         if not ship_unlocked(ship, before) and ship_unlocked(ship, after): out.push(ship)
     out
 
 // Things a run unlocked, as names.
-pub fn new_unlocks(before: &Save, after: &Save) -> Vec[str]:
-    var out = Vec.new()
+pub fn new_unlocks(before: &Save, after: &Save) -> List[str]:
+    var out = List.new()
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         if not ship_unlocked(ship, before) and ship_unlocked(ship, after): out.push(f"{ship.name()} ship")
@@ -326,10 +326,10 @@ pub fn new_unlocks(before: &Save, after: &Save) -> Vec[str]:
 // The five numbers of spec §10, kept for the session and shown in F1.
 pub type Metrics {
     runs: i32 = 0, quick_retries: i32 = 0,
-    lengths: Vec[f64],
+    lengths: List[f64],
     unlock_near: i32 = 0, shop_near: i32 = 0, results: i32 = 0,
 }
-pub fn Metrics.new() -> Metrics: Metrics { lengths: Vec.new() }
+pub fn Metrics.new() -> Metrics: Metrics { lengths: List.new() }
 extend Metrics:
     pub fn record(mut self: Self, length: f64, unlock_fraction: f64, shop_fraction: f64):
         self.runs += 1
@@ -340,7 +340,7 @@ extend Metrics:
     pub fn median(self: &Self) -> f64:
         let n = self.lengths.len() as i32
         if n == 0: return 0.0
-        var sorted = Vec.new()
+        var sorted = List.new()
         for v in self.lengths: sorted.push(v)
         for i in 1..n:
             var j = i
@@ -350,8 +350,8 @@ extend Metrics:
                 sorted[j - 1] = t
                 j -= 1
         return sorted[n / 2]
-    pub fn lines(self: &Self) -> Vec[str]:
-        var out = Vec.new()
+    pub fn lines(self: &Self) -> List[str]:
+        var out = List.new()
         let denominator = if self.results > 0: self.results else: 1
         out.push(f"RUNS THIS SESSION  {self.runs}")
         out.push(f"RETRIES < 3 S      {self.quick_retries}")

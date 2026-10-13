@@ -99,7 +99,7 @@ fn main:
         if not recording:
             if let Some(bank) = &sound: bank.play(g, false, false, clock)
         let cam = renderer.begin_world(g, clock, 1.0)
-        let info = DebugInfo { frame_ms, metrics: Vec.new() }
+        let info = DebugInfo { frame_ms, metrics: List.new() }
         renderer.draw_run(g, cam, Hud {}, 0, clock, if debug and not recording: Some(&info) else: None)
         let render_ms = renderer.present()
         if not recording and frame > 60 and frame > last_capture + 2:

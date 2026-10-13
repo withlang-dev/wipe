@@ -204,8 +204,8 @@ extend Stage:
             .Expanse => Rules { arena_width: 3800.0, arena_height: 2800.0, spawn_scale: 1.2, layout: 6 }
             .Cross => Rules { arena_width: 2600.0, arena_height: 2600.0, layout: 7 }
             .Gridlock => Rules { arena_width: 3200.0, arena_height: 2200.0, layout: 8 }
-    pub fn walls(self: &Self) -> Vec[Wall]:
-        var out = Vec.new()
+    pub fn walls(self: &Self) -> List[Wall]:
+        var out = List.new()
         match self:
             .Pillars => {
                 for cx in [600.0, 1200.0, 1800.0]:
