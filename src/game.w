@@ -218,6 +218,8 @@ pub type Enemy {
     boss: i32 = -1, facing: V2 = V2 { x: 1.0 }, angle: f64 = 0.0, drone: bool = false,
     // Marked by a Shockwave: takes half again the damage while this lasts.
     marked: f64 = 0.0,
+    // Slowed by a beam: moves at half speed while this lasts.
+    slowed: f64 = 0.0,
     // A derelict's escort, or the elite carrying its core.
     escort: bool = false, carries: bool = false,
 }
@@ -250,6 +252,9 @@ pub const TETHER_LINKS: i32 = 7
 pub const TANK_FIRST: f64 = 150.0
 pub const TANK_INTERVAL: f64 = 25.0
 pub const TANK_LURE: f64 = 0.16
+// A marked enemy's lure, and how a beam-slowed enemy crawls.
+pub const MARK_LURE: f64 = 0.35
+pub const SLOW_FACTOR: f64 = 0.5
 pub type Core { pos: V2 = V2 {}, value: i32 = 1, age: f64 = 0.0 }
 pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache }
 impl Copy for PickupKind
@@ -403,6 +408,8 @@ pub type Game {
     rotor_bite: f64 = 0.0,
     // A satellite just caught a shot: its shield flares for a moment.
     satellite_flare: f64 = 0.0,
+    // The Tesla field's radius this tick, or zero without one.
+    tesla_reach: f64 = 0.0,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -1261,15 +1268,23 @@ extend Game:
             else: i += 1
         hits
 
-    // The nearest enemy in reach. A Tank draws fire: to anything that
-    // picks its own target it looks less than half as far away as it is.
+    // How much nearer an enemy looks to a weapon choosing its own target
+    // (a factor on squared distance): a Tank and a marked enemy draw fire.
+    fn lure_of(self: &Self, e: Enemy) -> f64:
+        var f = 1.0
+        if e.kind == .Tank: f *= TANK_LURE
+        if e.marked > 0.0: f *= MARK_LURE
+        f
+
+    // The nearest enemy in reach. A Tank, or a marked enemy, draws fire:
+    // to anything that picks its own target it looks nearer than it is.
     pub fn nearest_enemy(self: &Self, from: V2, max_distance: f64, skip_cd: bool, lure: bool = true) -> i32:
         var best = -1
         var best_d = max_distance * max_distance
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             if skip_cd and e.hit_cd > 0.0: continue
-            let d = length2(sub(e.pos, from)) * (if lure and e.kind == .Tank: TANK_LURE else: 1.0)
+            let d = length2(sub(e.pos, from)) * (if lure: self.lure_of(e) else: 1.0)
             if d < best_d:
                 best_d = d
                 best = i
@@ -1294,6 +1309,12 @@ extend Game:
             else: i += 1
 
     // A random enemy in view, not struck in the last moment; -1 when none.
+    // Held: inside a live well, or inside the Tesla field around the ship.
+    pub fn held(self: &Self, pos: V2) -> bool:
+        for i in 0..self.well_count:
+            if length2(sub(pos, self.wells[i].pos)) < self.wells[i].radius * self.wells[i].radius: return true
+        self.tesla_reach > 0.0 and length2(sub(pos, self.player)) < self.tesla_reach * self.tesla_reach
+
     fn random_visible_enemy(mut self: Self) -> i32:
         if self.enemy_count == 0: return -1
         for _ in 0..16:
@@ -1302,12 +1323,20 @@ extend Game:
             if e.hit_cd <= 0.0 and self.on_screen(e.pos, -20.0) and length2(sub(e.pos, self.player)) < 560.0 * 560.0: return i
         -1
 
-    fn arc_chain(mut self: Self, from: V2, chain: i32, range: f64, damage: i32):
+    // Lightning jumps on from each enemy it strikes, `chain` times; an
+    // enemy held in a well or a Tesla field conducts, and the bolt jumps
+    // once more for each, up to twice the chain.
+    pub fn arc_chain(mut self: Self, from: V2, chain: i32, range: f64, damage: i32):
         var origin = from
-        for _ in 0..chain:
+        var hops = chain
+        var taken = 0
+        while hops > 0 and taken < chain * 2:
+            hops -= 1
+            taken += 1
             let target = self.nearest_enemy(origin, range, true)
             if target < 0: break
             let pos = self.enemies[target].pos
+            if self.held(pos): hops += 1
             if self.arc_count < ARC_CAP:
                 self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos, seed: self.rng }
                 self.arc_count += 1
@@ -1338,6 +1367,7 @@ extend Game:
             let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(from, to, e.pos, 20.0 + e.kind.radius() * e.size):
                 remaining -= 1
+                if stats.slow > self.enemies[i].slowed: self.enemies[i].slowed = stats.slow
                 if not self.damage_enemy(i, stats.damage, heading): i += 1
             else: i += 1
         if stats.shatters:
@@ -1356,6 +1386,7 @@ extend Game:
 
     fn fire_weapons(mut self: Self, motion: V2, dt: f64):
         var tether_held = false
+        self.tesla_reach = 0.0
         for slot in 0..SLOT_COUNT:
             let s: WeaponSlot = self.build.weapons[slot]
             if s.level == 0: continue
@@ -1400,6 +1431,7 @@ extend Game:
                 .Tesla => {
                     // Everything in the field is shocked twice a second; a
                     // bolt is drawn to one of them each few frames.
+                    self.tesla_reach = stats.radius
                     let hits = self.damage_area(self.player, stats.radius, stats.damage, false, stats.cooldown)
                     if hits > 0 and stats.chain > 0 and self.build.weapons[slot].timer <= 0.0:
                         self.build.weapons[slot].timer = 0.5
@@ -1599,8 +1631,10 @@ extend Game:
                             let zap_damage = if zap < 1: 1 else: zap
                             // The Phase carries one extra bolt.
                             let bolts = stats.count + (if self.launch.ship == .Phase: 1 else: 0)
-                            for _ in 0..bolts:
-                                let target = self.random_visible_enemy()
+                            for bolt in 0..bolts:
+                                // The first bolt goes where the lure is; the rest fall at random.
+                                let drawn = if bolt == 0: self.nearest_enemy(self.player, 560.0, true) else: -1
+                                let target = if drawn >= 0 and self.lure_of(self.enemies[drawn]) < 1.0: drawn else: self.random_visible_enemy()
                                 if target < 0: break
                                 let pos = self.enemies[target].pos
                                 let from = add(self.player, scale(direction(sub(pos, self.player)), 16.0))
@@ -2071,7 +2105,7 @@ extend Game:
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             let to = sub(e.pos, self.player)
-            let d = length2(sub(e.pos, from)) * (if e.kind == .Tank: TANK_LURE else: 1.0)
+            let d = length2(sub(e.pos, from)) * self.lure_of(e)
             if d >= best_d: continue
             let along = (to.x * self.aim.x + to.y * self.aim.y) / (sqrt(length2(to)) + 0.001)
             if along > 0.819: continue
@@ -2279,6 +2313,7 @@ extend Game:
             var enemy: Enemy = self.enemies[e]
             enemy.age += dt
             if enemy.marked > 0.0: enemy.marked -= dt
+            if enemy.slowed > 0.0: enemy.slowed -= dt
             enemy.flash = limit(enemy.flash - dt, 0.0, 1.0)
             enemy.hit_cd = limit(enemy.hit_cd - dt, 0.0, 1.0)
             if frozen and enemy.kind != .Null:
@@ -2524,7 +2559,8 @@ extend Game:
                     }
                     .Null => { velocity = scale(toward, enemy.speed) }
             let velocity2 = if enemy.kind == .Boss or enemy.kind == .Null: velocity else: add(velocity, scale(movement(separation), 150.0))
-            enemy.pos = add(enemy.pos, scale(velocity2, dt))
+            let crawl = if enemy.slowed > 0.0 and enemy.kind != .Boss and enemy.kind != .Null: SLOW_FACTOR else: 1.0
+            enemy.pos = add(enemy.pos, scale(velocity2, dt * crawl))
             // Nothing sits on the ship: enemies stop at a small core around
             // it, inside the contact reach, so they still hurt and the
             // player's silhouette is never covered.

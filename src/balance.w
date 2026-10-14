@@ -9,6 +9,7 @@
 //   balance pairs      every pair of base weapons at L5, kills a minute,
 //                      with each weapon alone on the same bench
 //   balance ships      every ship with every base weapon at L5
+//   balance pair A B [SEEDS]   one pair against the shared-swarm expectation
 use game
 use tuning
 use loadout
@@ -141,11 +142,33 @@ fn cmd_ships -> i32:
         print(row)
     0
 
+// One pair, named, with more seeds: the two alone and together, and the
+// pair against the shared-swarm expectation (stronger + half the weaker).
+fn cmd_pair(a: str, b: str, seeds: i32) -> i32:
+    var first = Weapon.Cannon
+    var second = Weapon.Cannon
+    var found = 0
+    for i in 0..WEAPON_COUNT:
+        if weapon_at(i).name() == a: { first = weapon_at(i); found += 1 }
+        if weapon_at(i).name() == b: { second = weapon_at(i); found += 1 }
+    if found < 2:
+        print(f"unknown weapon in {a}, {b}")
+        return 1
+    let ka = kills(Bench { first }, seeds)
+    let kb = kills(Bench { first: second }, seeds)
+    let kab = kills(Bench { first, second, paired: true }, seeds)
+    let hi = if ka > kb: ka else: kb
+    let lo = if ka > kb: kb else: ka
+    let expect = (hi as f64) * 1.03 + (lo as f64) * 0.46
+    print(f"{a} {ka}  {b} {kb}  together {kab}  expected {expect as i32}  ratio {(kab as f64 / expect * 100.0) as i32}")
+    0
+
 fn main:
     let argv = args()
     if argv.len() < 2: return cmd_solo()
     if argv[1] == "scaling": return cmd_scaling()
     if argv[1] == "pairs": return cmd_pairs()
     if argv[1] == "ships": return cmd_ships()
+    if argv[1] == "pair" and argv.len() >= 4: return cmd_pair(argv[2], argv[3], if argv.len() > 4: parse(argv[4]) else: 4)
     print("usage: balance [scaling | pairs | ships]")
     1

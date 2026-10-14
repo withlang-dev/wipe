@@ -455,6 +455,8 @@ pub type WeaponStats {
     hit: f64 = 30.0,
     // A fan's spread between bolts (radians); a ring's shove and its mark.
     spread: f64 = 0.09, push: f64 = 0.0, mark: f64 = 0.0,
+    // How long a beam slows what it crosses.
+    slow: f64 = 0.0,
 }
 impl Copy for WeaponStats
 
@@ -603,6 +605,8 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.damage = 2 + level / 2
             s.pierce = 24
             s.count = 1
+            // What the beam crosses crawls for a moment.
+            s.slow = 0.7
         }
         .Tesla => {
             // A constant field around the ship: everything inside is shocked
