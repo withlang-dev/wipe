@@ -122,10 +122,16 @@ pub type App {
 }
 
 pub fn App.open() -> App:
-    var file = SaveFile.open()
+    // Settings are the machine's, at the data directory; the save is the
+    // slot's, the one last played.
+    let settings_file = SettingsFile.open(save_directory())
+    let remembered = settings_file.load()
+    let slot = match remembered:
+        Some(s) => s.slot
+        None => 1
+    var file = SaveFile.open(slot)
     let (save, notice) = file.load()
-    let settings_file = SettingsFile.open(file.directory)
-    let settings = settings_file.load() ?? Settings.from_save(&save)
+    let settings = remembered ?? Settings.from_save(&save)
     var app = App {
         file, save, logged_save: save, notice, settings, settings_file,
         game: Game.new(), attract: Game.new(),
@@ -423,8 +429,30 @@ extend App:
             if self.attract.phase == .Boost: self.attract.choose(0)
             if self.attract.minute() > 6.0 or self.attract.phase == .Over: self.attract.reset()
 
+    // Another slot: its save, its runs, its log; the settings remember it.
+    pub fn switch_slot(mut self: Self, slot: i32):
+        if slot < 1 or slot > SAVE_SLOTS or slot == self.file.slot: return
+        self.file = SaveFile.open(slot)
+        let (loaded, how) = self.file.load()
+        self.save = loaded
+        self.logged_save = loaded
+        self.notice = how
+        self.notice_timer = 6.0
+        self.settings.slot = slot
+        self.ship = ship_at(limit(loaded.last_ship as f64, 0.0, (SHIP_COUNT - 1) as f64) as i32)
+        if not ship_unlocked(self.ship, &self.save): self.ship = .Claw
+        self.ship_cursor = self.ship.index()
+        self.endless = false
+        self.hurry = false
+        self.tuning_path = f"{self.file.directory}/tuning.txt"
+        self.persist()
+
     fn update_title(mut self: Self, m: MenuInput, dt: f64):
         self.quit_armed = limit(self.quit_armed - dt, 0.0, 2.0)
+        // The save slots: the bumpers, or Q and E, step through four.
+        if m.lb or m.rb:
+            self.switch_slot(wrap(self.file.slot - 1 + (if m.rb: 1 else: -1), SAVE_SLOTS) + 1)
+            self.ui_move = true
         // Launch always goes through ship select, even with one ship: the
         // player sees the roster, its locks, and what they are flying.
         if m.confirm: self.go(.Select)
@@ -441,6 +469,9 @@ extend App:
             if inside(m.mouse, 520, 430, 240, 40): self.update_title(MenuInput { confirm: true }, 0.0)
             else if inside(m.mouse, 470, 480, 150, 30): self.go(.Shop)
             else if inside(m.mouse, 660, 480, 180, 30): self.go(.Collection)
+            else:
+                for n in 1..SAVE_SLOTS + 1:
+                    if inside(m.mouse, 400 + (n - 1) * 130, 560, 110, 44): self.switch_slot(n)
 
     fn update_select(mut self: Self, m: MenuInput):
         if m.left or m.right:
@@ -801,6 +832,16 @@ extend App:
         centered(f"[{self.key(.Confirm)}]  LAUNCH", 440, 22, white(0.7 + 0.3 * sin(clock * 3.0)))
         neon(f"[{self.key(.Shop)}]  SHOP", 480, 486, 16, gold(0.9))
         neon(f"[{self.key(.Collection)}]  COLLECTION", 660, 486, 16, lime(0.9))
+        // The four save slots: the one in play is lit; an empty one is a
+        // fresh game.
+        label(f"SAVE SLOT   [{self.key(.Tabs)}]", 400, 540, 12, white(0.5))
+        for n in 1..SAVE_SLOTS + 1:
+            let x = 400 + (n - 1) * 130
+            let active = n == self.file.slot
+            DrawRectangle(x, 560, 110, 44, ink(0.9))
+            DrawRectangleLinesEx(Rectangle { x: x as f32, y: 560.0, width: 110.0, height: 44.0 }, if active: 2.0 else: 1.0, if active: white(1.0) else: cyan(0.35))
+            centered_at(f"{n}", x + 55, 566, 16, if active: white(1.0) else: white(0.6))
+            centered_at(slot_summary(n), x + 55, 586, 9, if active: cyan(0.9) else: white(0.45))
         var best = 0.0
         for i in 0..SHIP_COUNT:
             if self.save.best_time[i] > best: best = self.save.best_time[i]

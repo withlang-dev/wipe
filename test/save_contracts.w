@@ -1,4 +1,4 @@
-//! expect-stdout: UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record
+//! expect-stdout: UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record, slots
 use std.fs
 use std.process.env
 use std.process.set_env
@@ -139,4 +139,27 @@ fn main:
     near(held.held[Weapon.Cannon.index()], 950.0)
     assert(met(weapon_condition(.Lance), &held))
     let _ = remove_tree(dir)
-    print("UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record")
+    // Slots: four accounts apart; slot 1 is the data directory itself; an
+    // empty slot reads as a fresh game; the settings remember the slot.
+    assert(SAVE_SLOTS == 4)
+    assert(slot_directory(1) == save_directory() and slot_directory(3) == f"{save_directory()}/slot3")
+    var third = SaveFile.open(3)
+    assert(third.slot == 3 and third.directory != SaveFile.open().directory)
+    let (fresh_third, _) = third.load()
+    assert(fresh_third.runs == 0)
+    assert(slot_summary(4) == "EMPTY")
+    var played = fresh_third
+    played.runs = 7
+    played.clears = 2
+    assert(third.store(&played))
+    assert(slot_summary(3) == "7 RUNS   2 CLEARS")
+    var third_again = SaveFile.open(3)
+    let (again, _) = third_again.load()
+    assert(again.runs == 7)
+    var first = SaveFile.open(1)
+    let (first_again, _) = first.load()
+    assert(first_again.runs != 7 or first_again.clears != 2)
+    let remembered = Settings.parse_text(Settings { slot: 3 }.serialize())
+    assert(remembered.slot == 3)
+    assert(Settings.parse_text("slot 9\n").slot == 1)
+    print("UAT passed: save round trip, settings, atomic backup, restore, set-aside, newer refusal, shop, unlocks, run record, slots")

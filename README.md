@@ -67,6 +67,13 @@ An unavailable audio device permits silent play.
 | Performance overlay and session metrics | F1 | — |
 | Fill the arena to the stress budget | F3 | — |
 
+Four save slots, each its own account, are stepped through on the title
+screen with the bumpers (Q and E on a keyboard) or a click; an empty slot
+is a fresh game. Slot 1 is the data directory itself, where the save
+always lived; slots 2 to 4 are `slot2/` to `slot4/` beside it, each with
+its own runs and run log. Settings are the machine's and remember the
+slot last played.
+
 The save lives in the per-user data directory (`~/Library/Application
 Support/WIPE` on macOS, `%APPDATA%\WIPE` on Windows, `$XDG_DATA_HOME/wipe`
 elsewhere). `WIPE_SAVE_DIR` overrides it, which the tests and the tour use.

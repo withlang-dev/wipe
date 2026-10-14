@@ -231,12 +231,32 @@ pub fn save_directory() -> str:
     let xdg = env("XDG_DATA_HOME")
     if xdg.len() > 0: f"{xdg}/wipe" else: f"{home}/.local/share/wipe"
 
-pub type SaveFile { directory: str, path: str, backup: str, temp: str, read_only: bool = false }
+pub type SaveFile { directory: str, path: str, backup: str, temp: str, read_only: bool = false, slot: i32 = 1 }
 
-pub fn SaveFile.open() -> SaveFile:
-    let directory = save_directory()
+// Four save slots, each its own account: its save, its runs and its log.
+// Slot 1 is the data directory itself, where the save always lived; the
+// others are slot2/ to slot4/ beside it. Settings are the machine's, not
+// a slot's.
+pub const SAVE_SLOTS: i32 = 4
+
+pub fn slot_directory(slot: i32) -> str:
+    let root = save_directory()
+    if slot <= 1: root else: f"{root}/slot{slot}"
+
+pub fn SaveFile.open(slot: i32 = 1) -> SaveFile:
+    let directory = slot_directory(slot)
     let _ = mkdir_p(directory)
-    SaveFile { path: f"{directory}/save.txt", backup: f"{directory}/save.bak", temp: f"{directory}/save.tmp", directory }
+    SaveFile { path: f"{directory}/save.txt", backup: f"{directory}/save.bak", temp: f"{directory}/save.tmp", directory, slot }
+
+// What a slot holds, for the title: nothing yet, or runs and clears.
+pub fn slot_summary(slot: i32) -> str:
+    let path = f"{slot_directory(slot)}/save.txt"
+    if not file_exists(path): return "EMPTY"
+    match read_file(path):
+        Ok(text) => match Save.parse_text(text):
+            Ok(s) => f"{s.runs} RUNS   {s.clears} CLEARS"
+            Err(_) => "UNREADABLE"
+        Err(_) => "UNREADABLE"
 
 extend SaveFile:
     // Read the primary, then the backup. Both unreadable: set them aside

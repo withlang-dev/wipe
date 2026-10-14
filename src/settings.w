@@ -1,5 +1,6 @@
 use std.fs
 use std.process.env
+use std.string.parse
 use save
 use game
 
@@ -7,12 +8,13 @@ use game
 // save between a Deck and a desktop, and whether this screen runs
 // fullscreen belongs to the machine. `key value` lines like the save,
 // written atomically beside it.
-pub type Settings { volume: f64 = 1.0, deadzone: f64 = 0.2, fullscreen: bool = false, vsync: bool = true, frame_limit: i32 = 0 }
+// `slot` is the save slot last played (1 to 4).
+pub type Settings { volume: f64 = 1.0, deadzone: f64 = 0.2, fullscreen: bool = false, vsync: bool = true, frame_limit: i32 = 0, slot: i32 = 1 }
 impl Copy for Settings
 
 extend Settings:
     pub fn serialize(self: &Self) -> str:
-        f"volume {fmt_float(self.volume)}\ndeadzone {fmt_float(self.deadzone)}\nfullscreen {fmt_bool(self.fullscreen)}\nvsync {fmt_bool(self.vsync)}\nframe_limit {self.frame_limit}\n"
+        f"volume {fmt_float(self.volume)}\ndeadzone {fmt_float(self.deadzone)}\nfullscreen {fmt_bool(self.fullscreen)}\nvsync {fmt_bool(self.vsync)}\nframe_limit {self.frame_limit}\nslot {self.slot}\n"
 
 // Unknown keys and malformed lines are ignored; a missing key keeps its
 // default.
@@ -32,6 +34,9 @@ pub fn Settings.parse_text(text: &str) -> Settings:
         else if key == "frame_limit":
             for cap in FRAME_LIMITS:
                 if value == f"{cap}": s.frame_limit = cap
+        else if key == "slot":
+            let n = parse(value)
+            if n >= 1 and n <= 4: s.slot = n
     s
 
 // A machine without settings.txt takes volume and deadzone from the save,
