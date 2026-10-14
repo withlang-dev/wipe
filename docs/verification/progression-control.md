@@ -140,3 +140,39 @@ first clear           run 4, minute 59
 first Hurry clear     never
 weapon     unlocked  first pick  gap
 ```
+
+## After phases 5-8 (the arsenal, the roster, the stages), the bot, 8 runs
+
+The bot plays the Claw in the Field, so the new stages and ships do not
+show here, but the pool does: twenty weapons enter by accomplishment and
+the bot meets most within two runs of their unlock. The gaps it leaves
+(the Tether at five runs, the Flak at seven, the Turret never) are the
+careful bot's card policy, which takes upgrades over new weapons once its
+slots fill; the fresh-card weight raises the offer, not the pick. A
+human's exposure is the number to watch, from `runs exposure` on a real
+account.
+
+```text
+first Hurry clear     never
+weapon     unlocked  first pick  gap
+Cannon    start    never    never
+Orbit    start    run 1    1
+Nova    start    run 5    5
+Seeker    start    run 1    1
+Lance    run 1    run 2    1
+Mines    run 1    run 2    1
+Arc    start    run 1    1
+Shard    never    never    -
+Tether    run 1    run 6    5
+Gravity Well    run 1    run 3    2
+Drone    run 1    run 2    1
+Lob    run 1    run 3    2
+Flak    run 1    run 8    7
+Turret    run 1    never    never
+Sweep    run 1    run 5    4
+Tesla Field    run 3    run 4    1
+Boomerang    never    never    -
+Shockwave    run 4    run 6    2
+Satellite    run 8    never    never
+Repulsor    run 4    run 5    1
+```

@@ -232,7 +232,7 @@ fn main:
         let bname = f"63-boss-{index}"
         shot(&renderer, &fight, 100.0 + index as f64, bname)
     // Walled maps mid-fight.
-    for st in [Stage.Gridlock, Stage.Maze]:
+    for st in [Stage.Gridlock, Stage.Maze, Stage.Blackout, Stage.BossRush, Stage.BoneField, Stage.Collapse, Stage.Rotor, Stage.Mirror]:
         var walled = Game.new(st.rules())
         walled.rules.contact_radius = 0.0
         walled.jump_to(300.0)
