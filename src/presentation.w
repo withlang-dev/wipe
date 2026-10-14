@@ -636,7 +636,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             let a = spin + k as f64 * 1.0472
             line(add(pos, V2 { x: cos(a) * 11.0, y: sin(a) * 11.0 }), add(pos, V2 { x: cos(a) * 17.0, y: sin(a) * 17.0 }), 2.0, gold(0.9))
         circle(pos, 3.5, red(armed))
-        ring(pos, 24.0 + 3.0 * sin(clock * 6.0 + m.age), gold(0.2 * armed))
+        ring(pos, m.radius * MINE_TRIGGER + 3.0 * sin(clock * 6.0 + m.age), gold(0.2 * armed))
         ring(pos, m.radius, gold(0.06))
     // Beams.
     for i in 0..g.beam_count:

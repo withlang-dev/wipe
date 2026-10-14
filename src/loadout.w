@@ -101,7 +101,7 @@ extend Weapon:
             .Nova => "A ring burst around the ship."
             .Seeker => "Homing bolts at the nearest enemy."
             .Lance => "Piercing beams forward and back along the movement."
-            .Mines => "Dropped on the path, detonating on contact."
+            .Mines => "A proximity mine where the ship is, every 3 s, never twice in one place. Area widens it; Projectiles arm more at once."
             .Arc => "Lightning from the ship strikes a random enemy each second, and anything in its path. More bolts, then chains, as it levels."
             .Shard => "Fragments that ricochet off the arena walls."
             .Railgun => "Cannon evolved: three heavy bolts that pierce three."
@@ -254,6 +254,12 @@ pub fn recipe_for(result: Weapon) -> Option[Recipe]:
         if r.result == result: return Some(r)
     None
 
+// The mine field: eight armed at once, and Projectiles add up to four.
+pub const MINE_BASE_CAP: i32 = 8
+pub const MINE_CAP_BONUS: i32 = 4
+// A mine's trigger reach, as a share of its blast radius.
+pub const MINE_TRIGGER: f64 = 0.45
+
 // Every stat multiplier the build applies, computed once per change.
 pub type Mods {
     damage: f64 = 1.0, cooldown: f64 = 1.0, cannon_rate: f64 = 1.0,
@@ -330,10 +336,14 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.pierce = 2 + level / 2
         }
         .Dropped => {
-            s.cooldown = 1.1 - (l - 1.0) * 0.06
+            // One every three seconds, faster with level; Fire rate and
+            // Cooldown shorten it below. The field is capped, and
+            // Projectiles raise the cap, never the rate (progression-plan
+            // §5.2); the trigger ring is part of the blast radius.
+            s.cooldown = 3.0 - (l - 1.0) * 0.15
             s.radius = 85.0 + l * 7.0
-            s.damage = 2 + level
-            s.max_active = 5 + step(level, 2, 2)
+            s.damage = 3 + level
+            s.max_active = MINE_BASE_CAP + (if mods.count > MINE_CAP_BONUS: MINE_CAP_BONUS else: mods.count)
         }
         .Chain => {
             // Bolts and chains by level, as designed: I one bolt; II two;
@@ -380,7 +390,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     s.damage = ((s.damage as f64) * mods.damage + 0.5) as i32
     if s.damage < 1: s.damage = 1
     s.cooldown *= mods.cooldown
-    if weapon.family() == .Aimed: s.cooldown *= mods.cannon_rate
+    if weapon.family() == .Aimed or weapon.family() == .Dropped: s.cooldown *= mods.cannon_rate
     if s.cooldown < 0.03: s.cooldown = 0.03
     // Lightning bolts are the Arc's level table, not projectiles: each carries
     // its chain, so the Projectiles passive would multiply the weapon.

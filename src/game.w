@@ -1298,14 +1298,25 @@ extend Game:
                             self.shot_event = true
                         }
                         .Dropped => {
-                            if self.mine_count >= stats.max_active or self.mine_count >= MINE_CAP: continue
+                            // A proximity mine where the ship is. Near a live mine
+                            // the drop waits (a short retry, never a backlog): moving
+                            // lays the field, standing still stops production.
+                            let keep_away = stats.radius * MINE_TRIGGER * 1.5
+                            var near = false
+                            for i in 0..self.mine_count:
+                                if length2(sub(self.mines[i].pos, self.player)) < keep_away * keep_away: near = true
+                            if near:
+                                self.build.weapons[slot].timer = 0.1
+                                continue
                             self.build.weapons[slot].timer = stats.cooldown
-                            // Mines fall behind the ship along its path, spread a little,
-                            // so a field forms where the ship has been.
-                            let behind = if length2(motion) > 0.01: scale(direction(motion), -46.0) else: scale(self.aim, -46.0)
-                            let angle = self.random() * 6.283185307
-                            let jitter = V2 { x: cos(angle) * 18.0, y: sin(angle) * 18.0 }
-                            let at = self.clamp_to_arena(add(self.player, add(behind, jitter)), 12.0)
+                            // At the cap the oldest mine makes room.
+                            if self.mine_count >= stats.max_active or self.mine_count >= MINE_CAP:
+                                var oldest = 0
+                                for i in 1..self.mine_count:
+                                    if self.mines[i].age > self.mines[oldest].age: oldest = i
+                                self.mine_count -= 1
+                                self.mines[oldest] = self.mines[self.mine_count]
+                            let at = self.clamp_to_arena(self.player, 12.0)
                             self.mines[self.mine_count] = Mine { pos: at, radius: stats.radius, damage: stats.damage, chains: stats.chains_on_hit or self.launch.ship == .Sapper }
                             self.mine_count += 1
                         }
@@ -2138,15 +2149,17 @@ extend Game:
                 continue
             self.waves[w] = wave
             w += 1
-        // Mines detonate on contact.
+        // Mines detonate when an enemy enters the trigger ring, a share of
+        // the blast radius, so Area widens the trigger too.
         var m = 0
         while m < self.mine_count:
             self.mines[m].age += dt
             let mine = self.mines[m]
             var touched = false
+            let reach = mine.radius * MINE_TRIGGER
             for i in 0..self.enemy_count:
                 let e = self.enemies[i]
-                if length2(sub(e.pos, mine.pos)) < (24.0 + e.kind.radius() * e.size) * (24.0 + e.kind.radius() * e.size):
+                if length2(sub(e.pos, mine.pos)) < (reach + e.kind.radius() * e.size) * (reach + e.kind.radius() * e.size):
                     touched = true
                     break
             if touched:
