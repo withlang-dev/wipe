@@ -471,7 +471,7 @@ extend App:
             else if inside(m.mouse, 660, 480, 180, 30): self.go(.Collection)
             else:
                 for n in 1..SAVE_SLOTS + 1:
-                    if inside(m.mouse, 400 + (n - 1) * 130, 560, 110, 44): self.switch_slot(n)
+                    if inside(m.mouse, 345 + (n - 1) * 150, 560, 140, 44): self.switch_slot(n)
 
     fn update_select(mut self: Self, m: MenuInput):
         if m.left or m.right:
@@ -834,14 +834,16 @@ extend App:
         neon(f"[{self.key(.Collection)}]  COLLECTION", 660, 486, 16, lime(0.9))
         // The four save slots: the one in play is lit; an empty one is a
         // fresh game.
-        label(f"SAVE SLOT   [{self.key(.Tabs)}]", 400, 540, 12, white(0.5))
+        label(f"SAVE SLOT   [{self.key(.Tabs)}]", 345, 540, 12, white(0.5))
         for n in 1..SAVE_SLOTS + 1:
-            let x = 400 + (n - 1) * 130
+            let x = 345 + (n - 1) * 150
             let active = n == self.file.slot
-            DrawRectangle(x, 560, 110, 44, ink(0.9))
-            DrawRectangleLinesEx(Rectangle { x: x as f32, y: 560.0, width: 110.0, height: 44.0 }, if active: 2.0 else: 1.0, if active: white(1.0) else: cyan(0.35))
-            centered_at(f"{n}", x + 55, 566, 16, if active: white(1.0) else: white(0.6))
-            centered_at(slot_summary(n), x + 55, 586, 9, if active: cyan(0.9) else: white(0.45))
+            DrawRectangle(x, 560, 140, 44, ink(0.9))
+            DrawRectangleLinesEx(Rectangle { x: x as f32, y: 560.0, width: 140.0, height: 44.0 }, if active: 2.0 else: 1.0, if active: white(1.0) else: cyan(0.35))
+            centered_at(f"{n}", x + 70, 566, 16, if active: white(1.0) else: white(0.6))
+            // The slot in play reads from the account in hand, not the disk.
+            let summary = if active: f"{self.save.runs} RUNS   {self.save.clears} CLEARS" else: slot_summary(n)
+            centered_at(summary, x + 70, 586, 9, if active: cyan(0.9) else: white(0.45))
         var best = 0.0
         for i in 0..SHIP_COUNT:
             if self.save.best_time[i] > best: best = self.save.best_time[i]
@@ -1041,10 +1043,10 @@ extend App:
             if r.threads.near.is_none(): neon("EVERY UNLOCK IS OPEN", 60, y, 18, gold(1.0))
             else:
                 self.draw_thread("NEAR", &r.threads.near, 60, y)
-                self.draw_thread("NEW", &r.threads.new, 60, y + 40)
-                self.draw_thread("STRETCH", &r.threads.stretch, 60, y + 80)
-                y += 80
-            y += 60
+                self.draw_thread("NEW", &r.threads.new, 60, y + 50)
+                self.draw_thread("STRETCH", &r.threads.stretch, 60, y + 100)
+                y += 100
+            y += 56
             match r.next_rank:
                 Some(n) => {
                     neon(f"NEXT RANK   {n.item.name()} {n.rank} for {commas(n.price)} credits", 60, y, 18, white(1.0))
