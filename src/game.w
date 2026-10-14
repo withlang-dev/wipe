@@ -252,9 +252,12 @@ pub const TETHER_LINKS: i32 = 7
 pub const TANK_FIRST: f64 = 150.0
 pub const TANK_INTERVAL: f64 = 25.0
 pub const TANK_LURE: f64 = 0.16
-// A marked enemy's lure, and how a beam-slowed enemy crawls.
+// A marked enemy's lure, a held one's, and how a beam-slowed enemy crawls.
 pub const MARK_LURE: f64 = 0.35
+pub const HELD_LURE: f64 = 0.5
 pub const SLOW_FACTOR: f64 = 0.5
+// How far a herding beam carries what it crosses, each crossing.
+pub const HERD_PUSH: f64 = 22.0
 pub type Core { pos: V2 = V2 {}, value: i32 = 1, age: f64 = 0.0 }
 pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache }
 impl Copy for PickupKind
@@ -1274,6 +1277,7 @@ extend Game:
         var f = 1.0
         if e.kind == .Tank: f *= TANK_LURE
         if e.marked > 0.0: f *= MARK_LURE
+        if self.held(e.pos): f *= HELD_LURE
         f
 
     // The nearest enemy in reach. A Tank, or a marked enemy, draws fire:
@@ -1367,7 +1371,12 @@ extend Game:
             let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(from, to, e.pos, 20.0 + e.kind.radius() * e.size):
                 remaining -= 1
+                let kind: Kind = e.kind
+                let at: V2 = e.pos
                 if stats.slow > self.enemies[i].slowed: self.enemies[i].slowed = stats.slow
+                // A herding beam carries what it crosses along with its turn.
+                if stats.herd and kind != .Boss and kind != .Null:
+                    self.enemies[i].pos = add(at, scale(V2 { x: -heading.y, y: heading.x }, HERD_PUSH * kind.displacement()))
                 if not self.damage_enemy(i, stats.damage, heading): i += 1
             else: i += 1
         if stats.shatters:

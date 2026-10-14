@@ -1,4 +1,4 @@
-//! expect-stdout: UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows what it crosses
+//! expect-stdout: UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows and herds what it crosses
 use game
 use tuning
 use loadout
@@ -74,6 +74,8 @@ fn main:
     sweep.enemies[0].age = 10.0
     sweep = still(sweep, 0.25)
     assert(sweep.enemies[0].slowed > 0.0)
+    // ...and is carried along with the beam's turn, off the line it came in on.
+    assert((sweep.enemies[0].pos.y - sweep.player.y).abs() > 5.0)
     var slow = armed(.Cannon, 0, 5)
     var fast = armed(.Cannon, 0, 5)
     assert(slow.place_enemy(add(slow.player, V2 { x: 400.0 }), .Block))
@@ -86,4 +88,4 @@ fn main:
     let crawled = 400.0 - (slow.enemies[0].pos.x - slow.player.x)
     let ran = 400.0 - (fast.enemies[0].pos.x - fast.player.x)
     assert(ran > 20.0 and crawled > 5.0 and crawled < ran * 0.6)
-    print("UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows what it crosses")
+    print("UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows and herds what it crosses")

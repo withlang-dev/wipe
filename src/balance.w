@@ -6,16 +6,17 @@
 //   balance            every base weapon alone at L1, L3, L5; every merge
 //   balance scaling    every base weapon at L5 with each passive at max,
 //                      as a ratio to the weapon alone
-//   balance pairs      every pair of base weapons at L5, kills a minute,
-//                      with each weapon alone on the same bench
+//   balance pairs [MINUTE DENSITY]   every pair of base weapons at L5, kills
+//                      a minute, with each weapon alone on the same bench
 //   balance ships      every ship with every base weapon at L5
-//   balance pair A B [SEEDS]   one pair against the shared-swarm expectation
+//   balance pair A B [SEEDS [MINUTE DENSITY]]   one pair against the shared-swarm expectation
 use game
 use tuning
 use loadout
 use ships
 use pilots
 use std.process.{args}
+use std.string.parse
 
 type Bench {
     first: Weapon = .Cannon,
@@ -115,16 +116,16 @@ fn cmd_scaling -> i32:
 // row of each weapon alone. The two share one swarm, so a pair never
 // reaches the sum of its parts; a synergy is a pair that beats the rest
 // of its row.
-fn cmd_pairs -> i32:
+fn cmd_pairs(minute: f64, density: i32) -> i32:
     var header = "weapon,alone"
     for j in 0..BASE_WEAPON_COUNT: header = header ++ "," ++ weapon_at(j).name()
     print(header)
     for i in 0..BASE_WEAPON_COUNT:
         let w = weapon_at(i)
-        var row = f"{w.name()},{kills(Bench { first: w })}"
+        var row = f"{w.name()},{kills(Bench { first: w, minute, density })}"
         for j in 0..BASE_WEAPON_COUNT:
             if j <= i: row = row ++ ","
-            else: row = row ++ f",{kills(Bench { first: w, second: weapon_at(j), paired: true })}"
+            else: row = row ++ f",{kills(Bench { first: w, second: weapon_at(j), paired: true, minute, density })}"
         print(row)
     0
 
@@ -144,7 +145,7 @@ fn cmd_ships -> i32:
 
 // One pair, named, with more seeds: the two alone and together, and the
 // pair against the shared-swarm expectation (stronger + half the weaker).
-fn cmd_pair(a: str, b: str, seeds: i32) -> i32:
+fn cmd_pair(a: str, b: str, seeds: i32, minute: f64, density: i32) -> i32:
     var first = Weapon.Cannon
     var second = Weapon.Cannon
     var found = 0
@@ -154,9 +155,9 @@ fn cmd_pair(a: str, b: str, seeds: i32) -> i32:
     if found < 2:
         print(f"unknown weapon in {a}, {b}")
         return 1
-    let ka = kills(Bench { first }, seeds)
-    let kb = kills(Bench { first: second }, seeds)
-    let kab = kills(Bench { first, second, paired: true }, seeds)
+    let ka = kills(Bench { first, minute, density }, seeds)
+    let kb = kills(Bench { first: second, minute, density }, seeds)
+    let kab = kills(Bench { first, second, paired: true, minute, density }, seeds)
     let hi = if ka > kb: ka else: kb
     let lo = if ka > kb: kb else: ka
     let expect = (hi as f64) * 1.03 + (lo as f64) * 0.46
@@ -167,8 +168,12 @@ fn main:
     let argv = args()
     if argv.len() < 2: return cmd_solo()
     if argv[1] == "scaling": return cmd_scaling()
-    if argv[1] == "pairs": return cmd_pairs()
+    if argv[1] == "pairs": return cmd_pairs(if argv.len() > 2: parse(argv[2]) as f64 else: 8.0, if argv.len() > 3: parse(argv[3]) else: 160)
     if argv[1] == "ships": return cmd_ships()
-    if argv[1] == "pair" and argv.len() >= 4: return cmd_pair(argv[2], argv[3], if argv.len() > 4: parse(argv[4]) else: 4)
+    if argv[1] == "pair" and argv.len() >= 4:
+        let seeds = if argv.len() > 4: parse(argv[4]) else: 4
+        let minute = if argv.len() > 5: parse(argv[5]) as f64 else: 8.0
+        let density = if argv.len() > 6: parse(argv[6]) else: 160
+        return cmd_pair(argv[2], argv[3], seeds, minute, density)
     print("usage: balance [scaling | pairs | ships]")
     1
