@@ -30,5 +30,17 @@ fn main:
         if kills < low or kills > high:
             failures += 1
             print(f"{w.name()} at V kills {kills} a minute, outside {low} to {high}")
+        // The campaign's back half: a base weapon at V, unmerged, against the
+        // minute-fourteen swarm. Bolts are single-target and fall behind the
+        // hull curve; contact weapons scale with the crowd. The band holds
+        // the two within four times of each other.
+        if not merged:
+            let late = weapon_kills(w, 5, 14.0, 45.0, 260, 2)
+            let late_high = if family == .Sweep or family == .Shock or family == .Tether: 2200 else: 1600
+            // The floor is coarse: this bench underrates an aimed weapon that a
+            // pilot steers; the ship profiles in targets.w are the real contract.
+            if late < 300 or late > late_high:
+                failures += 1
+                print(f"{w.name()} at V kills {late} a minute at fourteen, outside 300 to {late_high}")
     assert(failures == 0)
     print("UAT passed: weapon and merge kill-rate bands")

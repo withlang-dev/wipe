@@ -2091,11 +2091,11 @@ extend Game:
         let factor = limit(speed / 300.0, 0.6, 2.0)
         let damage = (stats.damage as f64 * factor + 0.5) as i32
         let _ = self.damage_area(blade, 36.0, damage, false, stats.cooldown)
-        // The chain itself cuts as hard as the blade, narrower: an enemy is
-        // struck once a cooldown by whichever part of the chain touches it,
-        // so a spun chain clears the ring around the ship and not only its rim.
+        // The chain itself cuts at half the blade's bite, narrower: an enemy
+        // is struck once a cooldown by whichever part of the chain touches
+        // it, so a spun chain clears the ring around the ship, not only its rim.
         for i in 1..links - 1:
-            let _ = self.damage_area(self.tether[i], 20.0, damage, false, stats.cooldown)
+            let _ = self.damage_area(self.tether[i], 20.0, (damage + 1) / 2, false, stats.cooldown)
         self.break_beacons_near(blade, 16.0)
         if stats.count > 1:
             let mid: V2 = self.tether[links / 2]

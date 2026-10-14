@@ -9,6 +9,7 @@
 //   balance pairs [MINUTE DENSITY]   every pair of base weapons at L5, kills
 //                      a minute, with each weapon alone on the same bench
 //   balance ships      every ship with every base weapon at L5
+//   balance five [MINUTE DENSITY]   every base weapon at L5 on one bench
 //   balance pair A B [SEEDS [MINUTE DENSITY]]   one pair against the shared-swarm expectation
 use game
 use tuning
@@ -164,12 +165,21 @@ fn cmd_pair(a: str, b: str, seeds: i32, minute: f64, density: i32) -> i32:
     print(f"{a} {ka}  {b} {kb}  together {kab}  expected {expect as i32}  ratio {(kab as f64 / expect * 100.0) as i32}")
     0
 
+// Every base weapon at V on one bench: the quick look while tuning.
+fn cmd_five(minute: f64, density: i32) -> i32:
+    print(f"base weapons at V, minute {minute as i32}, density {density}")
+    for i in 0..BASE_WEAPON_COUNT:
+        let w = weapon_at(i)
+        print(f"{w.name()} {kills(Bench { first: w, minute, density })}")
+    0
+
 fn main:
     let argv = args()
     if argv.len() < 2: return cmd_solo()
     if argv[1] == "scaling": return cmd_scaling()
     if argv[1] == "pairs": return cmd_pairs(if argv.len() > 2: parse(argv[2]) as f64 else: 8.0, if argv.len() > 3: parse(argv[3]) else: 160)
     if argv[1] == "ships": return cmd_ships()
+    if argv[1] == "five": return cmd_five(if argv.len() > 2: parse(argv[2]) as f64 else: 8.0, if argv.len() > 3: parse(argv[3]) else: 160)
     if argv[1] == "pair" and argv.len() >= 4:
         let seeds = if argv.len() > 4: parse(argv[4]) else: 4
         let minute = if argv.len() > 5: parse(argv[5]) as f64 else: 8.0

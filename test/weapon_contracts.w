@@ -158,7 +158,8 @@ fn main:
     assert(ring.bullet_count == 1 and ring.bullets[0].boomerang)
     let out_stats = weapon_stats(.Boomerang, MAX_WEAPON_LEVEL, Mods {})
     for _ in 0..(out_stats.lifetime * 60.0) as i32: ring = step(ring, V2 {}, V2 { x: 1.0 })
-    assert(ring.bullet_count == 1 and ring.bullets[0].pos.x > ring.player.x + 100.0)
+    // A second may already be thrown; the first is still out.
+    assert(ring.bullet_count >= 1 and ring.bullets[0].boomerang and ring.bullets[0].pos.x > ring.player.x + 100.0)
     for _ in 0..(out_stats.lifetime * 60.0 + 10.0) as i32: ring = step(ring, V2 {}, V2 { x: 1.0 })
     var caught = true
     for i in 0..ring.bullet_count:

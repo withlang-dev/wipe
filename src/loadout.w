@@ -481,8 +481,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // with the opening swarm alone.
             s.cooldown = 1.0 / (4.5 * (1.0 + (l - 1.0) * 0.12))
             // Single-target damage against enemies that toughen from minute
-            // two: a third more than the area weapons' curve, so aiming pays.
-            s.damage = 3 + level * 2 / 3
+            // two: steeper than the area weapons' curve, so aiming pays, and
+            // no steeper, or the Claw runs away with the late game (targets.w).
+            s.damage = 3 + level
             s.count = 1 + step(level, 2, 3)
             s.speed = 940.0
             s.lifetime = 1.6
@@ -501,10 +502,10 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.damage = 1 + level / 2
         }
         .Homing => {
-            s.cooldown = 0.6 - (l - 1.0) * 0.03
+            s.cooldown = 0.6 - (l - 1.0) * 0.04
             s.count = 2 + step(level, 2, 3)
             s.speed = 620.0
-            s.damage = 6 + level * 2
+            s.damage = 6 + level * 3
             s.lifetime = 2.4
             s.homing = true
         }
@@ -513,7 +514,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.radius = 420.0 + l * 30.0
             // Two beams, forward and back, so each hits for less; a third more
             // than the area curve, as the Cannon.
-            s.damage = 3 + level * 2 / 3
+            s.damage = 3 + level * 3 / 2
             s.pierce = 2 + level / 2
         }
         .Dropped => {
@@ -531,9 +532,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // length, cooldown how often one enemy can be struck by any part
             // of it. Damage grows with the blade's speed in game.w, so a
             // spun stick hits hardest.
-            s.cooldown = 0.1
-            s.radius = 95.0 + l * 6.0
-            s.damage = 5 + level
+            s.cooldown = 0.28
+            s.radius = 90.0 + l * 5.0
+            s.damage = 2 + level
             s.count = 1
         }
         .Field => {
@@ -557,7 +558,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.count = bolts[lv - 1]
             s.pierce = pierce[lv - 1]
             s.chain = chain[lv - 1]
-            s.damage = 3 + level * 2 / 3
+            s.damage = 3 + level * 3 / 2
             s.speed = 820.0
             s.lifetime = 1.1
             s.drones = 1
@@ -580,7 +581,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.spread = 0.2
             s.speed = 760.0
             s.lifetime = 0.24
-            s.damage = 4 + level * 2 / 3
+            s.damage = 4 + level * 3 / 2
             s.pierce = 1
         }
         .Turret => {
@@ -589,7 +590,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.cooldown = 6.0 - (l - 1.0) * 0.25
             s.lifetime = 8.0
             s.radius = 480.0
-            s.damage = 3 + level * 2 / 3
+            s.damage = 3 + level * 3 / 2
             s.speed = 900.0
             s.max_active = 2
             s.chain = 0
@@ -616,15 +617,15 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // twice a second.
             s.cooldown = 0.5
             s.radius = 120.0 + l * 10.0
-            s.damage = 2 + level / 2
+            s.damage = 2 + level / 3
         }
         .Return => {
             // Out along the aim for half its life, back along the same line
             // for the other half, hitting everything once each way.
-            s.cooldown = 1.2 - (l - 1.0) * 0.06
+            s.cooldown = 1.0 - (l - 1.0) * 0.08
             s.speed = 700.0
             s.lifetime = 1.2
-            s.damage = 6 + level
+            s.damage = 6 + level * 2
             s.pierce = 40
             s.count = 1
         }
@@ -673,7 +674,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.count = 2 + step(level, 3, 3)
             s.bounces = 2 + step(level, 4, 4)
             s.speed = 640.0
-            s.damage = 3 + level / 2
+            s.damage = 3 + level
             s.pierce = 1 + level / 4
             s.lifetime = 2.6
         }
