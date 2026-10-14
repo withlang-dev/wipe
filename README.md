@@ -72,11 +72,15 @@ Support/WIPE` on macOS, `%APPDATA%\WIPE` on Windows, `$XDG_DATA_HOME/wipe`
 elsewhere). `WIPE_SAVE_DIR` overrides it, which the tests and the tour use.
 A fresh save launches straight into a run as the Claw.
 
-Xbox and Steam controllers use SDL's native gamepad mapping. The first available
-mapped controller stays selected until it disconnects; WIPE then looks for a
-replacement twice per second. Both sticks have a radial deadzone, and centered
-aim retains the last direction. Moving the mouse returns to mouse aiming.
-Gameplay input is ignored while the game window is unfocused.
+Controllers speak the game's actions (`src/controls.w`), never buttons. Under
+Steam, Steam Input binds them: the actions and a default layout for every
+controller type live in `assets/steam/`, players rebind them in Steam's own
+configurator, and the on-screen prompts name whatever control is bound. Without
+Steam, SDL's gamepad mapping provides a fixed Xbox-style layout. Every
+connected controller stays open and the one used last drives the game. Both
+sticks have a radial deadzone, and centered aim retains the last direction.
+Moving the mouse returns to mouse aiming. Gameplay input is ignored while the
+game window is unfocused.
 
 The view follows the display's aspect ratio, with a 1280×800 minimum; the
 scene renders at the output's pixel size. Pause settings include fullscreen,
@@ -84,22 +88,28 @@ VSync, and a frame limit (display refresh, 30, 40, 45, 60, 90, or 120 FPS).
 Prompts follow the last used input device. The Collection's Awards tab shows
 all 29 local achievements, including in the plain build.
 
-## Testing the optional Steam build
+## Steam
 
-The default `wipe` target runs independently of Steam. The separate
-`wipe-steam` target adds achievement synchronization and pauses play when the
-Steam overlay opens. It remains playable if Steam initialization fails.
-When Steam manages controllers, WIPE accepts its mapped gamepad through SDL.
-
-This work currently needs the candidate With compiler with C++-header
-`c_import`, `Target.library_path`, and `Target.rpath` support. Supply the local
-[Steamworks SDK headers](vendor/steamworks/README.md), then use that compiler:
+One build serves every distribution. `wipe` links Valve's redistributable
+`libsteam_api`; when the Steam client is running it adds Steam Input,
+achievement synchronization and the overlay pause, and when it isn't, the game
+runs on SDL and the local save. The game never relaunches itself through
+Steam, so a copy from anywhere else works as it is. Building needs the
+[Steamworks SDK headers](vendor/steamworks/README.md) beside the vendored
+libraries:
 
 ```sh
-with build :wipe-steam
+with build
 with build :steam-uat
 WIPE_STEAM_DISABLE=1 ./out/bin/steam-uat
 ```
+
+Steam Input is checked with a controller connected to Steam and
+`steam_appid.txt` (`480`) in the working directory: `./out/bin/steam-uat
+--input` waits for the manifest, a controller and its bindings, then prints
+the bound control for each prompt. The manifest is found beside the
+executable (`assets/steam/steam_input_manifest.vdf`), so this works before
+the game has a Steamworks page of its own.
 
 For the real SDK test, use a Steam test account with Spacewar and a local
 `steam_appid.txt` containing `480` in the working directory. Run
@@ -123,9 +133,9 @@ reports failure if it cannot confirm restoration. The file is ignored by Git.
 Never test WIPE's achievement IDs against Spacewar.
 
 `src/steam_config.w` deliberately has no production App ID yet. Local
-packaging uses an explicit file list: `with build :package` stages the plain
-game; `:package-steam` requires WIPE's assigned App ID. Neither command uploads
-or publishes anything. Development App ID files and SDK headers are excluded.
+packaging uses an explicit file list: `with build :package` stages the game,
+its assets and Steam's library in `out/package/wipe`. It uploads and publishes
+nothing. Development App ID files and SDK headers are excluded.
 Hardware checks and outstanding acceptance are tracked in
 [the Steam and Deck plan](docs/steam-and-steam-deck-support.md).
 
@@ -305,10 +315,12 @@ an automated fixture, not a human playthrough or a hardware certification.
 
 ## Code and assets
 
-- `src/main.w`, `src/main_steam.w`: plain and optional Steam entry points.
+- `src/main.w`: the entry point; tools construct `NoPlatform` instead.
 - `src/run.w`: window, devices, and the shared frame loop.
-- `src/platform.w`, `src/steam.w`, `src/achievement_sync.w`: optional platform
-  services, Steam callbacks, and achievement upload retries.
+- `src/controls.w`: the action frame every controller path produces.
+- `src/platform.w`, `src/steam.w`, `src/achievement_sync.w`: the platform
+  seam (controllers, prompts, achievements, overlay), Steam Input and
+  callbacks, and achievement upload retries.
 - `src/app.w`: the screens of spec §11 (title, ship select, run, pause,
   results, shop, collection) and every transition between them.
 - `src/game.w`: the deterministic simulation: arena, camera, timeline,

@@ -1,6 +1,9 @@
 use run
-use platform
+use steam
 
-// The plain build: no store, no Steam. src/main_steam.w is the Steam build.
+// WIPE, one build for every distribution: Steamworks (achievements, the
+// overlay pause, Steam Input) when the Steam client is running, the plain
+// SDL path otherwise. Steam is opened before the window so its overlay can
+// hook the context the window creates.
 fn main:
-    return run(NoPlatform {})
+    run(SteamPlatform.open())

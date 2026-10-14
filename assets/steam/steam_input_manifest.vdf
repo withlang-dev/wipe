@@ -1,0 +1,144 @@
+"Action Manifest"
+{
+	"configurations"
+	{
+		"controller_neptune"
+		{
+			"0"
+			{
+				"path"		"controller_neptune.vdf"
+			}
+		}
+		"controller_xbox360"
+		{
+			"0"
+			{
+				"path"		"controller_xbox360.vdf"
+			}
+		}
+		"controller_xboxone"
+		{
+			"0"
+			{
+				"path"		"controller_xboxone.vdf"
+			}
+		}
+		"controller_generic"
+		{
+			"0"
+			{
+				"path"		"controller_generic.vdf"
+			}
+		}
+		"controller_ps4"
+		{
+			"0"
+			{
+				"path"		"controller_ps4.vdf"
+			}
+		}
+		"controller_ps5"
+		{
+			"0"
+			{
+				"path"		"controller_ps5.vdf"
+			}
+		}
+		"controller_switch_pro"
+		{
+			"0"
+			{
+				"path"		"controller_switch_pro.vdf"
+			}
+		}
+		"controller_steamcontroller_gordon"
+		{
+			"0"
+			{
+				"path"		"controller_steamcontroller_gordon.vdf"
+			}
+		}
+	}
+	"actions"
+	{
+		"Menu"
+		{
+			"title"		"#Set_Menu"
+			"legacy_set"		"0"
+			"StickPadGyro"
+			{
+				"navigate"
+				{
+					"title"		"#Action_Navigate"
+					"input_mode"		"joystick_move"
+				}
+			}
+			"Button"
+			{
+				"confirm"		"#Action_Confirm"
+				"back"		"#Action_Back"
+				"shop"		"#Action_Shop"
+				"collection"		"#Action_Collection"
+				"tab_left"		"#Action_TabLeft"
+				"tab_right"		"#Action_TabRight"
+				"pause"		"#Action_Pause"
+				"up"		"#Action_Up"
+				"down"		"#Action_Down"
+				"left"		"#Action_Left"
+				"right"		"#Action_Right"
+				"reroll"		"#Action_Reroll"
+				"skip"		"#Action_Skip"
+				"banish"		"#Action_Banish"
+				"next"		"#Action_Next"
+			}
+		}
+		"Flight"
+		{
+			"title"		"#Set_Flight"
+			"legacy_set"		"0"
+			"StickPadGyro"
+			{
+				"move"
+				{
+					"title"		"#Action_Move"
+					"input_mode"		"joystick_move"
+				}
+				"aim"
+				{
+					"title"		"#Action_Aim"
+					"input_mode"		"joystick_move"
+				}
+			}
+			"Button"
+			{
+				"fly_pause"		"#Action_Pause"
+			}
+		}
+	}
+	"localization"
+	{
+		"english"
+		{
+			"Set_Menu"		"Menus"
+			"Set_Flight"		"Flight"
+			"Action_Navigate"		"Move the cursor"
+			"Action_Confirm"		"Confirm"
+			"Action_Back"		"Back"
+			"Action_Shop"		"Shop"
+			"Action_Collection"		"Collection"
+			"Action_TabLeft"		"Previous tab"
+			"Action_TabRight"		"Next tab"
+			"Action_Pause"		"Pause"
+			"Action_Up"		"Up"
+			"Action_Down"		"Down"
+			"Action_Left"		"Left"
+			"Action_Right"		"Right"
+			"Action_Reroll"		"Reroll the cards"
+			"Action_Skip"		"Skip the cards"
+			"Action_Banish"		"Banish a card"
+			"Action_Next"		"Retry"
+			"Action_Move"		"Fly"
+			"Action_Aim"		"Aim"
+		}
+	}
+}

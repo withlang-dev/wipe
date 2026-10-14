@@ -1,6 +1,7 @@
 //! expect-stdout: UAT passed: resource dependencies close in order on every exit
 use platform
 use platform_session
+use controls
 
 var events = ""
 var platform_open = false
@@ -16,7 +17,8 @@ impl Platform for TestPlatform:
     fn frame(mut self: Self) -> PlatformFrame: PlatformFrame {}
     fn sync_achievements(mut self: Self, earned: &List[str]): ()
     fn notice(self: &Self) -> str: "test"
-    fn manages_controllers(self: &Self) -> bool: false
+    fn controller(mut self: Self, menu: bool) -> Option[ActionFrame]: None
+    fn prompts(self: &Self) -> List[str]: List.new()
     fn shutdown(mut self: Self):
         assert(platform_open and not window_open and not audio_open)
         assert(not sound_live and not renderer_live)

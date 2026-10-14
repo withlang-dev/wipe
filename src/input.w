@@ -1,6 +1,6 @@
 use c_import("raylib.h")
 use game
-use gamepads
+use controls
 
 // Prompts are selected once from the last meaningful input, across every
 // screen. MENU is the Deck/Steam virtual pad label and is clear on other pads.
@@ -9,6 +9,39 @@ impl Copy for Device
 impl Eq for Device
 pub enum Action { | Confirm | Back | Shop | Collection | Pause | Resume | Quit | Toggle | Tabs | Next | Reroll | Skip | Banish | Move | Aim }
 impl Copy for Action
+// The prompts' order, for a platform's table of bound control names.
+pub const ACTION_COUNT: i32 = 15
+pub fn action_index(action: Action) -> i32:
+    match action:
+        .Confirm => 0
+        .Back => 1
+        .Shop => 2
+        .Collection => 3
+        .Pause => 4
+        .Resume => 5
+        .Quit => 6
+        .Toggle => 7
+        .Tabs => 8
+        .Next => 9
+        .Reroll => 10
+        .Skip => 11
+        .Banish => 12
+        .Move => 13
+        .Aim => 14
+
+// The prompt for an action on the device in use. A platform that binds
+// actions itself (Steam Input, a console) names the bound control; the
+// table below is the plain SDL layout, and the keyboard's.
+pub type Prompts { device: Device = .Keyboard, bound: List[str] = List.new() }
+extend Prompts:
+    pub fn clone(self: &Self) -> Prompts: Prompts { device: self.device, bound: self.bound.clone() }
+
+    pub fn get(self: &Self, action: Action) -> str:
+        if self.device == .Pad and self.bound.len() as i32 == ACTION_COUNT:
+            let text = &self.bound[action_index(action)]
+            if text.len() > 0: return text.clone()
+        prompt(self.device, action)
+
 pub fn prompt(device: Device, action: Action) -> str:
     if device == .Pad:
         match action:
@@ -47,7 +80,7 @@ pub fn prompt(device: Device, action: Action) -> str:
 
 // Drift cannot change prompts. A pad wins simultaneous emulated key/mouse
 // events; a genuine later keyboard press or mouse movement takes over.
-pub fn active_device(previous: Device, keyboard: bool, mouse_moved: bool, pad: PadFrame, deadzone: f64) -> Device:
+pub fn active_device(previous: Device, keyboard: bool, mouse_moved: bool, pad: ActionFrame, deadzone: f64) -> Device:
     if pad.id != 0 and (pad.pressed != 0 or length2(pad.motion) > deadzone * deadzone or length2(pad.aim) > deadzone * deadzone): return .Pad
     if keyboard or mouse_moved: return .Keyboard
     previous
@@ -60,7 +93,7 @@ pub fn stick(x: f64, y: f64, deadzone: f64 = 0.2) -> V2:
 
 pub type Input { pad_aim: bool = false, last_mouse: V2 = V2 {}, deadzone: f64 = 0.2 }
 extend Input:
-    pub fn sample(mut self: Self, player: V2, previous_aim: V2, pad: PadFrame) -> Controls:
+    pub fn sample(mut self: Self, player: V2, previous_aim: V2, pad: ActionFrame) -> Controls:
         if not IsWindowFocused(): return Controls { aim: previous_aim }
         var motion = V2 {}
         if IsKeyDown(KEY_W) or IsKeyDown(KEY_UP): motion.y -= 1.0
@@ -73,7 +106,7 @@ extend Input:
 
     // Pure input arbitration shared with acceptance tests. Real mouse movement
     // selects mouse aim; meaningful right-stick input takes priority this frame.
-    pub fn resolve(mut self: Self, keyboard: V2, mouse: V2, player: V2, previous_aim: V2, pad: PadFrame) -> Controls:
+    pub fn resolve(mut self: Self, keyboard: V2, mouse: V2, player: V2, previous_aim: V2, pad: ActionFrame) -> Controls:
         if length2(sub(mouse, self.last_mouse)) > 4.0: self.pad_aim = false
         self.last_mouse = mouse
         var aim = if self.pad_aim: previous_aim else: sub(mouse, player)
@@ -125,27 +158,27 @@ pub fn one_press(seen: [i32; 2], key: bool, pad: bool, frame: i32) -> ([i32; 2],
         marks[1] = frame
     (marks, fired)
 extend MenuState:
-    pub fn sample(mut self: Self, pad: PadFrame, deadzone: f64 = 0.2) -> MenuInput:
+    pub fn sample(mut self: Self, pad: ActionFrame, deadzone: f64 = 0.2) -> MenuInput:
         var m = MenuInput {}
         if not IsWindowFocused(): return m
-        m.confirm = IsKeyPressed(KEY_SPACE) or IsKeyPressed(KEY_ENTER) or pad.down(BTN_SOUTH)
-        m.back = IsKeyPressed(KEY_ESCAPE) or pad.down(BTN_EAST)
-        m.back_held = IsKeyDown(KEY_ESCAPE) or (pad.held & BTN_EAST) != 0
-        m.shop = IsKeyPressed(KEY_X) or pad.down(BTN_WEST)
-        m.collection = IsKeyPressed(KEY_C) or pad.down(BTN_NORTH)
-        m.lb = IsKeyPressed(KEY_Q) or pad.down(BTN_LB)
-        m.rb = IsKeyPressed(KEY_E) or pad.down(BTN_RB)
-        m.start = IsKeyPressed(KEY_ESCAPE) or pad.down(BTN_START)
-        m.tab = IsKeyPressed(KEY_TAB) or pad.down(BTN_RB)
-        m.reroll = IsKeyPressed(KEY_R) or pad.down(BTN_WEST)
+        m.confirm = IsKeyPressed(KEY_SPACE) or IsKeyPressed(KEY_ENTER) or pad.down(ACT_CONFIRM)
+        m.back = IsKeyPressed(KEY_ESCAPE) or pad.down(ACT_BACK)
+        m.back_held = IsKeyDown(KEY_ESCAPE) or pad.holding(ACT_BACK)
+        m.shop = IsKeyPressed(KEY_X) or pad.down(ACT_SHOP)
+        m.collection = IsKeyPressed(KEY_C) or pad.down(ACT_COLLECTION)
+        m.lb = IsKeyPressed(KEY_Q) or pad.down(ACT_TAB_LEFT)
+        m.rb = IsKeyPressed(KEY_E) or pad.down(ACT_TAB_RIGHT)
+        m.start = IsKeyPressed(KEY_ESCAPE) or pad.down(ACT_PAUSE)
+        m.tab = IsKeyPressed(KEY_TAB) or pad.down(ACT_NEXT)
+        m.reroll = IsKeyPressed(KEY_R) or pad.down(ACT_REROLL)
         // Not S: S is a movement key, and a level-up can open mid-stride.
-        m.skip = IsKeyPressed(KEY_K) or pad.down(BTN_NORTH)
-        m.banish = IsKeyPressed(KEY_N) or pad.down(BTN_LB)
+        m.skip = IsKeyPressed(KEY_K) or pad.down(ACT_SKIP)
+        m.banish = IsKeyPressed(KEY_N) or pad.down(ACT_BANISH)
         self.frame += 1
-        let (up_marks, up) = one_press(self.last_up, IsKeyPressed(KEY_UP) or IsKeyPressed(KEY_W), pad.down(BTN_UP), self.frame)
-        let (down_marks, down) = one_press(self.last_down, IsKeyPressed(KEY_DOWN) or IsKeyPressed(KEY_S), pad.down(BTN_DOWN), self.frame)
-        let (left_marks, left) = one_press(self.last_left, IsKeyPressed(KEY_LEFT) or IsKeyPressed(KEY_A), pad.down(BTN_LEFT), self.frame)
-        let (right_marks, right) = one_press(self.last_right, IsKeyPressed(KEY_RIGHT) or IsKeyPressed(KEY_D), pad.down(BTN_RIGHT), self.frame)
+        let (up_marks, up) = one_press(self.last_up, IsKeyPressed(KEY_UP) or IsKeyPressed(KEY_W), pad.down(ACT_UP), self.frame)
+        let (down_marks, down) = one_press(self.last_down, IsKeyPressed(KEY_DOWN) or IsKeyPressed(KEY_S), pad.down(ACT_DOWN), self.frame)
+        let (left_marks, left) = one_press(self.last_left, IsKeyPressed(KEY_LEFT) or IsKeyPressed(KEY_A), pad.down(ACT_LEFT), self.frame)
+        let (right_marks, right) = one_press(self.last_right, IsKeyPressed(KEY_RIGHT) or IsKeyPressed(KEY_D), pad.down(ACT_RIGHT), self.frame)
         self.last_up = up_marks
         self.last_down = down_marks
         self.last_left = left_marks

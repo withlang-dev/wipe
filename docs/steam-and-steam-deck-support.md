@@ -172,15 +172,35 @@ applies the DPI scale twice and is no longer used by this tour.
 
 ## 5. Controls on the Deck
 
-**How it works under Steam.** Steam Input owns the Deck's controls and
-presents a virtual Xbox-style gamepad. SDL (2.0.8 and later, including
-SDL3) honors Steam's instruction to hide the raw device, so the game sees
-exactly one pad. WIPE's SDL path needs no Steam Input API to pass Verified.
-In Steamworks, start with the **Gamepad** template, which Valve's
+**Decided 2026-10-13: the Steam Input API, through one portable seam.**
+The game reads actions, never buttons (`src/controls.w`: confirm, back,
+move, aim, pause...). Three producers fill that frame: Steam Input
+(`src/steam.w`), SDL's mapping (`src/gamepads.w`) when Steam isn't running,
+and, later, a console's pad API behind the same `Platform` trait. The
+prompts come from the platform too: Steam names the bound control
+(`GetStringForActionOrigin`), so a remapped button shows its new name, and
+a console port supplies its own required names.
+
+**The manifest ships with the game.** `assets/steam/steam_input_manifest.vdf`
+declares two action sets, `Menu` (confirm, back, shop, collection, tabs,
+navigation, reroll, skip, banish, next, pause) and `Flight` (move, aim,
+pause), and lists a default layout per controller type beside it (Deck,
+Xbox 360 and One, generic, DualShock 4, DualSense, Switch Pro, Steam
+Controller). The game passes the manifest's absolute path with
+`SetInputActionManifestFilePath`, so Steam loads it from the game folder
+whether or not the Steamworks page points at it, including under Spacewar
+(480) during development. Every connected controller follows the screen's
+action set, and the one used last drives the game.
+
+**Still to verify on the Deck** (`./out/bin/steam-uat --input`, then the
+game): the default layouts load for the Deck and a Steam Controller; the
+stick's vertical sign (Steam reports up as positive, which the game inverts
+to its screen axis); and the prompt names on every screen.
+
+The paragraphs below describe the SDL path, which stays for play outside
+Steam. Valve's
 [gamepad-emulation guide](https://partner.steamgames.com/doc/features/steam_controller/steam_input_gamepad_emulation_bestpractices)
-recommends for twin-stick games. Opt in the Steam Deck and the Steam
-Controller. A custom mouse-emulating trackpad configuration needs the
-prompt checks below before it becomes the default.
+still applies to it.
 
 **Implemented in `src/gamepads.w`:**
 
@@ -363,25 +383,26 @@ value, and the app calls it:
 
 ```with
 trait Platform:
-    fn frame(mut self: Self) -> PlatformFrame     // overlay opening/active/closing
-    fn sync_achievements(mut self: Self, earned: &Vec[str])
-    fn notice(self: &Self) -> str                 // empty when no notice is needed
-    fn manages_controllers(self: &Self) -> bool
+    fn frame(mut self: Self) -> PlatformFrame                    // overlay opening/active/closing
+    fn controller(mut self: Self, menu: bool) -> Option[ActionFrame]  // the platform's own input API
+    fn prompts(self: &Self) -> List[str]                         // bound control names, per Action
+    fn sync_achievements(mut self: Self, earned: &List[str])
+    fn notice(self: &Self) -> str                                // empty when no notice is needed
     fn shutdown(mut self: Self)
 ```
 
 - `src/platform.w`: the trait and `NoPlatform`, which does nothing. The
-  plain `wipe` target uses it.
-- `src/steam.w`: the flat declarations and `SteamPlatform`. It is only an
-  input of the `wipe-steam` target.
-- `src/main.w` and `src/main_steam.w` differ in one line: which platform
-  they construct. Everything else moves into a shared `run(platform)`.
+  tools and tests use it.
+- `src/steam.w`: the flat declarations and `SteamPlatform`, which is also
+  the plain path: when the client isn't running, `controller` is `None`
+  and the game reads SDL.
+- `src/main.w` constructs `SteamPlatform`; everything else is the shared
+  `run(platform)`.
 
-Two targets and two entry files keep Steam out of the plain build. With
-has no top-level switch that could do it instead: `@[target]` selects by
-architecture only, and `with.toml [features]` is not visible to source.
-Separate entry files are the mechanism `std.build` supports. The harnesses
-and tests use `NoPlatform`.
+**One build (decided 2026-10-13).** `libsteam_api` is the redistributable
+part of the SDK and is inert without the client, so the game links it in
+every distribution and never calls `SteamAPI_RestartAppIfNecessary`. The
+earlier `wipe-steam` target is gone.
 
 ### 6.6 Adapter implementation and required acceptance
 
@@ -717,8 +738,7 @@ Common Steam Deck advice, checked against this tree:
 
 1. **Native Linux on the Deck.** No Proton build. The Linux binary is built
    on a Linux host (§8).
-2. **Two targets.** `wipe` is plain; `wipe-steam` adds the Steam platform
-   (§6.5).
+2. **Two targets.** Superseded by decision 8: one build.
 
 3. **Import `steam_api_flat.h` with `c_import`, and link `libsteam_api`**
    (§6.1, §6.4). This replaces the earlier plan of declarations generated
@@ -745,6 +765,13 @@ Common Steam Deck advice, checked against this tree:
 6. **Depots.** Target Linux and macOS; both have desktop build and runtime
    evidence, and Linux test bundles are ready. Deck acceptance remains. Add Windows
    only if a Windows build is made and tested.
-7. **`ISteamInput`.** Recommended: not for the first release. SDL plus
-   Steam Input's gamepad emulation can provide the controls; the shipped
-   configuration, glyphs and every screen still need acceptance (§5, §9).
+7. **`ISteamInput`.** Superseded by decision 8.
+
+**Decided (2026-10-13):**
+
+8. **One build, the Steam Input API, and a portable action contract.**
+   `wipe` links `libsteam_api` for every distribution and runs without the
+   client. Controllers produce the game's actions (`src/controls.w`) from
+   Steam Input, from SDL, or from a console's pad API behind the same
+   `Platform` trait; prompts name the bound control. The manifest and
+   default layouts ship in `assets/steam/` (§5, §6.5).

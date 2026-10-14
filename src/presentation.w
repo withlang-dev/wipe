@@ -864,10 +864,9 @@ fn hud_centered(g: &Game, text: str, y: i32, size: i32, color: Color):
     let lift = if y >= 150: (g.screen_h as i32 - HEIGHT) / 2 else: 0
     centered_at(text, g.screen_w as i32 / 2, y + lift, text_size(size), color)
 
-pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true, device: Device = .Keyboard }
-impl Copy for Hud
+pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true, prompts: Prompts = Prompts {} }
 
-fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
+fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
     let sw = g.screen_w as i32
     let sh = g.screen_h as i32
     // Top: the level-up bar with the level number, combo, timer, credits,
@@ -953,7 +952,7 @@ fn render_hud(g: &Game, hud: Hud, clock: f64) -> Unit:
     let counts = f"KILLS {commas(g.kills)}     REROLL {g.rerolls}   SKIP {g.skips}   BANISH {g.banishes}   REBOOT {g.reboots}"
     label(counts, (sw - text_width(counts, 10)) / 2, sh - 72, 16, white(0.5))
     if hud.show_hints and g.elapsed < 8.0:
-        let hint = f"MOVE  {prompt(hud.device, .Move)}     AIM  {prompt(hud.device, .Aim)}     AUTO-FIRE     [{prompt(hud.device, .Pause)}] PAUSE"
+        let hint = f"MOVE  {hud.prompts.get(.Move)}     AIM  {hud.prompts.get(.Aim)}     AUTO-FIRE     [{hud.prompts.get(.Pause)}] PAUSE"
         label(hint, (sw - text_width(hint, 10)) / 2, sh - 94, 16, white(0.4 * limit(8.0 - g.elapsed, 0.0, 1.0)))
     // Banner.
     if g.banner.life > 0.0:
@@ -1260,7 +1259,7 @@ pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 20]) -> str:
             }
     ""
 
-fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
+fn render_boost(g: &Game, cursor: i32, clock: f64, prompts: &Prompts):
     // The world dims; the build strip along the bottom stays lit so every
     // card can be weighed against what the ship already carries.
     let sw = g.screen_w as i32
@@ -1362,8 +1361,8 @@ fn render_boost(g: &Game, cursor: i32, clock: f64, device: Device):
             row_y += 26
         // No merge hints: recipes are the player's to find, and are listed
         // in the collection once found.
-        if device == .Keyboard: label(f"{i + 1}", x + 12, y + 12, 20, white(0.4))
-    let controls = f"[{prompt(device, .Confirm)}] TAKE     [{prompt(device, .Reroll)}] REROLL x{g.rerolls}     [{prompt(device, .Skip)}] SKIP x{g.skips}     [{prompt(device, .Banish)}] BANISH x{g.banishes}"
+        if prompts.device == .Keyboard: label(f"{i + 1}", x + 12, y + 12, 20, white(0.4))
+    let controls = f"[{prompts.get(.Confirm)}] TAKE     [{prompts.get(.Reroll)}] REROLL x{g.rerolls}     [{prompts.get(.Skip)}] SKIP x{g.skips}     [{prompts.get(.Banish)}] BANISH x{g.banishes}"
     label(controls, (WIDTH - text_width(controls, 20)) / 2, 686, 20, white(0.7))
     end_frame()
 
@@ -1586,8 +1585,8 @@ extend Renderer:
     // The in-run layers: indicators, HUD, boost overlay, debug.
     pub fn draw_run(self: &Self, g: &Game, cam: Camera, hud: Hud, cursor: i32, clock: f64, debug: Option[&DebugInfo]):
         render_indicators(g, cam, clock)
-        render_hud(g, hud, clock)
-        if g.phase == .Boost: render_boost(g, cursor, clock, hud.device)
+        render_hud(g, &hud, clock)
+        if g.phase == .Boost: render_boost(g, cursor, clock, &hud.prompts)
         if let Some(info) = debug: render_debug(g, info, cam)
 
     // Bloom and composite the scene to the window. Returns CPU submit ms.

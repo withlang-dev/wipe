@@ -4,6 +4,7 @@
 use sdl
 use c_import("SDL3/SDL.h")
 use gamepads
+use controls
 use std.mem.{alloc_zeroed, free_mem}
 
 const DESC_BYTES = comptime SDL_VirtualJoystickDesc.size() as i32
@@ -41,22 +42,22 @@ fn main:
         assert(SDL_SetJoystickVirtualAxis(joystick, 3, -32768))
         assert(SDL_SetJoystickVirtualButton(joystick, 0, true))
         let connected = pads.poll()
-        assert(connected.id == first)
+        assert(connected.id == first as u64)
         assert(connected.motion.x == 1.0 and connected.aim.y == -1.0)
-        assert(connected.south and not connected.retry)
+        assert(connected.holding(ACT_CONFIRM) and not connected.down(ACT_CONFIRM))
         assert(SDL_SetJoystickVirtualButton(joystick, 0, false))
         let released = pads.poll()
-        assert(not released.south and not released.retry)
+        assert(not released.holding(ACT_CONFIRM) and not released.down(ACT_CONFIRM))
         assert(SDL_SetJoystickVirtualButton(joystick, 0, true))
-        assert(pads.poll().retry)
-        assert(not pads.poll().retry)
+        assert(pads.poll().down(ACT_CONFIRM))
+        assert(not pads.poll().down(ACT_CONFIRM))
         assert(SDL_DetachVirtualJoystick(first))
         let gone = pads.poll()
-        assert(gone.id == 0 and not gone.retry and not gone.south)
+        assert(gone.id == 0 and not gone.down(ACT_CONFIRM) and not gone.holding(ACT_CONFIRM))
         assert(gone.motion.x == 0.0 and gone.aim.y == 0.0)
     let second = attach()
     defer: assert(SDL_DetachVirtualJoystick(second))
     assert(second != first)
     pads.preferred_id = second
-    assert(pads.poll().id == second)
+    assert(pads.poll().id == second as u64)
     print("UAT passed: SDL mapping, retry edges, held-button connect, disconnect, reconnect")

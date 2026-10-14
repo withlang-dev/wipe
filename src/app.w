@@ -8,7 +8,7 @@ use settings
 use achievements
 use account
 use input
-use gamepads
+use controls
 use presentation
 use pilots
 use record
@@ -107,6 +107,8 @@ pub type App {
     // Escape on the title asks once: backing out of menus must not quit.
     quit_armed: f64 = 0.0,
     input: Input = Input {}, menu: MenuState = MenuState {},
+    // The prompts for the device in use; a platform fills the bound names.
+    prompts: Prompts = Prompts {},
     debug: bool = false, frame_ms: f64 = 16.67,
     // Recording, the run log, and live tuning.
     rec: Recorder = Recorder {},
@@ -348,7 +350,12 @@ extend App:
     // ----- update -------------------------------------------------------------
 
     // One frame from the devices: sample, then step.
-    pub fn update(mut self: Self, pad: PadFrame, dt: f64):
+    // The menus' actions are in use everywhere but a running flight: the
+    // boost cards open inside a run, and pause is a menu.
+    pub fn menu_active(self: &Self) -> bool:
+        self.screen != .Run or self.game.phase != .Running
+
+    pub fn update(mut self: Self, pad: ActionFrame, dt: f64):
         // Alt-tabbing out of a run pauses it: input is ignored while the
         // window is unfocused, so an unpaused run would be lost unseen.
         if not IsWindowFocused() and self.screen == .Run and self.game.phase != .Over:
@@ -356,6 +363,7 @@ extend App:
             self.pause_cursor = 0
             self.confirm_abandon = false
         var m = self.menu.sample(pad, self.settings.deadzone)
+        self.prompts.device = self.menu.device
         if self.menu.device == .Pad: HideCursor() else: ShowCursor()
         // Menus, pause and the boost cards are laid out in the 1280x800
         // frame centered in the view; their hit tests read frame coordinates.
@@ -635,13 +643,13 @@ extend App:
         match self.screen:
             .Run => {
                 let cam = renderer.begin_world(&self.game, clock, 1.0)
-                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, device: self.menu.device }
+                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, prompts: self.prompts.clone() }
                 let info = self.debug_info()
                 renderer.draw_run(&self.game, cam, hud, self.boost_cursor, clock, if self.debug: Some(&info) else: None)
             }
             .Pause => {
                 let cam = renderer.begin_world(&self.game, clock, 1.0)
-                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, device: self.menu.device, show_hints: false }
+                let hud = Hud { best_time: self.game.launch.best_time, bank: self.save.credits, prompts: self.prompts.clone(), show_hints: false }
                 renderer.draw_run(&self.game, cam, hud, self.boost_cursor, clock, None)
                 DrawRectangle(0, 0, self.view_w, self.view_h, ink(0.6))
                 begin_frame(self.view_w, self.view_h)
@@ -748,7 +756,7 @@ extend App:
         if text.len() > 0: centered(text, 740, 14, magenta(limit(self.notice_timer, 0.0, 1.0)))
         else if self.platform_notice.len() > 0: centered(self.platform_notice.clone(), 740, 14, white(0.6 * limit(self.notice_timer, 0.0, 1.0)))
 
-    fn key(self: &Self, action: Action) -> str: prompt(self.menu.device, action)
+    fn key(self: &Self, action: Action) -> str: self.prompts.get(action)
 
     fn draw_title(self: &Self, clock: f64):
         centered("W I P E : S U R V I V A L", 190, 54, cyan(1.0))

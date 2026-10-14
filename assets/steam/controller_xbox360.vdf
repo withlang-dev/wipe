@@ -1,0 +1,345 @@
+"controller_mappings"
+{
+	"version"		"3"
+	"title"		"WIPE: SURVIVAL"
+	"description"		"WIPE's default Xbox 360 layout: the left stick flies, the right stick aims, A confirms, B backs out, Start pauses."
+	"controller_type"		"controller_xbox360"
+	"major_revision"		"0"
+	"minor_revision"		"0"
+	"actions"
+	{
+		"Menu"
+		{
+			"title"		"#Set_Menu"
+			"legacy_set"		"0"
+			"StickPadGyro"
+			{
+				"navigate"
+				{
+					"title"		"#Action_Navigate"
+					"input_mode"		"joystick_move"
+				}
+			}
+			"Button"
+			{
+				"confirm"		"#Action_Confirm"
+				"back"		"#Action_Back"
+				"shop"		"#Action_Shop"
+				"collection"		"#Action_Collection"
+				"tab_left"		"#Action_TabLeft"
+				"tab_right"		"#Action_TabRight"
+				"pause"		"#Action_Pause"
+				"up"		"#Action_Up"
+				"down"		"#Action_Down"
+				"left"		"#Action_Left"
+				"right"		"#Action_Right"
+				"reroll"		"#Action_Reroll"
+				"skip"		"#Action_Skip"
+				"banish"		"#Action_Banish"
+				"next"		"#Action_Next"
+			}
+		}
+		"Flight"
+		{
+			"title"		"#Set_Flight"
+			"legacy_set"		"0"
+			"StickPadGyro"
+			{
+				"move"
+				{
+					"title"		"#Action_Move"
+					"input_mode"		"joystick_move"
+				}
+				"aim"
+				{
+					"title"		"#Action_Aim"
+					"input_mode"		"joystick_move"
+				}
+			}
+			"Button"
+			{
+				"fly_pause"		"#Action_Pause"
+			}
+		}
+	}
+	"localization"
+	{
+		"english"
+		{
+			"title"		"WIPE: SURVIVAL"
+			"description"		"WIPE's default Xbox 360 layout: the left stick flies, the right stick aims, A confirms, B backs out, Start pauses."
+		}
+	}
+	"group"
+	{
+		"id"		"0"
+		"mode"		"switches"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+			"button_escape"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu pause, , "
+						}
+					}
+				}
+			}
+			"left_bumper"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu tab_left, , "
+							"binding"		"game_action Menu banish, , "
+						}
+					}
+				}
+			}
+			"right_bumper"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu tab_right, , "
+							"binding"		"game_action Menu next, , "
+						}
+					}
+				}
+			}
+		}
+	}
+	"group"
+	{
+		"id"		"1"
+		"mode"		"four_buttons"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+			"button_a"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu confirm, , "
+						}
+					}
+				}
+			}
+			"button_b"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu back, , "
+						}
+					}
+				}
+			}
+			"button_x"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu shop, , "
+							"binding"		"game_action Menu reroll, , "
+						}
+					}
+				}
+			}
+			"button_y"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu collection, , "
+							"binding"		"game_action Menu skip, , "
+						}
+					}
+				}
+			}
+		}
+	}
+	"group"
+	{
+		"id"		"2"
+		"mode"		"dpad"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+			"dpad_north"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu up, , "
+						}
+					}
+				}
+			}
+			"dpad_south"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu down, , "
+						}
+					}
+				}
+			}
+			"dpad_east"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu right, , "
+						}
+					}
+				}
+			}
+			"dpad_west"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Menu left, , "
+						}
+					}
+				}
+			}
+		}
+		"settings"
+		{
+			"requires_click"		"0"
+		}
+	}
+	"group"
+	{
+		"id"		"3"
+		"mode"		"joystick_move"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+		}
+		"gameactions"
+		{
+			"Menu"		"navigate"
+		}
+	}
+	"group"
+	{
+		"id"		"10"
+		"mode"		"switches"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+			"button_escape"
+			{
+				"activators"
+				{
+					"Full_Press"
+					{
+						"bindings"
+						{
+							"binding"		"game_action Flight fly_pause, , "
+						}
+					}
+				}
+			}
+		}
+	}
+	"group"
+	{
+		"id"		"11"
+		"mode"		"joystick_move"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+		}
+		"gameactions"
+		{
+			"Flight"		"move"
+		}
+	}
+	"group"
+	{
+		"id"		"12"
+		"mode"		"joystick_move"
+		"name"		""
+		"description"		""
+		"inputs"
+		{
+		}
+		"gameactions"
+		{
+			"Flight"		"aim"
+		}
+	}
+	"preset"
+	{
+		"id"		"0"
+		"name"		"Menu"
+		"group_source_bindings"
+		{
+			"0"		"switch active"
+			"1"		"button_diamond active"
+			"2"		"dpad active"
+			"3"		"joystick active"
+		}
+	}
+	"preset"
+	{
+		"id"		"1"
+		"name"		"Flight"
+		"group_source_bindings"
+		{
+			"10"		"switch active"
+			"11"		"joystick active"
+			"12"		"right_joystick active"
+		}
+	}
+	"settings"
+	{
+	}
+}

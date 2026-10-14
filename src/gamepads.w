@@ -2,6 +2,7 @@
 use sdl
 use c_import("SDL3/SDL.h")
 use game
+use controls
 
 pub fn controller_error() -> str:
     SDL_GetError().map(it.to_str_lossy()) ?? "Unknown SDL error"
@@ -9,27 +10,24 @@ pub fn controller_error() -> str:
 pub fn axis_unit(value: i16) -> f64:
     value as f64 / (if value < 0: 32768.0 else: 32767.0)
 
-// Button bits, shared by held and pressed masks.
-pub const BTN_SOUTH: u32 = 1
-pub const BTN_EAST: u32 = 2
-pub const BTN_WEST: u32 = 4
-pub const BTN_NORTH: u32 = 8
-pub const BTN_LB: u32 = 16
-pub const BTN_RB: u32 = 32
-pub const BTN_START: u32 = 64
-pub const BTN_UP: u32 = 128
-pub const BTN_DOWN: u32 = 256
-pub const BTN_LEFT: u32 = 512
-pub const BTN_RIGHT: u32 = 1024
-
-pub type PadFrame {
-    id: u32 = 0, motion: V2 = V2 {}, aim: V2 = V2 {},
-    south: bool = false, retry: bool = false,
-    // Every button held this frame, and those that went down this frame.
-    held: u32 = 0, pressed: u32 = 0,
-} with Copy
-extend PadFrame:
-    pub fn down(self: &Self, bit: u32) -> bool: (self.pressed & bit) != 0
+// SDL's fixed layout, in the game's actions: A confirms, B backs out, X is
+// the shop (and a reroll), Y the collection (and a skip), the bumpers tab
+// (and banish or go next), Start pauses. Steam Input and consoles bind
+// these per controller instead; this layout is the plain path's.
+fn actions(pad: &Pad) -> u32:
+    var mask: u32 = 0
+    if pad.button(SDL_GAMEPAD_BUTTON_SOUTH): mask |= ACT_CONFIRM
+    if pad.button(SDL_GAMEPAD_BUTTON_EAST): mask |= ACT_BACK
+    if pad.button(SDL_GAMEPAD_BUTTON_WEST): mask |= ACT_SHOP | ACT_REROLL
+    if pad.button(SDL_GAMEPAD_BUTTON_NORTH): mask |= ACT_COLLECTION | ACT_SKIP
+    if pad.button(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER): mask |= ACT_TAB_LEFT | ACT_BANISH
+    if pad.button(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER): mask |= ACT_TAB_RIGHT | ACT_NEXT
+    if pad.button(SDL_GAMEPAD_BUTTON_START): mask |= ACT_PAUSE
+    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_UP): mask |= ACT_UP
+    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_DOWN): mask |= ACT_DOWN
+    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_LEFT): mask |= ACT_LEFT
+    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_RIGHT): mask |= ACT_RIGHT
+    mask
 
 // Every connected controller stays open, and the one last used drives the
 // game: on a Steam Deck with a Steam Controller on its puck, Steam Input
@@ -37,7 +35,7 @@ extend PadFrame:
 // only the first left the controller in the player's hands dead.
 // Discovery runs at most twice per second.
 type Seat {
-    pad: Pad, south_held: bool = false, held: u32 = 0,
+    pad: Pad, held: u32 = 0,
     // A physical Valve controller: when "lizard mode off" was last sent.
     valve: bool = false, next_controller_mode: u64 = 0,
 }
@@ -79,7 +77,7 @@ fn stick_moved(pad: &Pad, x: SDL_GamepadAxis, y: SDL_GamepadAxis) -> bool:
 
 // A button went down or a stick was pushed since this controller was last read.
 fn seat_used(seat: &Seat) -> bool:
-    (held_mask(&seat.pad) & ~seat.held) != 0 or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY) or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY)
+    (actions(&seat.pad) & ~seat.held) != 0 or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY) or stick_moved(&seat.pad, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY)
 
 extend Gamepads:
     fn report_failure(mut self: Self):
@@ -111,18 +109,17 @@ extend Gamepads:
                     let name = found.name().map(it.to_str_lossy()) ?? "Gamepad"
                     if self.report_connections: print(f"Controller connected: {name} (vendor {found.vendor()}, product {found.product()})")
                     // Connecting with A held must not automatically restart.
-                    let south_held = found.button(SDL_GAMEPAD_BUTTON_SOUTH)
-                    let held = held_mask(&found)
+                    let held = actions(&found)
                     // A physical Valve controller, not Steam Input's virtual pad.
                     let valve = found.vendor() == VALVE_VENDOR and found.product() != STEAM_VIRTUAL_GAMEPAD
-                    self.seats.push(Seat { pad: found, south_held, held, valve })
+                    self.seats.push(Seat { pad: found, held, valve })
                     if self.active == 0: self.active = id
                     self.warned = false
                 else:
                     self.report_failure()
 
-    pub fn poll(mut self: Self) -> PadFrame:
-        if not self.ready: return PadFrame {}
+    pub fn poll(mut self: Self) -> ActionFrame:
+        if not self.ready: return ActionFrame {}
         SDL_UpdateGamepads()
         var removed = false
         var i = 0
@@ -146,20 +143,17 @@ extend Gamepads:
             if seat_used(seat): self.active = seat.pad.id()
         // Edges are each controller's own, kept every frame, so the press
         // that takes over the game counts on the controller that made it.
-        var frame = PadFrame {}
+        var frame = ActionFrame {}
         for k in 0..self.seats.len():
             let seat = &self.seats[k]
-            let south = seat.pad.button(SDL_GAMEPAD_BUTTON_SOUTH)
-            let held_now = held_mask(&seat.pad)
+            let held_now = actions(&seat.pad)
             if seat.pad.id() == self.active:
-                frame = PadFrame {
-                    id: self.active,
+                frame = ActionFrame {
+                    id: self.active as u64,
                     motion: V2 { x: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_LEFTX)), y: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_LEFTY)) },
                     aim: V2 { x: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_RIGHTX)), y: axis_unit(seat.pad.axis(SDL_GAMEPAD_AXIS_RIGHTY)) },
-                    south, retry: south and not seat.south_held,
                     held: held_now, pressed: held_now & ~seat.held,
                 }
-            self.seats[k].south_held = south
             self.seats[k].held = held_now
         frame
 
@@ -196,18 +190,3 @@ extend Gamepads:
             // controller reports the effect unsupported, which is harmless.
             unsafe:
                 let _ = SDL_SendGamepadEffect(self.seats[k].pad.repr, &raw const report[0] as *const u8, CONTROLLER_MODE_REPORT_BYTES)
-
-fn held_mask(pad: &Pad) -> u32:
-    var mask: u32 = 0
-    if pad.button(SDL_GAMEPAD_BUTTON_SOUTH): mask |= BTN_SOUTH
-    if pad.button(SDL_GAMEPAD_BUTTON_EAST): mask |= BTN_EAST
-    if pad.button(SDL_GAMEPAD_BUTTON_WEST): mask |= BTN_WEST
-    if pad.button(SDL_GAMEPAD_BUTTON_NORTH): mask |= BTN_NORTH
-    if pad.button(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER): mask |= BTN_LB
-    if pad.button(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER): mask |= BTN_RB
-    if pad.button(SDL_GAMEPAD_BUTTON_START): mask |= BTN_START
-    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_UP): mask |= BTN_UP
-    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_DOWN): mask |= BTN_DOWN
-    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_LEFT): mask |= BTN_LEFT
-    if pad.button(SDL_GAMEPAD_BUTTON_DPAD_RIGHT): mask |= BTN_RIGHT
-    mask

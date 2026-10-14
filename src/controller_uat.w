@@ -2,6 +2,7 @@
 use c_import("raylib.h")
 use std.process.env
 use gamepads
+use controls
 use input
 use game
 use devices
@@ -54,7 +55,7 @@ fn main -> i32:
         if not aimed and length2(stick(pad.aim.x, pad.aim.y)) > 0.1:
             aimed = true
             eprint("Controller UAT: right stick observed")
-        if not retried and pad.retry:
+        if not retried and pad.down(ACT_CONFIRM):
             retried = true
             eprint("Controller UAT: A / south press observed")
         BeginDrawing()

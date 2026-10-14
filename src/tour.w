@@ -10,6 +10,7 @@ use account
 use presentation
 use app
 use gamepads
+use controls
 use input
 use std.process.env
 use std.string.parse
@@ -122,7 +123,7 @@ fn main:
     wipe.save.clears = 1
     var clock = 10.0
     wipe.screen = .Title
-    for _ in 0..240: wipe.update(PadFrame {}, 1.0 / 60.0)
+    for _ in 0..240: wipe.update(ActionFrame {}, 1.0 / 60.0)
     clock = frames(&wipe, &renderer, 3, clock)
     capture("out/tour/1-title.png")
     wipe.screen = .Select

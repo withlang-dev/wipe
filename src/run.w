@@ -6,13 +6,15 @@ use audio
 use app
 use record
 use platform
+use controls
 use settings
 use devices
 use platform_session
 
-// The game, on any platform: the plain build passes NoPlatform (src/main.w),
-// the Steam build SteamPlatform (src/main_steam.w). A platform is opened
-// before the window, so a store overlay can hook the context it creates.
+// The game, on any platform: src/main.w passes SteamPlatform, which is the
+// plain SDL path whenever Steam isn't running; tools pass NoPlatform. A
+// platform is opened before the window, so a store overlay can hook the
+// context it creates.
 pub fn run[P: Platform](opened: P) -> i32:
     var session = PlatformSession { backend: opened }
     SetTraceLogLevel(LOG_WARNING)
@@ -84,17 +86,22 @@ pub fn run[P: Platform](opened: P) -> i32:
             wipe.rec.event("x 1800")
             wipe.game.stress(1800)
             wipe.debug = true
-        let pad = pads.poll()
-        // Poll controllers even while covered so held/pressed edges are
-        // consumed, but never let an overlay button resume the run.
+        // The platform's own input API (Steam Input) speaks for the
+        // controller when it has one; SDL otherwise. Both are polled every
+        // frame so held/pressed edges are consumed even while covered, but
+        // an overlay button never resumes the run.
+        let sdl = pads.poll()
+        let pad = session.backend.controller(wipe.menu_active()) ?? sdl
         if not events.blocks_input(): wipe.update(pad, elapsed)
         else: wipe.clear_frame_events()
         // Achievements are facts of the save; the platform mirrors them about
-        // once a second (a run's are judged as if it ended now).
+        // once a second (a run's are judged as if it ended now). The prompts
+        // follow the controller's bindings at the same pace.
         sync_timer -= elapsed
         if sync_timer <= 0.0:
             sync_timer = 1.0
             session.backend.sync_achievements(&wipe.achievements_now())
+            wipe.prompts.bound = session.backend.prompts()
         SetMasterVolume(wipe.settings.volume as f32)
         if let Some(bank) = &sound: bank.play(&wipe.game, wipe.ui_move, wipe.ui_confirm or wipe.ui_buy, GetTime())
         let _ = wipe.draw(&renderer, GetTime())

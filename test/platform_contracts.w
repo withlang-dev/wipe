@@ -1,9 +1,11 @@
 //! expect-stdout: UAT passed: platform-independent play and overlay input gate
 use platform
+use controls
 
 fn main:
     var plain = NoPlatform {}
-    assert(not plain.manages_controllers())
+    assert(plain.controller(true).is_none() and plain.controller(false).is_none())
+    assert(plain.prompts().len() == 0)
     assert(plain.notice() == "")
     assert(not plain.frame().blocks_input())
     let none = List.new()
