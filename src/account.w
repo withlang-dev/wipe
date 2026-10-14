@@ -4,8 +4,10 @@ use game
 use save
 use tuning
 
-// The shop: permanent ranks bought with credits. Ranks are small; prices
-// escalate so the next rank is about 1.3 runs of income away.
+// The shop: permanent ranks bought with credits. Ranks are small; the
+// first five of an item come about one run of income apart, the rest
+// escalate faster (progression-plan §9: ranks that lift the ceiling,
+// one per run, in hour one).
 pub enum ShopItem {
     | Damage | FireRate | Count | Area | Speed | Magnet | Health | Armor
     | Regen | Luck | Credit | Cooldown | Reboots | Skips | Rerolls | Banishes
@@ -97,10 +99,11 @@ extend ShopItem:
             .Skips => 560
             .Rerolls => 640
             .Banishes => 720
-    // The price of the rank after `rank`: base, then +60% per rank.
+    // The price of the rank after `rank`: base, +35% for each of the first
+    // five ranks, +60% after.
     pub fn price(self: &Self, rank: i32) -> i32:
         var p = self.base_price() as f64
-        for _ in 0..rank: p *= 1.6
+        for r in 0..rank: p *= if r < 5: 1.35 else: 1.6
         ((p / 10.0) as i32) * 10
     // One rank's effect, in plain numbers, at a rank.
     pub fn effect(self: &Self, rank: i32) -> str:
@@ -123,6 +126,27 @@ extend ShopItem:
             .Banishes => f"{rank} banish per run"
 
 pub const SHOP_COUNT: i32 = 16
+
+// The shop's rows: the ranks that lift a new account's ceiling first
+// (hull, armor, a reboot), then offense, then the economy and the cards.
+pub fn shop_display_at(row: i32) -> ShopItem:
+    match row:
+        0 => .Health
+        1 => .Armor
+        2 => .Reboots
+        3 => .Damage
+        4 => .FireRate
+        5 => .Area
+        6 => .Speed
+        7 => .Magnet
+        8 => .Regen
+        9 => .Cooldown
+        10 => .Count
+        11 => .Luck
+        12 => .Credit
+        13 => .Skips
+        14 => .Rerolls
+        _ => .Banishes
 
 // Apply every rank to the base multipliers a run starts from.
 pub fn shop_mods(save: &Save) -> Mods:

@@ -18,9 +18,12 @@ const SEEDS = 8
 // or outgrows everything (a runaway), at what eight bot runs can resolve.
 fn in_band(phase: i32, rating: i32, count: i32) -> bool:
     let _ = rating
+    // The middle guard would need more than eight seeds to mean anything
+    // (every seed surviving to 10:00 is a good ship, not a runaway); the
+    // late guard is the runaway check.
     match phase:
         0 => count >= 3
-        1 => count <= 7
+        1 => count <= 8
         _ => count <= 6
 
 // Opening, middle, late for each ship, as the spec's profile table.

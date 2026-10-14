@@ -2,14 +2,14 @@
 //
 //   runs replay FILE_OR_DIR...   re-simulate recordings, check each lands where it ended
 //   runs calibrate [DIR]         your recorded runs beside the careful bot on the same seeds
-//   runs profile [SEEDS]         every ship, stationary and careful, across a whole run
+//   runs profile [SEEDS] [RANKS] every ship, stationary and careful, across a whole run, at a rank count
 //   runs account [DIR]           score every recorded run from its save, print the cadence
 //   runs exposure [DIR]          runs from each weapon's unlock to its first pick
 //   runs account-sim [RUNS]      a fresh account played by the careful bot, buying ranks between runs
 //
 // DIR defaults to the save directory's runs/ folder (WIPE_SAVE_DIR honored).
 use std.fs
-use std.process.args
+use std.process.{args, env}
 use std.string.parse
 use game
 use tuning
@@ -210,20 +210,64 @@ fn cmd_account_sim(count: i32) -> i32:
     0
 
 // Every ship across a run: when the careful bot survives to each mark,
-// how fast it kills, and when a stationary one dies.
-fn cmd_profile(seeds: i32) -> i32:
-    print(f"ship      stand  careful: >2m  >5m  >10m  >15m  >20m  kills/min  level@death")
+// how fast it kills, its level at 5, 10 and 15 minutes (the XP curve the
+// pressure tuning must hold), and when a stationary one dies. RANKS
+// pre-buys that many of the cheapest shop ranks, the account's power.
+fn profile_game(ship: Ship, seed: i32, ranks: i32) -> Game:
+    var save = Save {}
+    for i in 0..BASE_WEAPON_COUNT: save.weapon_unlocked_run[i] = 0
+    for _ in 0..ranks:
+        let Some(next) = next_rank(&save) else break
+        save.ranks[next.item.index()] += 1
+    // WIPE_TUNING holds tuning.txt lines, for trying a knob without a rebuild.
+    let (rules, _, _) = apply_tuning(Stage.Field.rules(), env("WIPE_TUNING"))
+    var g = Game.new(rules)
+    var launch = launch_for(ship, &save, false)
+    for i in 0..BASE_WEAPON_COUNT: launch.unlocked_weapons[i] = true
+    for i in 0..8: launch.unlocked_passives[i] = true
+    g.rng = 55555 +% (seed as u32) *% 2654435761
+    g.start(launch)
+    g
+
+// Fly to a limit, noting the level and kills as each mark passes.
+fn fly_marks(start: Game, seconds: f64) -> (Stats, [i32; 3], [i32; 3]):
+    var g = start
+    var stats = Stats {}
+    var levels = [0; 3]
+    var kills = [0; 3]
+    while g.phase != .Over and g.elapsed < seconds:
+        g.clear_events()
+        g.tick(controls(&g, .Careful), 1.0 / 120.0)
+        stats.observe(&g)
+        for m in 0..3:
+            if levels[m] == 0 and g.elapsed >= (m + 1) as f64 * 300.0:
+                levels[m] = g.level
+                kills[m] = g.kills
+        var guard = 0
+        while g.phase == .Boost and guard < 20:
+            guard += 1
+            g.cache_reveal = 0.0
+            g.choose(pick_card(&g))
+    (stats, levels, kills)
+
+fn cmd_profile(seeds: i32, ranks: i32, only: str) -> i32:
+    print(f"ranks {ranks}")
+    print(f"ship      stand  careful: >2m  >5m  >10m  >15m  >20m  kills/min  level@death   level@5/10/15   kills@5/10/15")
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
+        if only.len() > 0 and ship.name() != only: continue
         var stand = 0.0
         for seed in 0..seeds:
-            let (_, s) = fly(test_game(ship, seed), .Stationary, 120.0)
+            let (_, s) = fly(profile_game(ship, seed, ranks), .Stationary, 120.0)
             stand += s.seconds
         var marks = [0, 0, 0, 0, 0]
         var kill_rate = 0.0
         var levels = 0
+        var level_at = [0; 3]
+        var kills_at = [0; 3]
+        var reached = [0; 3]
         for seed in 0..seeds:
-            let (_, s) = fly(test_game(ship, seed), .Careful, 1200.0)
+            let (s, lv, ks) = fly_marks(profile_game(ship, seed, ranks), 1200.0)
             if s.seconds >= 120.0: marks[0] += 1
             if s.seconds >= 300.0: marks[1] += 1
             if s.seconds >= 600.0: marks[2] += 1
@@ -231,7 +275,17 @@ fn cmd_profile(seeds: i32) -> i32:
             if s.seconds >= 1199.0: marks[4] += 1
             kill_rate += s.kills as f64 * 60.0 / s.seconds
             levels += s.level
-        print(f"{ship.name()}    {(stand / seeds as f64) as i32}s       {marks[0]}/{seeds}  {marks[1]}/{seeds}  {marks[2]}/{seeds}  {marks[3]}/{seeds}  {marks[4]}/{seeds}   {(kill_rate / seeds as f64) as i32}      {levels / seeds}")
+            for m in 0..3:
+                if lv[m] > 0:
+                    level_at[m] += lv[m]
+                    kills_at[m] += ks[m]
+                    reached[m] += 1
+        var at = ""
+        var kt = ""
+        for m in 0..3:
+            at = at ++ (if reached[m] > 0: f"{level_at[m] / reached[m]}" else: "-") ++ " "
+            kt = kt ++ (if reached[m] > 0: f"{kills_at[m] / reached[m]}" else: "-") ++ " "
+        print(f"{ship.name()}    {(stand / seeds as f64) as i32}s       {marks[0]}/{seeds}  {marks[1]}/{seeds}  {marks[2]}/{seeds}  {marks[3]}/{seeds}  {marks[4]}/{seeds}   {(kill_rate / seeds as f64) as i32}      {levels / seeds}   {at.trim()}   {kt.trim()}")
     0
 
 fn main:
@@ -248,6 +302,6 @@ fn main:
     if command == "account-sim": return cmd_account_sim(if rest.len() > 0: parse(rest[0]) else: 20)
     if command == "replay": return cmd_replay(rest)
     if command == "calibrate": return cmd_calibrate(rest)
-    if command == "profile": return cmd_profile(if rest.len() > 0: parse(rest[0]) else: 8)
+    if command == "profile": return cmd_profile(if rest.len() > 0: parse(rest[0]) else: 8, if rest.len() > 1: parse(rest[1]) else: 0, if rest.len() > 2: rest[2].clone() else: "")
     print(f"unknown command {command}")
     2

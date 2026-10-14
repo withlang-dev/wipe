@@ -105,7 +105,7 @@ fn main:
     near(parse_float("-3.25"), -3.25)
     near(parse_float("7"), 7.0)
     // Shop prices escalate and ranks feed the run.
-    assert(ShopItem.Damage.price(0) == 400 and ShopItem.Damage.price(1) == 640)
+    assert(ShopItem.Damage.price(0) == 400 and ShopItem.Damage.price(1) == 540)
     var ranked = Save {}
     ranked.ranks[0] = 2
     ranked.ranks[7] = 1

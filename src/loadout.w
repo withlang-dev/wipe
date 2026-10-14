@@ -293,7 +293,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // A modest start that grows: at level one the Cannon cannot keep up
             // with the opening swarm alone.
             s.cooldown = 1.0 / (4.5 * (1.0 + (l - 1.0) * 0.12))
-            s.damage = 2 + level / 2
+            // Single-target damage against enemies that toughen from minute
+            // two: a third more than the area weapons' curve, so aiming pays.
+            s.damage = 3 + level * 2 / 3
             s.count = 1 + step(level, 2, 3)
             s.speed = 940.0
             s.lifetime = 1.6
@@ -322,8 +324,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .Beam => {
             s.cooldown = 0.55 - (l - 1.0) * 0.025
             s.radius = 420.0 + l * 30.0
-            // Two beams, forward and back, so each hits for less.
-            s.damage = 2 + level / 2
+            // Two beams, forward and back, so each hits for less; a third more
+            // than the area curve, as the Cannon.
+            s.damage = 3 + level * 2 / 3
             s.pierce = 2 + level / 2
         }
         .Dropped => {
@@ -368,7 +371,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .Minefield => { s.cooldown *= 0.7; s.damage = s.damage * 3 / 2; s.max_active += 4; s.chains_on_hit = true }
         .Storm => { s.chain += 2; s.radius *= 1.3; s.damage = s.damage * 5 / 4; s.cooldown *= 0.85 }
         .Shatter => { s.bounces += 2; s.damage = s.damage * 3 / 2; s.pierce += 1; s.splits = true }
-        .Tracer => { s.homing = true; s.damage *= 2; s.count += 1 }
+        .Tracer => { s.homing = true; s.damage *= 2; s.count += 2 }
         .Pulsar => { s.count += 2; s.damage *= 2; s.ring_on_orbit = true }
         .Grid => { s.damage = s.damage * 3 / 2; s.max_active += 3; s.chains_on_hit = true }
         .Refractor => { s.pierce += 6; s.damage *= 2; s.shatters = true }

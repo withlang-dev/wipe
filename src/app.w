@@ -319,7 +319,7 @@ extend App:
 
     // Shop rows in display order: by category, or by next price.
     fn shop_row(self: &Self, row: i32) -> ShopItem:
-        if not self.shop_by_price: return shop_item_at(row)
+        if not self.shop_by_price: return shop_display_at(row)
         var order = [0; 16]
         for i in 0..SHOP_COUNT: order[i] = i
         for i in 1..SHOP_COUNT:

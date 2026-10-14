@@ -111,3 +111,32 @@ Mines    run 1    run 2    1
 Arc    start    run 2    2
 Shard    never    never    -
 ```
+
+## After phase 4 (fewer, tougher; XP per hull; ranks a run apart), the bot, 8 runs
+
+Enemy hull: a Block has 2 by 1:30, 4 by 3:00, 8 by 5:00, 28 by 10:00
+(was 1 until about 1:40, 9 at 5:00, 19 at 10:00); the alive floor and the
+trickle at twenty minutes are a little over half what they were. XP per
+kill follows hull (`xp_per_hp 0.05`, capped at 2.5x), so the careful
+Claw's level is 11-13 at 5:00 and 17-22 at 10:00 against 13 and 19
+before. Aimed and beam damage rose a third so single-target weapons keep
+their bands. Ranks: +35% for the first five of an item, +60% after; the
+shop leads with hull, armor and a reboot.
+
+`runs profile 6 RANKS Claw`: ranks 0 reach 10:00 on 2 of 6 seeds, ranks 3
+on 4 of 6, ranks 6 reach 15:00 and 20:00 on 2 of 6.
+
+```text
+run 7  17:07  score 10  merge:Pike, rank:Magnet 5, rank:Salvage 3, rank:Skips 3, goal:Armor,
+run 8  19:10  score 13  passive:Armor, rank:Damage 4, rank:Fire rate 4, rank:Hull 4, rank:Armor 2, rank:Cooldown 3,
+runs 8, account hours 1.9
+zero-progress runs 0, longest zero-progress streak 0
+progression events 82, per hour 42
+first weapon unlock   run 1, minute 11
+first ship unlock     run 1, minute 11
+first merge           run 1, minute 11
+first new stage       run 1, minute 11
+first clear           run 4, minute 59
+first Hurry clear     never
+weapon     unlocked  first pick  gap
+```

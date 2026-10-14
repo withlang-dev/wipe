@@ -63,6 +63,10 @@ pub type Rules {
     new_passive_weight: f64 = 0.6,
     // A freshly unlocked card's weight, times the above, for its first runs.
     fresh_weight: f64 = 4.0,
+    // XP a kill is worth grows with the enemy's health: value * (1 + xp_per_hp * (hp - 1)).
+    xp_per_hp: f64 = 0.05,
+    // ...and no more than this many times the kind's base value.
+    xp_hp_cap: f64 = 2.5,
     // The floor of enemies alive at the start of a run (see minimum_alive).
     minimum_start: f64 = 22.0,
     passive_upgrade_weight: f64 = 0.8,
@@ -77,11 +81,12 @@ extend Rules:
         // Clusters average two enemies, so these are cluster rates. The
         // minimum_alive floor carries the opening; this is the trickle.
         if minute < 2.0: 0.6 + minute * 0.3
-        else: 1.2 + (minute - 2.0) * 0.5
+        else: 1.2 + (minute - 2.0) * 0.3
 
-    // Enemies kept alive: sixteen at the start, rising each minute.
+    // Enemies kept alive: twenty-two at the start, rising each minute, to
+    // about half of what it was at twenty (fewer, tougher: see Kind.base_hp).
     pub fn minimum_alive(self: &Self, minute: f64) -> f64:
-        self.minimum_start + minute * 10.0 + minute * minute * 0.6
+        self.minimum_start + minute * 6.0 + minute * minute * 0.3
 
     // XP a level needs: early levels every thirty seconds, late ones every
     // minute or two against a rising kill rate.
@@ -268,6 +273,8 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ "run_cap " ++ num(r.run_cap) ++ "\n"
     out = out ++ "timeline_rate " ++ num(r.timeline_rate) ++ "\n"
     out = out ++ "fresh_weight " ++ num(r.fresh_weight) ++ "\n"
+    out = out ++ "xp_per_hp " ++ num(r.xp_per_hp) ++ "\n"
+    out = out ++ "xp_hp_cap " ++ num(r.xp_hp_cap) ++ "\n"
     out = out ++ "cannon_interval " ++ num(r.cannon_interval) ++ "\n"
     out = out ++ "bullet_speed " ++ num(r.bullet_speed) ++ "\n"
     out = out ++ "bullet_lifetime " ++ num(r.bullet_lifetime) ++ "\n"
@@ -320,6 +327,8 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "run_cap": out.run_cap = value
     else if key == "timeline_rate": out.timeline_rate = value
     else if key == "fresh_weight": out.fresh_weight = value
+    else if key == "xp_per_hp": out.xp_per_hp = value
+    else if key == "xp_hp_cap": out.xp_hp_cap = value
     else if key == "cannon_interval": out.cannon_interval = value
     else if key == "bullet_speed": out.bullet_speed = value
     else if key == "bullet_lifetime": out.bullet_lifetime = value

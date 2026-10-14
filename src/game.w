@@ -127,12 +127,14 @@ extend Kind:
             .Boss => 60.0
             .Null => 90.0
             _ => 14.0
-    // Health grows with the square of the minute so the back half of a run
-    // outpaces a build that has stopped growing: linear growth let a
-    // twelve-minute build walk through the last eight.
+    // Health grows with the square of the minute, and early: a Block has 2
+    // by 1:30, 4 by 3:00, 8 by 5:00, 28 by 10:00, 100 by 20:00, so damage
+    // and fire rate matter from minute two and the back half outpaces a
+    // build that has stopped growing. The numbers drop with the health
+    // (progression-plan §9): pressure is fewer and tougher, not more.
     fn base_hp(self: &Self, minute: f64) -> i32:
         let m = minute
-        let curve = m * 1.25 + m * m * 0.055
+        let curve = m * 0.4 + m * m * 0.23
         // Opening enemies die to one hit; the pressure is their number.
         match self:
             .Block => (1.0 + curve) as i32
@@ -1025,7 +1027,10 @@ extend Game:
         self.burst(e.pos, impact, 5, .White, 1.1)
         self.pulse(e.pos, (46.0 + self.kill_energy * 5.0) * e.size, e.kind.tint(), Some(e.kind))
         self.trauma = limit(self.trauma + 0.045, 0.0, 0.3)
-        self.drop_core(e.pos, e.kind.core_value() * (if e.elite: 5 else: 1))
+        // XP follows the enemy's health, so fewer, tougher kills keep the
+        // level curve where it was (xp_per_hp).
+        let worth = e.kind.core_value() as f64 * limit(1.0 + self.rules.xp_per_hp * (e.max_hp - 1) as f64, 1.0, self.rules.xp_hp_cap)
+        self.drop_core(e.pos, (worth + 0.5) as i32 * (if e.elite: 5 else: 1))
         // Now and then a kill leaves a repair behind, as a torch leaves
         // food in Vampire Survivors: healing is found in the fight.
         if self.random() < self.rules.repair_drop_chance: self.drop_pickup(e.pos, PickupKind.Repair)

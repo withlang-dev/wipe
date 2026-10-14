@@ -11,7 +11,8 @@ fn main:
         let w = weapon_at(i)
         let merged = w.is_merged()
         let kills = if merged: weapon_kills(w, 5, 14.0, 60.0, 260) else: weapon_kills(w, 5, 8.0, 60.0, 160)
-        let low = if merged: 1100 else: 600
+        // Re-pinned for enemies that toughen from minute two (pressure, 2026-10-13).
+        let low = if merged: 1000 else: 550
         let high = if merged: 3600 else: 1500
         if kills < low or kills > high:
             failures += 1
