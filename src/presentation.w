@@ -703,8 +703,9 @@ fn draw_lightning(a: V2, b: V2, seed: u32, remaining: f64):
 fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
     let sw = g.screen_w as i32
     let sh = g.screen_h as i32
-    let arena_origin = to_screen(cam, V2 {})
-    let arena = Rectangle { x: arena_origin.x as f32, y: arena_origin.y as f32, width: g.rules.arena_width as f32, height: g.rules.arena_height as f32 }
+    let rim = g.edge_inset()
+    let arena_origin = to_screen(cam, V2 { x: rim, y: rim })
+    let arena = Rectangle { x: arena_origin.x as f32, y: arena_origin.y as f32, width: (g.rules.arena_width - 2.0 * rim) as f32, height: (g.rules.arena_height - 2.0 * rim) as f32 }
     // The containment edge: a glowing geometric boundary, never terrain.
     DrawRectangleLinesEx(arena, 9.0, cyan(0.08))
     DrawRectangleLinesEx(arena, 3.0, cyan(0.55 + 0.1 * sin(clock * 2.0)))
@@ -925,6 +926,14 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle(pos, 14.0, ink(0.9))
         ring(pos, 14.0, violet(0.9))
         circle(pos, 3.0, white(0.9))
+    // The Rotor: everything outside the safe sector dims, the sector's edges glow.
+    if g.rules.rotor:
+        let c = to_screen(cam, g.center())
+        let a = g.rotor_angle() * 57.29578
+        DrawRing(rv(c), 0.0, 6000.0, (a + 60.0) as f32, (a + 300.0) as f32, 64, rgba(40, 0, 20, 0.45))
+        for k in [-60.0, 60.0]:
+            let rad = (a + k) / 57.29578
+            line(c, add(c, V2 { x: cos(rad) * 6000.0, y: sin(rad) * 6000.0 }), 2.0, red(0.5))
     // The derelict: a hollow hull, its objective's progress around it.
     if g.wreck_live and not g.wreck_done:
         let pos = to_screen(cam, g.wreck)
@@ -1919,6 +1928,15 @@ extend Renderer:
         let view = Camera2D { offset: rv(center), target: rv(center), rotation: 0.0, zoom: zoom as f32 }
         BeginMode2D(view)
         render_world(g, cam, clock)
+        // The Blackout: dark beyond a cone of light along the aim.
+        if g.rules.blackout:
+            let lamp = to_screen(cam, g.player)
+            let a = atan2(g.aim.y, g.aim.x) * 57.29578
+            let reach = 300.0
+            let dark = rgba(0, 0, 6, 0.93)
+            DrawRing(rv(lamp), reach as f32, 6000.0, 0.0, 360.0, 64, dark)
+            DrawRing(rv(lamp), 70.0, reach as f32, (a + 40.0) as f32, (a + 320.0) as f32, 64, dark)
+            DrawRing(rv(lamp), 70.0, reach as f32, (a - 40.0) as f32, (a + 40.0) as f32, 24, rgba(0, 0, 6, 0.35))
         EndMode2D()
         if brightness < 1.0: DrawRectangle(0, 0, self.view_w, self.view_h, ink(1.0 - brightness))
         cam

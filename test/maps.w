@@ -30,6 +30,9 @@ fn main:
     for k in 0..STAGE_COUNT:
         let stage = stage_at(k)
         let r = stage.rules()
+        // The Boss Rush spawns nothing but bosses; the Collapse's corners
+        // are gone within the minute.
+        if r.spawn_scale == 0.0 or r.collapse > 0.0: continue
         var spots = List.new()
         spots.push(V2 { x: 20.0, y: 20.0 })
         spots.push(V2 { x: r.arena_width - 20.0, y: 20.0 })

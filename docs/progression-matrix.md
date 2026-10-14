@@ -180,6 +180,17 @@ Mirror comes with its stage.
 Modes: Hurry (first clear), Endless (kill the Null), with `timeline_rate`
 the one knob (plan §8).
 
+**Implemented 2026-10-14:** all fifteen stages. Blackout (a cone of light,
+drawing only, ten minutes), Boss Rush (a boss every three minutes and
+nothing else, fifteen minutes), Bone Field (hull grows 30% a minute, the
+spawn tables held at minute six), Collapse (55 px a minute off every
+side, never past a small room), Rotor (a sixth of the circle safe,
+turning once a minute, two hull a second outside; the survive-the-zone
+derelict), Mirror (every spawn's twin across the middle; the Mirror ship
+on clearing it). Rotor and Collapse open on two challenge clears, Boss
+Rush on a Hurry clear, Bone Field on fifteen bosses, Blackout on fifty
+elites, Mirror through the Cross's relays. Endless opens with the Null.
+
 ## 6. Dead zones and collisions found
 
 - **Hour 0–0.5 has one new ship (Dart) and no new weapon**: Lance's

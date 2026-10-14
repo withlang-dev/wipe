@@ -49,6 +49,20 @@ pub type Rules {
     // Stage modifiers.
     spawn_scale: f64 = 1.0,
     speed_scale: f64 = 1.0,
+    // Each stage changes one thing (progression-plan §8): hull that grows
+    // by the minute (the Bone Field); the spawn tables held at one minute
+    // (flat_minute, -1 for the clock); an arena that shrinks, in pixels a
+    // minute per side (Collapse); a safe sector that turns once a minute
+    // and bites outside (Rotor); a cone of light (Blackout: drawing only);
+    // every spawn mirrored across the middle (Mirror); bosses every so many
+    // minutes, cycling, and nothing else (Boss Rush).
+    hp_per_minute: f64 = 0.0,
+    flat_minute: f64 = -1.0,
+    collapse: f64 = 0.0,
+    rotor: bool = false,
+    blackout: bool = false,
+    mirror: bool = false,
+    boss_every: f64 = 0.0,
     // A dead center: a circle at the arena's middle that nothing enters.
     void_radius: f64 = 0.0,
     // Which stage's walls this arena has (Stage.index).
@@ -126,7 +140,7 @@ pub fn events() -> [Event; 12]:
 
 // A derelict: a wreck placed in a stage with one objective, the verb. Its
 // position is a fraction of the arena (progression-plan §7).
-pub enum Verb { | BlackBox | Defend | Relays | Chase | Carrier }
+pub enum Verb { | BlackBox | Defend | Relays | Chase | Carrier | Survive }
 impl Copy for Verb
 impl Eq for Verb
 pub type Derelict { verb: Verb = .BlackBox, x: f64 = 0.5, y: f64 = 0.5 }
@@ -140,11 +154,14 @@ impl Copy for Wall
 // Stages are arena shapes with walls and a rule modifier. Geometry is level
 // design, and in an abstract game it costs no art. Indices are stable:
 // recordings name stages by them.
-pub enum Stage { | Field | Corridor | Shaft | Ring | Pillars | Maze | Expanse | Cross | Gridlock }
+pub enum Stage { | Field | Corridor | Shaft | Ring | Pillars | Maze | Expanse | Cross | Gridlock | Blackout | BossRush | BoneField | Collapse | Rotor | Mirror }
 impl Copy for Stage
 impl Eq for Stage
 
-pub const STAGE_COUNT: i32 = 9
+// Fifteen: the five normal arenas, five bonus, four challenge, one hidden
+// (progression-matrix §5). Indices are stable: recordings and the save
+// name stages by them.
+pub const STAGE_COUNT: i32 = 15
 
 pub fn stage_at(index: i32) -> Stage:
     match index:
@@ -156,11 +173,17 @@ pub fn stage_at(index: i32) -> Stage:
         5 => .Maze
         6 => .Expanse
         7 => .Cross
-        _ => .Gridlock
+        8 => .Gridlock
+        9 => .Blackout
+        10 => .BossRush
+        11 => .BoneField
+        12 => .Collapse
+        13 => .Rotor
+        _ => .Mirror
 
 // Select-screen order: arenas, mazes, open, lanes.
-pub fn stage_order() -> [Stage; 9]:
-    [Stage.Field, Stage.Pillars, Stage.Ring, Stage.Cross, Stage.Maze, Stage.Gridlock, Stage.Expanse, Stage.Corridor, Stage.Shaft]
+pub fn stage_order() -> [Stage; 15]:
+    [Stage.Field, Stage.Pillars, Stage.Ring, Stage.Cross, Stage.Maze, Stage.Gridlock, Stage.Expanse, Stage.Corridor, Stage.Shaft, Stage.Blackout, Stage.BossRush, Stage.BoneField, Stage.Collapse, Stage.Rotor, Stage.Mirror]
 
 fn wall(x: f64, y: f64, w: f64, h: f64) -> Wall: Wall { x, y, w, h }
 
@@ -176,6 +199,12 @@ extend Stage:
             .Expanse => 6
             .Cross => 7
             .Gridlock => 8
+            .Blackout => 9
+            .BossRush => 10
+            .BoneField => 11
+            .Collapse => 12
+            .Rotor => 13
+            .Mirror => 14
     pub fn name(self: &Self) -> str:
         match self:
             .Field => "Field"
@@ -187,6 +216,12 @@ extend Stage:
             .Expanse => "Expanse"
             .Cross => "Cross"
             .Gridlock => "Gridlock"
+            .Blackout => "Blackout"
+            .BossRush => "Boss Rush"
+            .BoneField => "Bone Field"
+            .Collapse => "Collapse"
+            .Rotor => "Rotor"
+            .Mirror => "Mirror"
     pub fn kind(self: &Self) -> str:
         match self:
             .Field => "ARENA"
@@ -198,6 +233,12 @@ extend Stage:
             .Expanse => "OPEN"
             .Corridor => "LANE"
             .Shaft => "LANE"
+            .Blackout => "BONUS"
+            .BossRush => "CHALLENGE"
+            .BoneField => "CHALLENGE"
+            .Collapse => "CHALLENGE"
+            .Rotor => "CHALLENGE"
+            .Mirror => "HIDDEN"
     pub fn describe(self: &Self) -> str:
         match self:
             .Field => "The open rectangle. Four seconds to any wall."
@@ -209,6 +250,12 @@ extend Stage:
             .Expanse => "Vast and open, a few rocks. Room to run, and nothing to stop the swarm."
             .Cross => "A plus-shaped hall. Four arms, one crossing where everything meets."
             .Gridlock => "City blocks and streets. Enemies flood the avenues."
+            .Blackout => "Ten minutes in the dark: you see only the cone of your own light."
+            .BossRush => "Fifteen minutes of nothing but bosses, one every three."
+            .BoneField => "Every enemy's hull grows with the minute: ten times by the end."
+            .Collapse => "The arena shrinks, every minute, from every side."
+            .Rotor => "One safe sector, turning once a minute. Outside it, the field bites."
+            .Mirror => "Every spawn has its twin across the middle. So does every fight."
     // The stage's derelict, if it has one: reach the Corridor's and clear
     // its escort for the black box; hold the Shaft's for a minute; light
     // the Cross's three relays; catch the Expanse's drifting wreck; kill
@@ -220,6 +267,7 @@ extend Stage:
             .Cross => Some(Derelict { verb: .Relays, x: 0.5, y: 0.5 })
             .Expanse => Some(Derelict { verb: .Chase, x: 0.3, y: 0.3 })
             .Ring => Some(Derelict { verb: .Carrier, x: 0.5, y: 0.12 })
+            .Rotor => Some(Derelict { verb: .Survive, x: 0.78, y: 0.5 })
             _ => None
 
     // True where enemies need a path around walls rather than a straight
@@ -236,6 +284,12 @@ extend Stage:
             .Expanse => Rules { arena_width: 3800.0, arena_height: 2800.0, spawn_scale: 1.2, layout: 6 }
             .Cross => Rules { arena_width: 2600.0, arena_height: 2600.0, layout: 7 }
             .Gridlock => Rules { arena_width: 3200.0, arena_height: 2200.0, layout: 8 }
+            .Blackout => Rules { arena_width: 2400.0, arena_height: 1600.0, run_cap: 600.0, blackout: true, layout: 9 }
+            .BossRush => Rules { arena_width: 2000.0, arena_height: 1400.0, run_cap: 900.0, spawn_scale: 0.0, first_elite: 1.0e9, boss_every: 3.0, layout: 10 }
+            .BoneField => Rules { arena_width: 2200.0, arena_height: 1400.0, hp_per_minute: 0.3, flat_minute: 6.0, layout: 11 }
+            .Collapse => Rules { arena_width: 2600.0, arena_height: 1800.0, collapse: 55.0, layout: 12 }
+            .Rotor => Rules { arena_width: 2200.0, arena_height: 2200.0, rotor: true, layout: 13 }
+            .Mirror => Rules { arena_width: 2400.0, arena_height: 1600.0, mirror: true, layout: 14 }
     pub fn walls(self: &Self) -> List[Wall]:
         var out = List.new()
         match self:
@@ -276,6 +330,11 @@ extend Stage:
                 for i in 0..5:
                     for j in 0..4:
                         out.push(wall(220.0 + i as f64 * 580.0, 220.0 + j as f64 * 520.0, 360.0, 300.0))
+            }
+            .Mirror => {
+                // Two blocks, each other's reflection across the middle.
+                out.push(wall(500.0, 650.0, 160.0, 300.0))
+                out.push(wall(2400.0 - 660.0, 650.0, 160.0, 300.0))
             }
             _ => ()
         out

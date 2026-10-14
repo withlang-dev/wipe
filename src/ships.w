@@ -7,14 +7,14 @@ pub enum Ship {
     | Claw | Dart | Hull | Prism | Halo | Needle | Sapper | Phase | Null
     | Lasher | Anchor | Carrier | Warden
     | Hawk | Volt | Mortar | Brace | Sentry | Lantern | Coil | Kestrel | Rampart | Orbital
-    | Ghost | Glass
+    | Ghost | Glass | Mirror
 }
 impl Copy for Ship
 impl Eq for Ship
 
 // Twenty-five: nine authored originals, four authored newcomers, ten
 // specialists that teach a weapon, two secrets (progression-matrix §4).
-pub const SHIP_COUNT: i32 = 25
+pub const SHIP_COUNT: i32 = 26
 
 pub fn ship_at(index: i32) -> Ship:
     match index:
@@ -42,7 +42,8 @@ pub fn ship_at(index: i32) -> Ship:
         21 => .Rampart
         22 => .Orbital
         23 => .Ghost
-        _ => .Glass
+        24 => .Glass
+        _ => .Mirror
 
 // A run fact that unlocks something. Progress is read from the save.
 pub enum Condition {
@@ -69,6 +70,9 @@ pub enum Condition {
     | Deaths(count: i32)
     // The derelict in a stage recovered (progression-plan §7).
     | Derelict(stage: Stage)
+    // A stage cleared; and challenge stages cleared, lifetime.
+    | ClearStage(stage: Stage)
+    | ChallengeClears(count: i32)
 }
 impl Copy for Condition
 
@@ -103,6 +107,8 @@ extend Condition:
             .HurryClear => "Clear a run in Hurry"
             .Deaths(n) => f"Lose {n} runs"
             .Derelict(stage) => f"Recover the derelict in the {stage.name()}"
+            .ClearStage(stage) => f"Clear the {stage.name()}"
+            .ChallengeClears(n) => f"Clear {n} challenge stages"
 
 extend Ship:
     pub fn index(self: &Self) -> i32:
@@ -132,6 +138,7 @@ extend Ship:
             .Orbital => 22
             .Ghost => 23
             .Glass => 24
+            .Mirror => 25
 
     pub fn name(self: &Self) -> str:
         match self:
@@ -160,6 +167,7 @@ extend Ship:
             .Orbital => "Orbital"
             .Ghost => "Ghost"
             .Glass => "Glass"
+            .Mirror => "Mirror"
 
     pub fn base_weapon(self: &Self) -> Weapon:
         match self:
@@ -188,6 +196,7 @@ extend Ship:
             .Orbital => .Satellite
             .Ghost => .Satellite
             .Glass => .Lob
+            .Mirror => .Shard
 
     pub fn strength(self: &Self) -> str:
         match self:
@@ -216,6 +225,7 @@ extend Ship:
             .Orbital => "+2 max health; the orbit is wider"
             .Ghost => "Double damage once its weapons wake"
             .Glass => "Triple damage"
+            .Mirror => "Every projectile is reflected once more; +15% damage"
 
     pub fn growth(self: &Self) -> str:
         match self:
@@ -244,6 +254,7 @@ extend Ship:
             .Orbital => "+1 max health every 6 levels"
             .Ghost => "+2% damage per level"
             .Glass => "+1% damage per level"
+            .Mirror => "+1% damage per level"
 
     pub fn weakness(self: &Self) -> str:
         match self:
@@ -272,6 +283,7 @@ extend Ship:
             .Orbital => "-10% damage"
             .Ghost => "No new weapons until level 8: passives only"
             .Glass => "Max health 1"
+            .Mirror => "-10% move speed"
 
     pub fn condition(self: &Self) -> Condition:
         match self:
@@ -300,8 +312,9 @@ extend Ship:
             .Orbital => .HitsSurvived(count: 30)
             .Ghost => .Deaths(count: 25)
             .Glass => .Derelict(stage: .Expanse)
+            .Mirror => .ClearStage(stage: .Mirror)
 
-    pub fn secret(self: &Self) -> bool: *self == .Null or *self == .Ghost or *self == .Glass
+    pub fn secret(self: &Self) -> bool: *self == .Null or *self == .Ghost or *self == .Glass or *self == .Mirror
 
     // The Ghost flies on passives alone until this level.
     pub fn weapon_lock_level(self: &Self) -> i32:
@@ -409,6 +422,7 @@ extend Ship:
             .Orbital => { m.max_health += 2 + level / 6; m.area *= 1.2; m.damage *= 0.9 }
             .Ghost => { m.damage *= 2.0 * (1.0 + 0.02 * l) }
             .Glass => { m.max_health = 1; m.damage *= 3.0 * (1.0 + 0.01 * l) }
+            .Mirror => { m.rebound += 1; m.damage *= 1.15 * (1.0 + 0.01 * l); m.speed *= 0.9 }
         if m.max_health < 1: m.max_health = 1
         m
 

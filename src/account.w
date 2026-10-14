@@ -192,6 +192,8 @@ pub fn progress(c: Condition, s: &Save) -> (f64, f64):
         .Merges(n) => (s.merges as f64, n as f64)
         .Deaths(n) => ((s.runs - s.clears) as f64, n as f64)
         .Derelict(stage) => (if s.derelicts[stage.index()]: 1.0 else: 0.0, 1.0)
+        .ClearStage(stage) => (if s.stage_cleared[stage.index()]: 1.0 else: 0.0, 1.0)
+        .ChallengeClears(n) => (s.challenge_clears as f64, n as f64)
         .HurryClear => (s.hurry_clears as f64, 1.0)
 
 pub fn met(c: Condition, s: &Save) -> bool:
@@ -262,6 +264,12 @@ pub fn stage_condition(stage: Stage) -> Condition:
         .Maze => .Level(level: 12)
         .Gridlock => .Merges(count: 3)
         .Expanse => .Level(level: 28)
+        .Blackout => .Elites(count: 50)
+        .BossRush => .HurryClear
+        .BoneField => .Bosses(count: 15)
+        .Collapse => .ChallengeClears(count: 2)
+        .Rotor => .ChallengeClears(count: 2)
+        .Mirror => .Derelict(stage: .Cross)
 
 // Hurry opens with the first clear: the run in ten real minutes.
 pub fn hurry_unlocked(s: &Save) -> bool: met(.Clear, s)

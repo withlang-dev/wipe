@@ -451,7 +451,8 @@ extend App:
         // Endless after this ship's.
         if (m.up or m.down) and hurry_unlocked(&self.save):
             let forward = m.down
-            let can_endless = self.save.cleared[cursor_ship.index()]
+            // Endless opens with the Null's death (progression-plan §8).
+            let can_endless = self.save.cleared[cursor_ship.index()] and self.save.null_killed
             if not self.hurry and not self.endless: { if forward: self.hurry = true else if can_endless: self.endless = true }
             else if self.hurry: { self.hurry = false; if forward and can_endless: self.endless = true }
             else: { self.endless = false; if not forward: self.hurry = true }
@@ -829,7 +830,7 @@ extend App:
         if m.click:
             for k in 0..STAGE_COUNT:
                 let (x, y) = map_card_origin(k)
-                if inside(m.mouse, x, y, 220, 170):
+                if inside(m.mouse, x, y, 220, 148):
                     if self.stage_cursor == k and stage_unlocked(order[k], &self.save):
                         self.stage = order[k]
                         self.launch_as(self.ship)
@@ -851,18 +852,18 @@ extend App:
             let (x, y) = map_card_origin(k)
             let open = stage_unlocked(entry_stage, &self.save)
             let selected = k == self.stage_cursor
-            DrawRectangle(x, y, 220, 170, ink(0.9))
-            DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 220.0, height: 170.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: cyan(0.35))
+            DrawRectangle(x, y, 220, 148, ink(0.9))
+            DrawRectangleLinesEx(Rectangle { x: x as f32, y: y as f32, width: 220.0, height: 148.0 }, if selected: 3.0 else: 1.0, if selected: white(1.0) else: cyan(0.35))
             if open:
-                draw_stage_preview(entry_stage, x + 16, y + 14, 188, 104, true)
-                centered_at(entry_stage.name().to_upper(), x + 110, y + 126, 16, white(1.0))
-                centered_at(entry_stage.kind(), x + 110, y + 148, 11, magenta(0.8))
+                draw_stage_preview(entry_stage, x + 16, y + 12, 188, 86, true)
+                centered_at(entry_stage.name().to_upper(), x + 110, y + 106, 15, white(1.0))
+                centered_at(entry_stage.kind(), x + 110, y + 126, 11, magenta(0.8))
             else:
-                mystery(V2 { x: (x + 110) as f64, y: (y + 66) as f64 }, 48, white(0.3))
-                centered_at("LOCKED", x + 110, y + 138, 12, white(0.35))
+                mystery(V2 { x: (x + 110) as f64, y: (y + 56) as f64 }, 40, white(0.3))
+                centered_at(if entry_stage.kind() == "HIDDEN": "?" else: "LOCKED", x + 110, y + 118, 12, white(0.35))
         let entry_stage = order[self.stage_cursor]
         let open = stage_unlocked(entry_stage, &self.save)
-        let py = 580
+        let py = 584
         if open:
             neon(entry_stage.name().to_upper(), 60, py, 26, white(1.0))
             label(entry_stage.kind(), 60 + text_width(entry_stage.name().to_upper(), 26) + 14, py + 8, 14, magenta(0.9))
@@ -1284,9 +1285,9 @@ fn pick_label(p: Pick) -> str:
         .UpgradePassive(x) => x.name()
         .Merge(w) => "=" ++ w.name()
 
+// Three rows of five.
 fn map_card_origin(k: i32) -> (i32, i32):
     let row = k / 5
     let col = k % 5
-    let count = if row == 0: 5 else: 4
-    let x0 = (WIDTH - (count * 220 + (count - 1) * 16)) / 2
-    (x0 + col * 236, 100 + row * 190)
+    let x0 = (WIDTH - (5 * 220 + 4 * 16)) / 2
+    (x0 + col * 236, 92 + row * 160)

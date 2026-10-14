@@ -382,6 +382,8 @@ pub type Game {
     wreck_touches: i32 = 0, wreck_touch_cd: f64 = 0.0, carrier_spawned: bool = false,
     relays: [V2; 3] = [V2 {}; 3], relays_lit: [bool; 3] = [false; 3],
     derelict_event: bool = false,
+    // The Rotor's bite, accumulating outside the safe sector.
+    rotor_bite: f64 = 0.0,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -463,6 +465,7 @@ extend Game:
         self.elapsed = self.steps as f64 * self.timeline_rate() / STEPS_PER_SECOND as f64
     // The minute the spawn tables read: endless loops from minute ten.
     pub fn table_minute(self: &Self) -> f64:
+        if self.rules.flat_minute >= 0.0: return self.rules.flat_minute
         let m = self.minute()
         if self.launch.endless and m >= 20.0: 10.0 + ((m - 10.0) % 10.0) else: m
     // Endless compounds per ten-minute loop: a linear ramp let a finished
@@ -473,13 +476,17 @@ extend Game:
         scale_by
 
     fn difficulty(self: &Self) -> f64:
-        (1.0 + self.mods.overclock) * self.loop_scale(1.9)
+        (1.0 + self.mods.overclock) * self.loop_scale(1.9) * (1.0 + self.rules.hp_per_minute * self.minute())
 
     // Three or four touches end a fresh ship: the swarm is dangerous
     // because there is so much of it.
     fn contact(self: &Self, kind: Kind) -> i32:
         kind.contact_damage(self.table_minute()) + self.endless_loop * 2
     pub fn boss_minute(self: &Self) -> Option[f64]:
+        // A Boss Rush: one every so many minutes, cycling the three, to the cap.
+        if self.rules.boss_every > 0.0:
+            let next = (self.boss_index as f64 + 1.0) * self.rules.boss_every
+            return if next * 60.0 < self.rules.run_cap: Some(next) else: None
         let minutes = self.rules.boss_minutes()
         if self.boss_index < 3: Some(minutes[self.boss_index]) else: None
     pub fn boss_name(self: &Self) -> Option[str]:
@@ -599,6 +606,7 @@ extend Game:
         self.wreck_touches = 0
         self.wreck_touch_cd = 0.0
         self.carrier_spawned = false
+        self.rotor_bite = 0.0
         self.relays_lit = [false; 3]
         if let Some(d) = stage_at(self.rules.layout).derelict():
             self.wreck_live = true
@@ -683,10 +691,18 @@ extend Game:
     // ----- arena and camera ---------------------------------------------
 
     // Inside the walls and outside the dead center, if the stage has one.
+    // How far the arena's edges have come in (Collapse): so many pixels a
+    // minute per side, never past a small room in the middle.
+    pub fn edge_inset(self: &Self) -> f64:
+        if self.rules.collapse <= 0.0: return 0.0
+        let shortest = if self.rules.arena_width < self.rules.arena_height: self.rules.arena_width else: self.rules.arena_height
+        limit(self.rules.collapse * self.minute(), 0.0, shortest / 2.0 - 220.0)
+
     pub fn clamp_to_arena(self: &Self, pos: V2, inset: f64) -> V2:
+        let edge = inset + self.edge_inset()
         var p = V2 {
-            x: limit(pos.x, inset, self.rules.arena_width - inset),
-            y: limit(pos.y, inset, self.rules.arena_height - inset),
+            x: limit(pos.x, edge, self.rules.arena_width - edge),
+            y: limit(pos.y, edge, self.rules.arena_height - edge),
         }
         if self.rules.void_radius > 0.0:
             let delta = sub(p, self.center())
@@ -788,7 +804,8 @@ extend Game:
         self.rules.void_radius > 0.0 and length2(sub(pos, self.center())) < self.rules.void_radius * self.rules.void_radius
 
     pub fn in_arena(self: &Self, pos: V2, margin: f64) -> bool:
-        let boxed = pos.x >= -margin and pos.x <= self.rules.arena_width + margin and pos.y >= -margin and pos.y <= self.rules.arena_height + margin
+        let edge = self.edge_inset()
+        let boxed = pos.x >= edge - margin and pos.x <= self.rules.arena_width - edge + margin and pos.y >= edge - margin and pos.y <= self.rules.arena_height - edge + margin
         boxed and not self.in_void(pos) and not self.in_wall(pos)
 
     // The camera rectangle, clamped inside the arena.
@@ -836,7 +853,8 @@ extend Game:
                 _ => V2 { x: o.x + along * self.screen_w, y: o.y + self.screen_h + margin }
             if self.in_arena(pos, -8.0): return Some(pos)
         // The camera shows the whole arena along some axis: any far corner.
-        let pos = V2 { x: 8.0 + self.random() * (self.rules.arena_width - 16.0), y: 8.0 + self.random() * (self.rules.arena_height - 16.0) }
+        let edge = self.edge_inset() + 8.0
+        let pos = V2 { x: edge + self.random() * (self.rules.arena_width - 2.0 * edge), y: edge + self.random() * (self.rules.arena_height - 2.0 * edge) }
         if length2(sub(pos, self.player)) > 420.0 * 420.0 and not self.in_wall(pos): Some(pos) else: None
 
     pub fn place_beacon(mut self: Self):
@@ -903,6 +921,10 @@ extend Game:
             let angle = self.random() * 6.283185307
             let at = if k == 0: pos else: add(pos, V2 { x: cos(angle) * 28.0, y: sin(angle) * 28.0 })
             let _ = self.place_enemy(self.clamp_to_arena(at, 8.0), kind)
+            // The Mirror: every spawn has its twin across the middle.
+            if self.rules.mirror:
+                let twin = V2 { x: self.rules.arena_width - at.x, y: at.y }
+                let _ = self.place_enemy(self.clamp_to_arena(twin, 8.0), kind)
 
     fn spawn_elite(mut self: Self):
         let Some(pos) = self.spawn_point() else return
@@ -913,7 +935,7 @@ extend Game:
     // A boss fight is one on one: the swarm dissolves, and nothing spawns
     // until the boss is down.
     pub fn spawn_boss(mut self: Self):
-        let which = limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
+        let which = if self.rules.boss_every > 0.0: (self.boss_index - 1) % 3 else: limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
         var i = 0
         while i < self.enemy_count:
             let e: Enemy = self.enemies[i]
@@ -1932,9 +1954,12 @@ extend Game:
             var rate = self.rules.spawn_rate(self.table_minute()) * self.rules.spawn_scale * (1.0 + self.mods.overclock) * self.loop_scale(1.3)
             if self.breather > 0.0: rate *= 0.25
             if self.null_alive: rate *= 0.5
-            self.spawn_timer += 1.0 / rate
-            if self.enemy_count < ENEMY_CAP - 64: self.spawn_enemy()
-            else: self.spawn_timer += 0.05
+            // A stage with no ordinary spawns (the Boss Rush) spawns nothing.
+            if rate <= 0.0: self.spawn_timer = 1.0e9
+            else:
+                self.spawn_timer += 1.0 / rate
+                if self.enemy_count < ENEMY_CAP - 64: self.spawn_enemy()
+                else: self.spawn_timer += 0.05
 
     // The tether: a short Verlet rope from the ship, the blade on its end.
     // Turning swings the blade wide, and the blade's own speed is its
@@ -2082,6 +2107,27 @@ extend Game:
             self.enemies[i] = e
         let _ = self.damage_area(self.player, self.repulse_radius, self.repulse_damage, false, 0.5)
 
+    // The Rotor's safe sector: a sixth of the circle, turning once a minute.
+    pub fn rotor_angle(self: &Self) -> f64: self.minute() * 6.283185307
+    pub fn in_safe_sector(self: &Self, pos: V2) -> bool:
+        let d = sub(pos, self.center())
+        if length2(d) < 1.0: return true
+        var diff = atan2(d.y, d.x) - self.rotor_angle()
+        while diff > 3.14159265: diff -= 6.283185307
+        while diff < -3.14159265: diff += 6.283185307
+        diff.abs() < 1.0472
+
+    // Outside the Rotor's safe sector the field bites: two hull a second.
+    fn step_rotor(mut self: Self, dt: f64):
+        if not self.rules.rotor: return
+        if self.in_safe_sector(self.player):
+            self.rotor_bite = 0.0
+            return
+        self.rotor_bite += dt
+        if self.rotor_bite >= 1.0:
+            self.rotor_bite -= 1.0
+            self.hurt(.Weaver, false, 2)
+
     // The derelict's objective, by verb (progression-plan §7).
     fn step_derelict(mut self: Self, dt: f64):
         if not self.wreck_live or self.wreck_done: return
@@ -2132,6 +2178,12 @@ extend Game:
                     self.wreck_progress = self.wreck_touches as f64
                     self.pulse(self.wreck, 50.0, .Gold)
                     if self.wreck_touches >= 3: self.finish_derelict()
+            }
+            .Survive => {
+                // Half a minute within reach of it, where the Rotor's field
+                // is bound to pass.
+                if near < 200.0 * 200.0: self.wreck_progress += dt
+                if self.wreck_progress >= 30.0: self.finish_derelict()
             }
             .Carrier => {
                 // At two minutes an elite takes the core and runs; killing it
@@ -2834,6 +2886,7 @@ extend Game:
         self.step_turrets(dt)
         self.step_repulse(dt)
         self.step_derelict(dt)
+        self.step_rotor(dt)
         // Contact.
         for e in 0..self.enemy_count:
             let enemy: Enemy = self.enemies[e]

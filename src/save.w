@@ -6,6 +6,7 @@ use std.process.env
 use loadout
 use ships
 use game
+use tuning
 
 // The player never loses a save. One file of `key value` lines, written
 // atomically with a backup on every change, read before the first frame.
@@ -27,12 +28,15 @@ pub type Save {
     no_reboot_clear: bool = false, null_killed: bool = false,
     // Clears in Hurry (the timeline at twice the rate); a Hurry clear is a clear too.
     hurry_clears: i32 = 0,
-    best_time: [f64; 25] = [0.0; 25],
-    best_endless: [f64; 25] = [0.0; 25],
-    cleared: [bool; 25] = [false; 25],
-    ship_runs: [i32; 25] = [0; 25],
-    // Derelicts recovered, by stage index (room for sixteen stages).
+    best_time: [f64; 26] = [0.0; 26],
+    best_endless: [f64; 26] = [0.0; 26],
+    cleared: [bool; 26] = [false; 26],
+    ship_runs: [i32; 26] = [0; 26],
+    // Derelicts recovered and stages cleared, by stage index (room for
+    // sixteen stages); challenge stages cleared, lifetime.
     derelicts: [bool; 16] = [false; 16],
+    stage_cleared: [bool; 16] = [false; 16],
+    challenge_clears: i32 = 0,
     // Longest a run held each base weapon, in seconds.
     held: [f64; 20] = [0.0; 20],
     taken_weapons: [bool; 46] = [false; 46],
@@ -119,6 +123,8 @@ extend Save:
             out = out ++ f"best_time {i} {fmt_float(self.best_time[i])}\nbest_endless {i} {fmt_float(self.best_endless[i])}\n"
             out = out ++ f"cleared {i} {fmt_bool(self.cleared[i])}\nship_runs {i} {self.ship_runs[i]}\n"
         for i in 0..16: out = out ++ f"derelict {i} {fmt_bool(self.derelicts[i])}\n"
+        for i in 0..16: out = out ++ f"stage_cleared {i} {fmt_bool(self.stage_cleared[i])}\n"
+        out = out ++ f"challenge_clears {self.challenge_clears}\n"
         for i in 0..BASE_WEAPON_COUNT: out = out ++ f"held {i} {fmt_float(self.held[i])}\n"
         for i in 0..WEAPON_COUNT: out = out ++ f"taken_weapon {i} {fmt_bool(self.taken_weapons[i])}\n"
         for i in 0..PASSIVE_COUNT: out = out ++ f"taken_passive {i} {fmt_bool(self.taken_passives[i])}\n"
@@ -182,6 +188,9 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
             if index >= 0 and index < SHIP_COUNT: s.ship_runs[index] = parse(third)
         else if key == "derelict":
             if index >= 0 and index < 16: s.derelicts[index] = parse_bool(third)
+        else if key == "stage_cleared":
+            if index >= 0 and index < 16: s.stage_cleared[index] = parse_bool(third)
+        else if key == "challenge_clears": s.challenge_clears = index
         else if key == "held":
             if index >= 0 and index < BASE_WEAPON_COUNT: s.held[index] = parse_float(third)
         else if key == "weapon_unlocked_run":
@@ -302,6 +311,9 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
         s.cleared[ship] = true
         if g.launch.hurry: s.hurry_clears += 1
         if not g.reboot_used: s.no_reboot_clear = true
+        if g.rules.layout >= 0 and g.rules.layout < 16:
+            s.stage_cleared[g.rules.layout] = true
+            if stage_at(g.rules.layout).kind() == "CHALLENGE": s.challenge_clears += 1
     if g.null_killed: s.null_killed = true
     if g.wreck_done and g.rules.layout >= 0 and g.rules.layout < 16: s.derelicts[g.rules.layout] = true
     var new_best = false

@@ -9,9 +9,9 @@ use pilots
 
 fn main:
     // Twenty-five ships, indices round-trip, the originals keep their places.
-    assert(SHIP_COUNT == 25)
+    assert(SHIP_COUNT == 26)
     for i in 0..SHIP_COUNT: assert(ship_at(i).index() == i)
-    assert(Ship.Null.index() == 8 and Ship.Lasher.index() == 9 and Ship.Glass.index() == 24)
+    assert(Ship.Null.index() == 8 and Ship.Lasher.index() == 9 and Ship.Glass.index() == 24 and Ship.Mirror.index() == 25)
     // Every ship names a base weapon, three texts, and a condition met by an
     // account that has done everything.
     var done = Save {}
@@ -30,17 +30,18 @@ fn main:
     for i in 0..SHIP_COUNT: done.best_time[i] = 1200.0
     for i in 0..BASE_WEAPON_COUNT: done.held[i] = 1200.0
     for i in 0..16: done.derelicts[i] = true
+    for i in 0..16: done.stage_cleared[i] = true
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         assert(ship.name().len() > 0 and ship.strength().len() > 0 and ship.growth().len() > 0 and ship.weakness().len() > 0)
         assert(ship.base_weapon().is_base())
         assert(ship_unlocked(ship, &done))
-    // A fresh account flies the Claw alone; three secrets stay hidden.
+    // A fresh account flies the Claw alone; four secrets stay hidden.
     assert(unlocked_ship_count(&Save {}) == 1)
     var secrets = 0
     for i in 0..SHIP_COUNT:
         if ship_at(i).secret(): secrets += 1
-    assert(secrets == 3)
+    assert(secrets == 4)
     // A derelict condition reads its stage; recovering it meets it.
     var found = Save {}
     assert(not ship_unlocked(.Lasher, &found))

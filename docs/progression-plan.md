@@ -11,7 +11,7 @@ at every step. The item-by-item schedule is [progression-matrix.md](progression-
 
 | | Now | Target |
 |---|---|---|
-| Ships | 25 (was 9) | 24–28, in three tiers (§6) |
+| Ships | 26 (was 9) | 24–28, in three tiers (§6) |
 | Base weapons | 20 (was 8) | 20 |
 | Evolutions | 20 (was 8) | 20, one per base weapon |
 | Unions | 6 (was 4) | 5–6 at first, room for 8 |
