@@ -249,6 +249,8 @@ pub const WELL_CAP: i32 = 4
 pub const TETHER_LINKS: i32 = 7
 // Tanks: the first at 2:30, one every twenty-five seconds after; how much
 // nearer one looks to a weapon choosing its target (squared distance).
+// How long the Anchor is held as each of its wells is laid.
+pub const ANCHOR_HOLD: f64 = 0.5
 pub const TANK_FIRST: f64 = 150.0
 pub const TANK_INTERVAL: f64 = 25.0
 pub const TANK_LURE: f64 = 0.16
@@ -413,6 +415,8 @@ pub type Game {
     satellite_flare: f64 = 0.0,
     // The Tesla field's radius this tick, or zero without one.
     tesla_reach: f64 = 0.0,
+    // The Anchor: how long it is still held after laying a well.
+    anchor_hold: f64 = 0.0,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -1486,6 +1490,8 @@ extend Game:
                                 self.wells[oldest] = self.wells[self.well_count]
                             self.wells[self.well_count] = Well { pos: at, radius: stats.radius, pull: stats.pull, damage: stats.damage, life: stats.lifetime, total: stats.lifetime, burst: stats.burst_on_end }
                             self.well_count += 1
+                            // The Anchor is held for a beat as each well is laid.
+                            if self.launch.ship == .Anchor: self.anchor_hold = ANCHOR_HOLD
                             self.pulse(at, stats.radius * 0.5, .Violet)
                         }
                         .Drone => {
@@ -2140,7 +2146,7 @@ extend Game:
                 self.enemies[i] = e
             let _ = self.damage_area(well.pos, 42.0, well.damage, false, 0.25)
             if well.life <= 0.0:
-                if well.burst: self.spawn_wave(well.pos, WeaponStats { radius: well.radius * 1.2, damage: well.damage * 2 })
+                if well.burst: self.spawn_wave(well.pos, WeaponStats { radius: well.radius * 1.2, damage: well.damage * 3 / 2 })
                 self.pulse(well.pos, well.radius * 0.4, .Violet)
                 self.well_count -= 1
                 self.wells[w] = self.wells[self.well_count]
@@ -2965,8 +2971,9 @@ extend Game:
                 self.regen_bank -= 1.0
                 self.health += 1
         let speed = self.rules.player_speed * self.mods.speed
-        // The Anchor cannot move while a well is live: its wells are the move.
-        let push = if self.launch.ship == .Anchor and self.well_count > 0: V2 {} else: input.motion
+        // The Anchor is held for a beat as each well is laid: its wells are the move.
+        if self.anchor_hold > 0.0: self.anchor_hold -= dt
+        let push = if self.anchor_hold > 0.0: V2 {} else: input.motion
         self.player = add(self.player, scale(movement(push), speed * dt))
         self.player = self.clamp_to_arena(self.player, 14.0)
         self.follow(dt)

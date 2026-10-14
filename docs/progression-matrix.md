@@ -126,7 +126,7 @@ first guesses, to be set by `runs`.
 | 7 | Sapper | 3 | Proximity Mine | 2 merges in a run | 3 weapon slots | 2.5 |
 | 8 | Phase | 4 | Cannon | clear without a reboot | 1 hull, long invulnerability | 3 |
 | 9 | Lasher | 2 | Tether | the Corridor's black box | spinning the stick is the weapon; slow strafe | 1.2 |
-| 10 | Anchor | 3 | Gravity Well | hold the Shaft's derelict a minute | cannot move while a well is live | 2 |
+| 10 | Anchor | 3 | Gravity Well | hold the Shaft's derelict a minute | held for a beat as each well is laid | 2 |
 | 11 | Carrier | 3 | Drone | kill the Ring's carrier | no Cannon; two drones from the start | 2.5 |
 | 12 | Warden | 4 | Repulsor | clear in Hurry | regenerates in the zone, nothing else | 5 |
 | **Specialists** | | | | | | |

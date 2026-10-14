@@ -540,11 +540,11 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .Field => {
             // A well where the ship aims, every few seconds, for a few
             // seconds: the pull in pixels a second, the crush at the middle.
-            s.cooldown = 4.2 - (l - 1.0) * 0.2
+            s.cooldown = 3.4 - (l - 1.0) * 0.1
             s.radius = 150.0 + l * 10.0
             s.lifetime = 3.0
             s.pull = 240.0 + l * 20.0
-            s.damage = 2 + level / 2
+            s.damage = 2 + level
         }
         .Drone => {
             // One system that escalates: a bolt; a faster bolt; a burst;
@@ -642,8 +642,9 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // Bodies on a slow orbit: count how many, radius the orbit.
             s.cooldown = 0.25
             s.radius = 100.0 + l * 4.0
-            s.damage = 8 + level * 3 / 2
-            s.count = 1
+            s.damage = 6 + level
+            // Two bodies from the start, a third at level three.
+            s.count = 2 + level / 3
             s.hit = 34.0
         }
         .Repulsor => {
@@ -696,10 +697,10 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .Grid => { s.damage = s.damage * 3 / 2; s.max_active += 3; s.chains_on_hit = true }
         .Refractor => { s.pierce += 6; s.damage *= 2; s.shatters = true }
         .LongTether => { s.radius *= 1.25; s.count = 2; s.damage = s.damage * 5 / 4 }
-        .Singularity => { s.radius *= 1.4; s.pull *= 1.5; s.lifetime *= 1.5; s.damage = s.damage * 3 / 2 }
+        .Singularity => { s.radius *= 1.3; s.pull *= 1.5; s.lifetime *= 1.4 }
         .TwinDrones => { s.drones = 2; s.chain = 2; s.damage = s.damage * 3 / 2 }
         .Barrage => { s.count = 3; s.radius *= 1.3; s.damage = s.damage * 3 / 2 }
-        .WellBurst => { s.radius *= 1.2; s.pull *= 1.2; s.damage = s.damage * 5 / 4; s.burst_on_end = true }
+        .WellBurst => { s.radius *= 1.1; s.pull *= 1.2; s.burst_on_end = true }
         .Shrapnel => { s.count += 4; s.pierce += 2; s.damage = s.damage * 3 / 2 }
         .Battery => { s.max_active = 4; s.cooldown *= 0.7; s.lifetime *= 1.5; s.damage = s.damage * 3 / 2 }
         .Lighthouse => { s.count = 2; s.speed *= 1.5; s.damage = s.damage * 3 / 2 }

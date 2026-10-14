@@ -62,7 +62,7 @@ fn main:
     assert(offered)
     let glass = test_game(.Glass, 1)
     assert(glass.max_health == 1 and glass.mods.damage > 2.9)
-    // The Anchor holds still while a well is live: the first tick lays the
+    // The Anchor is held as each well is laid: the first tick lays the
     // well (the ship still moves on it), then nothing moves the ship.
     var anchor = test_game(.Anchor, 2)
     anchor.clear_events()

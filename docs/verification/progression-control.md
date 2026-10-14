@@ -176,3 +176,43 @@ Shockwave    run 4    run 6    2
 Satellite    run 8    never    never
 Repulsor    run 4    run 5    1
 ```
+
+## After the balancing campaign (Tanks, the hooks, the number pass), the bot, 4 seeds a ship
+
+The first per-ship cadence. The careful bot flies every ship in the Field
+at rank zero; the columns are seeds surviving past each minute. The Claw
+is the yardstick and the runaway guard in `targets.w` holds it at six of
+eight past fifteen. The Mortar's Lob is the bot's blind spot, not the
+weapon's; the Glass has one hull by design; the Ghost takes no weapon
+before level eight and so starts slow. Three ships that died at level one
+before this pass (Anchor, Orbital, Ghost) now live.
+
+```text
+ship       >2m  >5m  >10m  >15m  >20m  kills/min
+Claw       4/4  4/4   4/4   3/4   2/4      1237
+Dart       4/4  4/4   3/4   1/4   1/4      1138
+Hull       4/4  4/4   3/4   1/4   1/4       539
+Prism      4/4  4/4   1/4   0/4   0/4       912
+Halo       4/4  4/4   2/4   2/4   1/4       851
+Needle     4/4  4/4   0/4   0/4   0/4       515
+Sapper     4/4  4/4   3/4   0/4   0/4       994
+Phase      3/4  3/4   0/4   0/4   0/4       605
+Null       4/4  4/4   1/4   0/4   0/4       886
+Lasher     4/4  2/4   1/4   1/4   0/4       532
+Anchor     1/4  1/4   1/4   0/4   0/4       380
+Carrier    4/4  4/4   2/4   2/4   1/4       884
+Warden     4/4  4/4   0/4   0/4   0/4       474
+Hawk       4/4  4/4   2/4   2/4   1/4      1129
+Volt       2/4  2/4   0/4   0/4   0/4       460
+Mortar     2/4  0/4   0/4   0/4   0/4       219
+Brace      4/4  4/4   1/4   0/4   0/4       590
+Sentry     4/4  4/4   1/4   1/4   0/4      1033
+Lantern    4/4  4/4   2/4   1/4   0/4       876
+Coil       4/4  4/4   2/4   2/4   1/4       381
+Kestrel    4/4  4/4   1/4   1/4   0/4       887
+Rampart    3/4  2/4   1/4   1/4   0/4       590
+Orbital    3/4  2/4   1/4   0/4   0/4       174
+Ghost      2/4  1/4   1/4   1/4   1/4        51
+Glass      1/4  1/4   0/4   0/4   0/4       276
+Mirror     4/4  4/4   1/4   1/4   0/4       811
+```

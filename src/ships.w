@@ -268,7 +268,7 @@ extend Ship:
             .Phase => "Max health 1. Reboots do not work"
             .Null => "-25% XP gain. Cannot merge"
             .Lasher => "-15% move speed"
-            .Anchor => "Cannot move while a well is live"
+            .Anchor => "Held for a beat as each well is laid"
             .Carrier => "Cannot take the Cannon"
             .Warden => "-5% move speed, -10% damage"
             .Hawk => "-10% max health"
