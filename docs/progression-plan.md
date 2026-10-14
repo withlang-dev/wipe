@@ -213,6 +213,17 @@ projectiles, invulnerability, pickups). It is a `Rules` field,
 timeline already reads the step count, so the mechanism is small; the
 card-screen cadence per real minute doubles and needs its own tuning pass.
 
+**Things to find.** VS fills its maps with items at distant places; its
+maps are unbounded. WIPE's arenas are bounded and four seconds across, so
+nothing is far, and the same idea becomes **fixtures at known places that
+must be reached and held under pressure**: the derelicts and relays of §7,
+a dead beacon at Corridor's far end that lights once for a cache, a pickup
+that exists in one stage only, a sealed bay in Shaft that opens at 10:00.
+The Collection hints that a stage holds something; the skill is getting
+there, which is WIPE's skill. Expanse, the one large arena, can carry a
+genuinely far item. Each fixture is a timeline event with a position, in
+the matrix beside its stage.
+
 Fifteen stages, 5 normal / 5 bonus / 4 challenge / 1 hidden as an
 organizing shape, not a rule. Each stage changes **one** core variable:
 geometry, visibility, composition, spawn topology, mobility, resources or

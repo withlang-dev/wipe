@@ -321,6 +321,76 @@ pub fn new_unlocks(before: &Save, after: &Save) -> List[str]:
         if not met(c, before) and met(c, after): out.push(f"{stage_at(i).name()} stage")
     out
 
+// ----- the progression score ----------------------------------------------------
+
+// What a run changed for the account, as the plan's score (progression-plan
+// §3): 3 for an unlock or a merge discovered, 2 for a rank bought or newly
+// affordable, 1 for a named goal advanced a fifth of the way. Events are
+// `kind:name` tokens for the run log. The window is from one run's log row
+// to the next, so a shop visit between runs counts for the run it follows.
+pub type ProgressReport { score: i32 = 0, events: List[str] = List.new() }
+
+pub fn progress_score(before: &Save, after: &Save) -> ProgressReport:
+    var r = ProgressReport {}
+    for i in 0..SHIP_COUNT:
+        let ship = ship_at(i)
+        if not ship_unlocked(ship, before) and ship_unlocked(ship, after):
+            r.score += 3
+            r.events.push(f"ship:{ship.name()}")
+    for i in 0..BASE_WEAPON_COUNT:
+        let w = weapon_at(i)
+        if not met(weapon_condition(w), before) and met(weapon_condition(w), after):
+            r.score += 3
+            r.events.push(f"weapon:{w.name()}")
+    for i in 0..PASSIVE_COUNT:
+        let p = passive_at(i)
+        if not met(passive_condition(p), before) and met(passive_condition(p), after):
+            r.score += 3
+            r.events.push(f"passive:{p.name()}")
+    for i in 0..STAGE_COUNT:
+        let stage = stage_at(i)
+        if not met(stage_condition(stage), before) and met(stage_condition(stage), after):
+            r.score += 3
+            r.events.push(f"stage:{stage.name()}")
+    // A merged weapon taken for the first time is a recipe discovered.
+    for i in BASE_WEAPON_COUNT..WEAPON_COUNT:
+        if not before.taken_weapons[i] and after.taken_weapons[i]:
+            r.score += 3
+            r.events.push(f"merge:{weapon_at(i).name()}")
+    for i in 0..SHOP_COUNT:
+        if after.ranks[i] > before.ranks[i]:
+            r.score += 2
+            r.events.push(f"rank:{shop_item_at(i).name()} {after.ranks[i]}")
+    // The cheapest rank crossed from out of reach to affordable.
+    if let Some(next) = next_rank(after):
+        if before.credits < next.price and after.credits >= next.price:
+            r.score += 2
+            r.events.push(f"afford:{next.item.name()} {next.rank}")
+    // A named goal a fifth closer, once per goal, only while still unmet.
+    for i in 0..SHIP_COUNT:
+        let ship = ship_at(i)
+        if ship.secret() and not after.null_killed and after.clears == 0: continue
+        let c = ship.condition()
+        if not met(c, after) and fraction(c, after) - fraction(c, before) >= 0.2:
+            r.score += 1
+            r.events.push(f"goal:{ship.name()} ship")
+    for i in 0..BASE_WEAPON_COUNT:
+        let c = weapon_condition(weapon_at(i))
+        if not met(c, after) and fraction(c, after) - fraction(c, before) >= 0.2:
+            r.score += 1
+            r.events.push(f"goal:{weapon_at(i).name()}")
+    for i in 0..PASSIVE_COUNT:
+        let c = passive_condition(passive_at(i))
+        if not met(c, after) and fraction(c, after) - fraction(c, before) >= 0.2:
+            r.score += 1
+            r.events.push(f"goal:{passive_at(i).name()}")
+    for i in 0..STAGE_COUNT:
+        let c = stage_condition(stage_at(i))
+        if not met(c, after) and fraction(c, after) - fraction(c, before) >= 0.2:
+            r.score += 1
+            r.events.push(f"goal:{stage_at(i).name()} stage")
+    r
+
 // ----- session metrics ----------------------------------------------------------
 
 // The five numbers of spec §10, kept for the session and shown in F1.

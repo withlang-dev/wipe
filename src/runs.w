@@ -3,6 +3,9 @@
 //   runs replay FILE_OR_DIR...   re-simulate recordings, check each lands where it ended
 //   runs calibrate [DIR]         your recorded runs beside the careful bot on the same seeds
 //   runs profile [SEEDS]         every ship, stationary and careful, across a whole run
+//   runs account [DIR]           score every recorded run from its save, print the cadence
+//   runs exposure [DIR]          runs from each weapon's unlock to its first pick
+//   runs account-sim [RUNS]      a fresh account played by the careful bot, buying ranks between runs
 //
 // DIR defaults to the save directory's runs/ folder (WIPE_SAVE_DIR honored).
 use std.fs
@@ -15,6 +18,8 @@ use ships
 use save
 use pilots
 use record
+use account
+use cadence
 
 fn recordings(paths: &List[str]) -> List[str]:
     var out = List.new()
@@ -91,6 +96,113 @@ fn cmd_calibrate(paths: List[str]) -> i32:
     print(f"mean over {n}: you {stamp(you_t / n as f64)}, hits in 2 min {you_h / n}, kills in 1 min {you_k / n}; bot {stamp(bot_t / n as f64)}, hits in 2 min {bot_h / n}, kills in 1 min {bot_k / n}")
     0
 
+// The recordings of one account in run order (run-N-Ship.rec).
+fn account_recordings(paths: &List[str]) -> List[str]:
+    let found = recordings(paths)
+    var numbers: List[i32] = List.new()
+    var names: List[str] = List.new()
+    for path in found:
+        let name = path.slice(path.rfind("/") + 1, path.len())
+        if not name.starts_with("run-"): continue
+        let rest = name.slice(4, name.len())
+        let dash = rest.find("-")
+        if dash <= 0: continue
+        numbers.push(parse(rest.slice(0, dash)))
+        names.push(path.clone())
+    for i in 1..numbers.len() as i32:
+        var j = i
+        while j > 0 and numbers[j - 1] > numbers[j]:
+            let n: i32 = numbers[j]
+            numbers[j] = numbers[j - 1]
+            numbers[j - 1] = n
+            let t: str = names[j].clone()
+            names[j] = names[j - 1].clone()
+            names[j - 1] = t
+            j -= 1
+    names
+
+// Every recorded run scored from its own header: the save it launched from
+// already holds the shop visit before it, so the window matches the app's.
+type Scored { row: RunRow, before: Save, after: Save }
+
+fn score_recordings(paths: &List[str]) -> List[Scored]:
+    var out: List[Scored] = List.new()
+    var logged = Save {}
+    for path in account_recordings(paths):
+        let text = match read_file(path):
+            Ok(t) => t
+            Err(_) => continue
+        let Ok(r) = replay(text) else continue
+        let (after, _) = record_run(r.header.save, &r.game)
+        let report = progress_score(&logged, &after)
+        let number = out.len() as i32 + 1
+        out.push(Scored { row: RunRow { number, seconds: r.stats.seconds, cleared: r.game.cleared and not r.header.endless, score: report.score, events: report.events.clone() }, before: logged, after })
+        logged = after
+    out
+
+fn print_cadence(scored: &List[Scored]):
+    var rows: List[RunRow] = List.new()
+    for s in scored:
+        var events = ""
+        for e in &s.row.events: events = events ++ e ++ ", "
+        print(f"run {s.row.number}  {stamp(s.row.seconds)}  score {s.row.score}  {events.trim()}")
+        rows.push(RunRow { number: s.row.number, seconds: s.row.seconds, cleared: s.row.cleared, hurry: s.row.hurry, score: s.row.score, events: s.row.events.clone() })
+    for line in cadence_lines(&cadence(&rows)): print(line)
+
+fn cmd_account(paths: List[str]) -> i32:
+    let scored = score_recordings(&paths)
+    if scored.len() == 0:
+        print("no recordings found")
+        return 1
+    print_cadence(&scored)
+    0
+
+// Runs from a weapon's unlock to its first pick: a long gap means the
+// player never meets the thing they earned.
+fn cmd_exposure(paths: List[str]) -> i32:
+    let scored = score_recordings(&paths)
+    if scored.len() == 0:
+        print("no recordings found")
+        return 1
+    print("weapon     unlocked  first pick  gap")
+    for i in 0..BASE_WEAPON_COUNT:
+        let w = weapon_at(i)
+        var unlocked = if met(weapon_condition(w), &Save {}): 0 else: -1
+        var picked = -1
+        for s in scored:
+            if unlocked < 0 and met(weapon_condition(w), &s.after): unlocked = s.row.number
+            if picked < 0 and s.after.taken_weapons[i]: picked = s.row.number
+        let gap = if unlocked < 0: "-" else if picked < 0: "never" else: f"{picked - unlocked}"
+        let unlock_text = if unlocked < 0: "never" else: f"run {unlocked}"
+        let pick_text = if picked < 0: "never" else: f"run {picked}"
+        print(f"{w.name()}    {unlock_text}    {pick_text}    {gap}")
+    0
+
+// A fresh account played by the careful bot: every run on the Claw in the
+// Field, the cheapest affordable ranks bought after each. The control group
+// for any change to the cadence.
+fn cmd_account_sim(count: i32) -> i32:
+    var save = Save {}
+    var logged = Save {}
+    var scored: List[Scored] = List.new()
+    for n in 1..count + 1:
+        var g = Game.new(Stage.Field.rules())
+        g.rng = 777 +% (n as u32) *% 2654435761
+        g.start(launch_for(.Claw, &save, false))
+        let (flown, stats) = fly(g, .Careful, 1200.0)
+        let (after, _) = record_run(save, &flown)
+        let report = progress_score(&logged, &after)
+        scored.push(Scored { row: RunRow { number: n, seconds: stats.seconds, cleared: flown.cleared, score: report.score, events: report.events.clone() }, before: logged, after })
+        logged = after
+        save = after
+        while let Some(next) = next_rank(&save):
+            if save.credits < next.price: break
+            save.credits -= next.price
+            save.spent += next.price
+            save.ranks[next.item.index()] += 1
+    print_cadence(&scored)
+    0
+
 // Every ship across a run: when the careful bot survives to each mark,
 // how fast it kills, and when a stationary one dies.
 fn cmd_profile(seeds: i32) -> i32:
@@ -119,12 +231,15 @@ fn cmd_profile(seeds: i32) -> i32:
 fn main:
     let argv = args()
     if argv.len() < 2:
-        print("usage: runs replay PATH... | runs calibrate [DIR] | runs profile [SEEDS]")
+        print("usage: runs replay PATH... | runs calibrate [DIR] | runs profile [SEEDS] | runs account [DIR] | runs exposure [DIR] | runs account-sim [RUNS]")
         return 2
     let command = argv[1].clone()
     var rest = List.new()
     for i in 2..argv.len() as i32: rest.push(argv[i].clone())
-    if rest.len() == 0 and command != "profile": rest.push(f"{save_directory()}/runs")
+    if rest.len() == 0 and command != "profile" and command != "account-sim": rest.push(f"{save_directory()}/runs")
+    if command == "account": return cmd_account(rest)
+    if command == "exposure": return cmd_exposure(rest)
+    if command == "account-sim": return cmd_account_sim(if rest.len() > 0: parse(rest[0]) else: 20)
     if command == "replay": return cmd_replay(rest)
     if command == "calibrate": return cmd_calibrate(rest)
     if command == "profile": return cmd_profile(if rest.len() > 0: parse(rest[0]) else: 8)

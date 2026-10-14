@@ -13,7 +13,7 @@ fn native_target(kind: BuildKind, name: str, entry: str) -> Target:
     target
 
 fn game_target(name: str, entry: str) -> Target:
-    native_target(.Executable, name, entry).dep("audio").dep("shaders").input("src/game.w").input("src/input.w").input("src/keyboard.w").input("src/controls.w").input("src/gamepads.w").input("src/sdl.w").input("src/presentation.w").input("src/audio.w").input("src/devices.w").input("src/metrics.w").input("src/tuning.w").input("src/loadout.w").input("src/ships.w").input("src/save.w").input("src/settings.w").input("src/achievements.w").input("src/platform.w").input("src/platform_session.w").input("src/run.w").input("src/account.w").input("src/pilots.w").input("src/record.w").input("src/app.w").input("src/shaders.w").input("src/paths.w")
+    native_target(.Executable, name, entry).dep("audio").dep("shaders").input("src/game.w").input("src/input.w").input("src/keyboard.w").input("src/controls.w").input("src/gamepads.w").input("src/sdl.w").input("src/presentation.w").input("src/audio.w").input("src/devices.w").input("src/metrics.w").input("src/tuning.w").input("src/loadout.w").input("src/ships.w").input("src/save.w").input("src/settings.w").input("src/achievements.w").input("src/platform.w").input("src/platform_session.w").input("src/run.w").input("src/account.w").input("src/cadence.w").input("src/pilots.w").input("src/record.w").input("src/app.w").input("src/shaders.w").input("src/paths.w")
 
 fn steam_library_dir() -> str:
     let root = "vendor/steamworks/redistributable_bin/"

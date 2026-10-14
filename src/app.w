@@ -107,6 +107,8 @@ pub type App {
     quit: bool = false, quit_hold: f64 = 0.0,
     // Escape on the title asks once: backing out of menus must not quit.
     quit_armed: f64 = 0.0,
+    // The save as of the last run-log row: the score's window starts there.
+    logged_save: Save = Save {},
     input: Input = Input {}, menu: MenuState = MenuState {},
     // The prompts for the device in use; a platform fills the bound names.
     prompts: Prompts = Prompts {},
@@ -125,7 +127,7 @@ pub fn App.open() -> App:
     let settings_file = SettingsFile.open(file.directory)
     let settings = settings_file.load() ?? Settings.from_save(&save)
     var app = App {
-        file, save, notice, settings, settings_file,
+        file, save, logged_save: save, notice, settings, settings_file,
         game: Game.new(), attract: Game.new(),
         results: ResultsView { new_ships: List.new(), unlocks: List.new() },
         metrics: Metrics.new(),
@@ -241,12 +243,16 @@ extend App:
 
     // Bank the run, star the bests, compute the open loops, save at once.
     pub fn finish_run(mut self: Self):
-        self.write_run_files()
         let before: Save = self.save
         let previous = if self.game.launch.endless: before.best_endless[self.ship.index()] else: before.best_time[self.ship.index()]
         let (after, new_best) = record_run(before, &self.game)
         self.save = after
         self.persist()
+        // The score's window runs from the last row to this one, so the
+        // shop visit after the previous run counts here.
+        let report = progress_score(&self.logged_save, &after)
+        self.write_run_files(&report)
+        self.logged_save = after
         let g = &self.game
         let killer = match g.killer:
             Some(kind) => {
@@ -713,18 +719,18 @@ extend App:
         self.picks = if self.picks.len() == 0: entry else: self.picks ++ " " ++ entry
 
     // The recording and one run-log line, beside the save.
-    fn write_run_files(mut self: Self):
+    fn write_run_files(mut self: Self, report: &ProgressReport):
         let g = &self.game
         let dir = f"{self.file.directory}/runs"
         let _ = mkdir_p(dir)
-        let number = self.save.runs + 1
+        let number = self.save.runs
         let name = f"run-{number}-{self.ship.name()}.rec"
         let recording = self.rec.finish(g)
         let _ = write_file(f"{dir}/{name}", recording)
         let log_path = f"{self.file.directory}/runs.tsv"
         let previous = match read_file(log_path):
             Ok(t) => t
-            Err(_) => "run\tship\tstage\tendless\tseconds\tlevel\tkills\thits\tkiller\tcleared\tcredits\tweapons\tpassives\tpicks\trecording\n"
+            Err(_) => "run\tship\tstage\tendless\tseconds\tlevel\tkills\thits\tkiller\tcleared\tcredits\tweapons\tpassives\tpicks\trecording\tscore\tevents\n"
         let killer = match g.killer:
             Some(k) => k.name()
             None => if g.cleared: "cleared" else: "abandoned"
@@ -736,7 +742,10 @@ extend App:
         for slot in 0..SLOT_COUNT:
             let p = g.build.passives[slot]
             if p.level > 0: passives = passives ++ f"{p.passive.name()}:{p.level} "
-        let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\n"
+        var events = ""
+        // Events carry spaces ("goal:Prism ship"), so commas separate them.
+        for e in &report.events: events = if events.len() == 0: e.clone() else: events ++ "," ++ e
+        let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\t{report.score}\t{events}\n"
         let _ = write_file(log_path, previous ++ row)
 
     fn debug_info(self: &Self) -> DebugInfo:
