@@ -458,7 +458,8 @@ extend App:
             self.ui_move = true
         if m.click:
             for i in 0..SHIP_COUNT:
-                let (x, y) = select_card_origin(i)
+                if not select_visible(i, self.ship_cursor): continue
+                let (x, y) = select_card_origin(i, self.ship_cursor)
                 if inside(m.mouse, x, y, 112, 112):
                     if self.ship_cursor == i and ship_unlocked(ship_at(i), &self.save): self.pick_ship(ship_at(i))
                     self.ship_cursor = i
@@ -880,8 +881,9 @@ extend App:
         neon("SELECT SHIP", 40, 24, 30, cyan(1.0))
         self.credits_corner()
         for i in 0..SHIP_COUNT:
+            if not select_visible(i, self.ship_cursor): continue
             let entry_ship = ship_at(i)
-            let (x, y) = select_card_origin(i)
+            let (x, y) = select_card_origin(i, self.ship_cursor)
             let unlocked = ship_unlocked(entry_ship, &self.save)
             let selected = i == self.ship_cursor
             DrawRectangle(x, y, 112, 112, ink(0.9))
@@ -1254,8 +1256,16 @@ fn gap_text(seconds: f64) -> str:
     let s = seconds as i32
     if s < 60: f"{s} SECONDS" else: stamp(seconds)
 
-fn select_card_origin(i: i32) -> (i32, i32):
-    (60 + i * 130, 110)
+// Nine cards show at once, the row scrolling around the cursor.
+pub const SELECT_VISIBLE: i32 = 9
+fn select_first(cursor: i32) -> i32:
+    let most = SHIP_COUNT - SELECT_VISIBLE
+    limit((cursor - SELECT_VISIBLE / 2) as f64, 0.0, (if most > 0: most else: 0) as f64) as i32
+fn select_card_origin(i: i32, cursor: i32) -> (i32, i32):
+    (60 + (i - select_first(cursor)) * 130, 110)
+fn select_visible(i: i32, cursor: i32) -> bool:
+    let first = select_first(cursor)
+    i >= first and i < first + SELECT_VISIBLE
 
 fn collection_card_origin(i: i32) -> (i32, i32):
     (40 + (i % 5) * 166, 140 + (i / 5) * 132)

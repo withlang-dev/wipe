@@ -751,6 +751,8 @@ pub type Build {
     weapons: [WeaponSlot; 6] = [WeaponSlot {}; 6],
     passives: [PassiveSlot; 6] = [PassiveSlot {}; 6],
     weapon_slots: i32 = WEAPON_SLOTS,
+    // No new weapons below this level (the Ghost).
+    weapon_lock: i32 = 0,
     banished_weapons: [bool; 46] = [false; 46],
     banished_passives: [bool; 17] = [false; 17],
     // Weapons and passives this account may be offered.
@@ -878,10 +880,11 @@ extend Build:
                 if second == w: return true
         false
 
-    pub fn candidates(self: &Self) -> List[Pick]:
+    // `level` is the run's: a ship may hold its new weapons back until one.
+    pub fn candidates(self: &Self, run_level: i32 = 99) -> List[Pick]:
         var out: List[Pick] = List.new()
         for m in self.ready_merges(): out.push(.Merge(result: m))
-        let free_weapon = self.weapon_count() < self.weapon_slots
+        let free_weapon = self.weapon_count() < self.weapon_slots and run_level >= self.weapon_lock
         for i in 0..BASE_WEAPON_COUNT:
             let w = weapon_at(i)
             if self.banished_weapons[i] or not self.unlocked_weapons[i]: continue

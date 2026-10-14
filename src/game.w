@@ -206,6 +206,8 @@ pub type Enemy {
     boss: i32 = -1, facing: V2 = V2 { x: 1.0 }, angle: f64 = 0.0, drone: bool = false,
     // Marked by a Shockwave: takes half again the damage while this lasts.
     marked: f64 = 0.0,
+    // A derelict's escort, or the elite carrying its core.
+    escort: bool = false, carries: bool = false,
 }
 
 // The three bosses, in the order they arrive.
@@ -280,7 +282,7 @@ pub fn combo_tier(combo: i32) -> i32:
 impl Copy for PopupKind
 pub type Popup { pos: V2 = V2 {}, life: f64 = 0.0, total: f64 = 0.9, kind: PopupKind = .Xp(value: 0) }
 // One centered banner at a time: the loudest moments name themselves.
-pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossName(boss: i32) | FirstKill(boss: i32) | BossDown | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) }
+pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossName(boss: i32) | FirstKill(boss: i32) | BossDown | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) | Derelict }
 impl Copy for BannerKind
 pub type Banner { kind: BannerKind = .Boss, life: f64 = 0.0, total: f64 = 2.0 }
 pub type Controls { motion: V2 = V2 {}, aim: V2 = V2 { x: 1.0, y: 0.0 } }
@@ -374,6 +376,12 @@ pub type Game {
     repulse: f64 = 0.0, repulse_radius: f64 = 0.0, repulse_push: f64 = 0.0, repulse_damage: i32 = 0,
     // Failsafe: the one revival, spent.
     failsafe_used: bool = false,
+    // The stage's derelict: the wreck, its verb's progress, and the record.
+    wreck_live: bool = false, wreck: V2 = V2 {}, wreck_vel: V2 = V2 {}, wreck_verb: Verb = .BlackBox,
+    wreck_progress: f64 = 0.0, wreck_done: bool = false, wreck_escort: bool = false,
+    wreck_touches: i32 = 0, wreck_touch_cd: f64 = 0.0, carrier_spawned: bool = false,
+    relays: [V2; 3] = [V2 {}; 3], relays_lit: [bool; 3] = [false; 3],
+    derelict_event: bool = false,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -499,6 +507,7 @@ extend Game:
         self.aim = V2 { x: 1.0, y: 0.0 }
         self.build = Build {
             weapon_slots: current.ship.weapon_slots(),
+            weapon_lock: current.ship.weapon_lock_level(),
             unlocked_weapons: current.unlocked_weapons,
             unlocked_passives: current.unlocked_passives,
             forbidden_weapon: current.ship.forbidden_weapon(),
@@ -583,6 +592,25 @@ extend Game:
         self.wave_count = 0
         self.well_count = 0
         self.turret_count = 0
+        self.wreck_live = false
+        self.wreck_done = false
+        self.wreck_escort = false
+        self.wreck_progress = 0.0
+        self.wreck_touches = 0
+        self.wreck_touch_cd = 0.0
+        self.carrier_spawned = false
+        self.relays_lit = [false; 3]
+        if let Some(d) = stage_at(self.rules.layout).derelict():
+            self.wreck_live = true
+            self.wreck_verb = d.verb
+            self.wreck = V2 { x: d.x * self.rules.arena_width, y: d.y * self.rules.arena_height }
+            self.wreck_vel = V2 { x: 150.0, y: 90.0 }
+            // The Cross's relays stand at three arm ends.
+            self.relays = [
+                V2 { x: 0.5 * self.rules.arena_width, y: 0.1 * self.rules.arena_height },
+                V2 { x: 0.1 * self.rules.arena_width, y: 0.5 * self.rules.arena_height },
+                V2 { x: 0.9 * self.rules.arena_width, y: 0.5 * self.rules.arena_height },
+            ]
         self.repulse = 0.0
         self.failsafe_used = false
         self.tether_live = false
@@ -609,6 +637,7 @@ extend Game:
         self.best_event = false
         self.zap_event = false
         self.first_kill_event = false
+        self.derelict_event = false
 
     // Recompute every multiplier: shop ranks, then passives, then the ship.
     fn refresh_mods(mut self: Self):
@@ -1058,6 +1087,7 @@ extend Game:
     // ----- combat helpers -----------------------------------------------
 
     pub fn kill_enemy(mut self: Self, index: i32, impact: V2, bounced: bool):
+        if self.enemies[index].carries and not self.wreck_done: self.finish_derelict()
         if index < 0 or index >= self.enemy_count: return
         let e: Enemy = self.enemies[index]
         self.enemy_count -= 1
@@ -1588,7 +1618,7 @@ extend Game:
     // replacement. A cache offers only what the ship already carries.
     fn roll_offers(mut self: Self):
         var pool = List.new()
-        let all = self.build.candidates()
+        let all = self.build.candidates(self.level)
         let cache = self.boost_source == .Cache
         for p in all:
             let owned = match p:
@@ -2051,6 +2081,77 @@ extend Game:
             e.pos = self.clamp_to_arena(add(e.pos, scale(direction(away), self.repulse_push * share * dt)), 8.0)
             self.enemies[i] = e
         let _ = self.damage_area(self.player, self.repulse_radius, self.repulse_damage, false, 0.5)
+
+    // The derelict's objective, by verb (progression-plan §7).
+    fn step_derelict(mut self: Self, dt: f64):
+        if not self.wreck_live or self.wreck_done: return
+        let near = length2(sub(self.player, self.wreck))
+        match self.wreck_verb:
+            .BlackBox => {
+                // Reaching it wakes the escort; clearing them opens the box.
+                if not self.wreck_escort:
+                    if near < 320.0 * 320.0:
+                        self.wreck_escort = true
+                        for k in 0..10:
+                            let a = (k as f64) * 0.6283
+                            let at = self.clamp_to_arena(add(self.wreck, V2 { x: cos(a) * 110.0, y: sin(a) * 110.0 }), 12.0)
+                            if self.place_enemy(at, if k % 5 == 0: .Spinner else: .Block, k == 0):
+                                self.enemies[self.enemy_count - 1].escort = true
+                                self.enemies[self.enemy_count - 1].age = 1.0
+                else:
+                    var standing = 0
+                    for i in 0..self.enemy_count:
+                        if self.enemies[i].escort: standing += 1
+                    if standing == 0 and near < 70.0 * 70.0: self.finish_derelict()
+            }
+            .Defend => {
+                // A minute within reach of it, in all.
+                if near < 220.0 * 220.0: self.wreck_progress += dt
+                if self.wreck_progress >= 60.0: self.finish_derelict()
+            }
+            .Relays => {
+                var lit = 0
+                for k in 0..3:
+                    if not self.relays_lit[k] and length2(sub(self.player, self.relays[k])) < 50.0 * 50.0:
+                        self.relays_lit[k] = true
+                        self.pulse(self.relays[k], 60.0, .Gold)
+                    if self.relays_lit[k]: lit += 1
+                self.wreck_progress = lit as f64
+                if lit == 3: self.finish_derelict()
+            }
+            .Chase => {
+                // It drifts, bouncing off the walls; three touches catch it.
+                let pos = add(self.wreck, scale(self.wreck_vel, dt))
+                if pos.x < 60.0 or pos.x > self.rules.arena_width - 60.0: self.wreck_vel.x = -self.wreck_vel.x
+                if pos.y < 60.0 or pos.y > self.rules.arena_height - 60.0: self.wreck_vel.y = -self.wreck_vel.y
+                self.wreck = self.clamp_to_arena(pos, 60.0)
+                self.wreck_touch_cd = limit(self.wreck_touch_cd - dt, 0.0, 10.0)
+                if near < 60.0 * 60.0 and self.wreck_touch_cd <= 0.0:
+                    self.wreck_touches += 1
+                    self.wreck_touch_cd = 5.0
+                    self.wreck_progress = self.wreck_touches as f64
+                    self.pulse(self.wreck, 50.0, .Gold)
+                    if self.wreck_touches >= 3: self.finish_derelict()
+            }
+            .Carrier => {
+                // At two minutes an elite takes the core and runs; killing it
+                // recovers the derelict.
+                if not self.carrier_spawned and self.minute() >= 2.0:
+                    self.carrier_spawned = true
+                    if self.place_enemy(self.clamp_to_arena(self.wreck, 20.0), .Spinner, true):
+                        self.enemies[self.enemy_count - 1].carries = true
+                        self.enemies[self.enemy_count - 1].age = 1.0
+                        self.show(.Derelict, 2.0)
+            }
+
+    fn finish_derelict(mut self: Self):
+        if self.wreck_done: return
+        self.wreck_done = true
+        self.derelict_event = true
+        self.pulse(self.wreck, 200.0, .Gold)
+        self.burst(self.wreck, V2 {}, 50, .Gold, 1.8)
+        self.drop_pickup(self.wreck, PickupKind.Cache)
+        self.show(.Derelict, 3.0)
 
     fn boss_position(self: &Self) -> Option[V2]:
         for i in 0..self.enemy_count:
@@ -2709,7 +2810,9 @@ extend Game:
                 self.regen_bank -= 1.0
                 self.health += 1
         let speed = self.rules.player_speed * self.mods.speed
-        self.player = add(self.player, scale(movement(input.motion), speed * dt))
+        // The Anchor cannot move while a well is live: its wells are the move.
+        let push = if self.launch.ship == .Anchor and self.well_count > 0: V2 {} else: input.motion
+        self.player = add(self.player, scale(movement(push), speed * dt))
         self.player = self.clamp_to_arena(self.player, 14.0)
         self.follow(dt)
         self.fire_weapons(input.motion, dt)
@@ -2730,6 +2833,7 @@ extend Game:
         self.step_wells(dt)
         self.step_turrets(dt)
         self.step_repulse(dt)
+        self.step_derelict(dt)
         // Contact.
         for e in 0..self.enemy_count:
             let enemy: Enemy = self.enemies[e]

@@ -191,6 +191,7 @@ pub fn progress(c: Condition, s: &Save) -> (f64, f64):
         .Bosses(n) => (s.bosses as f64, n as f64)
         .Merges(n) => (s.merges as f64, n as f64)
         .Deaths(n) => ((s.runs - s.clears) as f64, n as f64)
+        .Derelict(stage) => (if s.derelicts[stage.index()]: 1.0 else: 0.0, 1.0)
         .HurryClear => (s.hurry_clears as f64, 1.0)
 
 pub fn met(c: Condition, s: &Save) -> bool:

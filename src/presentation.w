@@ -130,6 +130,90 @@ pub fn outline(pos: V2, sides: i32, radius: f64, angle: f64, color: Color, core:
 // ----- silhouettes ---------------------------------------------------------
 
 // Every ship is an open, asymmetric shape built from the claw's language.
+// The newer ships: an accent by what they are, a hull by what they fly.
+fn roster_accent(ship: Ship, alpha: f64) -> Color:
+    match ship:
+        .Lasher => cyan(alpha * 0.9)
+        .Anchor => violet(alpha * 0.9)
+        .Carrier => blue(alpha * 0.9)
+        .Warden => cyan(alpha * 0.7)
+        .Ghost => white(alpha * 0.4)
+        .Glass => white(alpha * 0.9)
+        _ => paint_alpha(weapon_tint(ship.base_weapon()), (alpha * 0.9) as f32)
+
+fn draw_roster_ship(ship: Ship, at: fn(f64, f64) -> V2, tint: Color, accent: Color):
+    match ship:
+        .Lasher => {
+            // A slim hull with a hook at the stern.
+            glow_line(at(16.0, 0.0), at(-10.0, 8.0), tint)
+            glow_line(at(16.0, 0.0), at(-10.0, -8.0), tint)
+            glow_line(at(-10.0, 8.0), at(-16.0, 2.0), accent)
+            glow_line(at(-16.0, 2.0), at(-10.0, -8.0), accent)
+            glow_line(at(-14.0, 0.0), at(-20.0, 6.0), accent)
+        }
+        .Anchor => {
+            // Wide and squat, a keel.
+            glow_line(at(12.0, 0.0), at(-6.0, 14.0), tint)
+            glow_line(at(12.0, 0.0), at(-6.0, -14.0), tint)
+            glow_line(at(-6.0, 14.0), at(-12.0, 0.0), accent)
+            glow_line(at(-12.0, 0.0), at(-6.0, -14.0), accent)
+            glow_line(at(4.0, 0.0), at(-12.0, 0.0), accent)
+        }
+        .Carrier => {
+            // A flat deck with two wingtips.
+            glow_line(at(14.0, 0.0), at(-10.0, 6.0), tint)
+            glow_line(at(14.0, 0.0), at(-10.0, -6.0), tint)
+            glow_line(at(-10.0, 6.0), at(-10.0, -6.0), accent)
+            glow_line(at(-4.0, 6.0), at(-4.0, 16.0), accent)
+            glow_line(at(-4.0, -6.0), at(-4.0, -16.0), accent)
+        }
+        .Warden => {
+            // A shield in front of a hull.
+            glow_line(at(8.0, 0.0), at(-10.0, 10.0), tint)
+            glow_line(at(8.0, 0.0), at(-10.0, -10.0), tint)
+            glow_line(at(-10.0, 10.0), at(-10.0, -10.0), accent)
+            glow_line(at(14.0, 12.0), at(18.0, 0.0), accent)
+            glow_line(at(18.0, 0.0), at(14.0, -12.0), accent)
+        }
+        .Ghost => {
+            // A faint outline, open at the stern.
+            glow_line(at(15.0, 0.0), at(-7.0, 13.0), tint)
+            glow_line(at(15.0, 0.0), at(-7.0, -13.0), tint)
+            glow_line(at(-7.0, 13.0), at(-12.0, 9.0), accent)
+            glow_line(at(-7.0, -13.0), at(-12.0, -9.0), accent)
+        }
+        .Glass => {
+            // Thin, sharp, a single line of a hull.
+            glow_line(at(18.0, 0.0), at(-12.0, 6.0), tint)
+            glow_line(at(18.0, 0.0), at(-12.0, -6.0), tint)
+            glow_line(at(-12.0, 6.0), at(-12.0, -6.0), accent)
+            glow_line(at(6.0, 0.0), at(-8.0, 0.0), white(0.9))
+        }
+        _ => {
+            // The specialists: a common hull, the base weapon's color on
+            // the fins, and a fin shape by its family.
+            let fins = ship.base_weapon().index() % 4
+            glow_line(at(15.0, 0.0), at(-8.0, 11.0), tint)
+            glow_line(at(15.0, 0.0), at(-8.0, -11.0), tint)
+            if fins == 0:
+                glow_line(at(-8.0, 11.0), at(-14.0, 11.0), accent)
+                glow_line(at(-8.0, -11.0), at(-14.0, -11.0), accent)
+                glow_line(at(-14.0, 11.0), at(-10.0, 0.0), accent)
+                glow_line(at(-14.0, -11.0), at(-10.0, 0.0), accent)
+            else if fins == 1:
+                glow_line(at(-8.0, 11.0), at(-16.0, 4.0), accent)
+                glow_line(at(-8.0, -11.0), at(-16.0, -4.0), accent)
+                glow_line(at(-16.0, 4.0), at(-16.0, -4.0), accent)
+            else if fins == 2:
+                glow_line(at(-8.0, 11.0), at(-4.0, 0.0), accent)
+                glow_line(at(-8.0, -11.0), at(-4.0, 0.0), accent)
+                glow_line(at(-4.0, 0.0), at(-14.0, 0.0), accent)
+            else:
+                glow_line(at(-8.0, 11.0), at(-14.0, 14.0), accent)
+                glow_line(at(-8.0, -11.0), at(-14.0, -14.0), accent)
+                glow_line(at(-8.0, 11.0), at(-8.0, -11.0), accent)
+        }
+
 pub fn draw_ship(ship: Ship, pos: V2, aim: V2, alpha: f64, scale_by: f64):
     let side = V2 { x: -aim.y, y: aim.x }
     let at = (f: f64, s: f64) => add(pos, add(scale(aim, f * scale_by), scale(side, s * scale_by)))
@@ -145,6 +229,7 @@ pub fn draw_ship(ship: Ship, pos: V2, aim: V2, alpha: f64, scale_by: f64):
         .Sapper => gold(alpha * 0.9)
         .Phase => violet(alpha * 0.9)
         .Null => white(alpha * 0.5)
+        _ => roster_accent(ship, alpha)
     match ship:
         .Dart => {
             glow_line(at(-10.0, 9.0), at(18.0, 0.0), tint)
@@ -203,6 +288,7 @@ pub fn draw_ship(ship: Ship, pos: V2, aim: V2, alpha: f64, scale_by: f64):
             glow_line(at(-7.0, -13.0), at(15.0, 0.0), tint)
             glow_line(at(-2.0, 0.0), at(-14.0, 0.0), accent)
         }
+        _ => draw_roster_ship(ship, at, tint, accent)
         .Claw => {
             let nose = at(15.0, 0.0)
             let left = at(-7.0, 13.0)
@@ -839,6 +925,27 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle(pos, 14.0, ink(0.9))
         ring(pos, 14.0, violet(0.9))
         circle(pos, 3.0, white(0.9))
+    // The derelict: a hollow hull, its objective's progress around it.
+    if g.wreck_live and not g.wreck_done:
+        let pos = to_screen(cam, g.wreck)
+        let spin = clock * 0.3
+        DrawPolyLinesEx(rv(pos), 3, 26.0, (spin * 57.3) as f32, 2.0, gold(0.7))
+        DrawPolyLinesEx(rv(pos), 3, 18.0, (spin * 57.3 + 180.0) as f32, 1.5, gold(0.4))
+        ring(pos, 34.0 + 3.0 * sin(clock * 3.0), gold(0.25))
+        circle(pos, 3.0, white(0.8))
+        if g.wreck_verb == .Defend:
+            let f = limit(g.wreck_progress / 60.0, 0.0, 1.0)
+            ring(pos, 220.0, gold(0.1))
+            DrawRing(rv(pos), 40.0, 44.0, -90.0, (-90.0 + 360.0 * f) as f32, 0, gold(0.9))
+        if g.wreck_verb == .Chase:
+            label(f"{g.wreck_touches}/3", pos.x as i32 + 30, pos.y as i32 - 10, 14, gold(0.9))
+        if g.wreck_verb == .Relays:
+            for k in 0..3:
+                let r = to_screen(cam, g.relays[k])
+                let lit = g.relays_lit[k]
+                DrawPolyLinesEx(rv(r), 4, 14.0, 45.0, 2.0, if lit: lime(1.0) else: gold(0.6))
+                circle(r, 3.0, if lit: lime(1.0) else: white(0.6))
+                ring(r, 50.0, if lit: lime(0.15) else: gold(0.1))
     // Turrets: a box with a barrel toward the nearest enemy, fading as they go.
     for i in 0..g.turret_count:
         let t = g.turrets[i]
@@ -1229,6 +1336,10 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
             .Cleared => hud_centered(g, "THE NULL IS DOWN", 300, 44, white(alpha))
             .Reboot => hud_centered(g, "REBOOT", 300, 44, cyan(alpha))
             .Endless(c) => hud_centered(g, f"LOOP {c}", 300, 44, magenta(alpha))
+            .Derelict => {
+                if g.wreck_done: hud_centered(g, "DERELICT RECOVERED", 300, 36, gold(alpha))
+                else: hud_centered(g, "THE CORE IS TAKEN: KILL THE CARRIER", 300, 24, gold(alpha))
+            }
 
 // The three bosses, each its own silhouette. Weak points glow white.
 fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, color: Color):

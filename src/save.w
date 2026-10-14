@@ -27,10 +27,12 @@ pub type Save {
     no_reboot_clear: bool = false, null_killed: bool = false,
     // Clears in Hurry (the timeline at twice the rate); a Hurry clear is a clear too.
     hurry_clears: i32 = 0,
-    best_time: [f64; 9] = [0.0; 9],
-    best_endless: [f64; 9] = [0.0; 9],
-    cleared: [bool; 9] = [false; 9],
-    ship_runs: [i32; 9] = [0; 9],
+    best_time: [f64; 25] = [0.0; 25],
+    best_endless: [f64; 25] = [0.0; 25],
+    cleared: [bool; 25] = [false; 25],
+    ship_runs: [i32; 25] = [0; 25],
+    // Derelicts recovered, by stage index (room for sixteen stages).
+    derelicts: [bool; 16] = [false; 16],
     // Longest a run held each base weapon, in seconds.
     held: [f64; 20] = [0.0; 20],
     taken_weapons: [bool; 46] = [false; 46],
@@ -116,6 +118,7 @@ extend Save:
         for i in 0..SHIP_COUNT:
             out = out ++ f"best_time {i} {fmt_float(self.best_time[i])}\nbest_endless {i} {fmt_float(self.best_endless[i])}\n"
             out = out ++ f"cleared {i} {fmt_bool(self.cleared[i])}\nship_runs {i} {self.ship_runs[i]}\n"
+        for i in 0..16: out = out ++ f"derelict {i} {fmt_bool(self.derelicts[i])}\n"
         for i in 0..BASE_WEAPON_COUNT: out = out ++ f"held {i} {fmt_float(self.held[i])}\n"
         for i in 0..WEAPON_COUNT: out = out ++ f"taken_weapon {i} {fmt_bool(self.taken_weapons[i])}\n"
         for i in 0..PASSIVE_COUNT: out = out ++ f"taken_passive {i} {fmt_bool(self.taken_passives[i])}\n"
@@ -177,6 +180,8 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
             if index >= 0 and index < SHIP_COUNT: s.cleared[index] = parse_bool(third)
         else if key == "ship_runs":
             if index >= 0 and index < SHIP_COUNT: s.ship_runs[index] = parse(third)
+        else if key == "derelict":
+            if index >= 0 and index < 16: s.derelicts[index] = parse_bool(third)
         else if key == "held":
             if index >= 0 and index < BASE_WEAPON_COUNT: s.held[index] = parse_float(third)
         else if key == "weapon_unlocked_run":
@@ -298,6 +303,7 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
         if g.launch.hurry: s.hurry_clears += 1
         if not g.reboot_used: s.no_reboot_clear = true
     if g.null_killed: s.null_killed = true
+    if g.wreck_done and g.rules.layout >= 0 and g.rules.layout < 16: s.derelicts[g.rules.layout] = true
     var new_best = false
     if g.launch.endless:
         if g.elapsed > s.best_endless[ship]:

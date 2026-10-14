@@ -1,12 +1,20 @@
 use loadout
+use tuning
 
 // The roster. Each ship is a base weapon, one strength, one growth curve,
 // one weakness, and one unlock condition, all stated in plain numbers.
-pub enum Ship { | Claw | Dart | Hull | Prism | Halo | Needle | Sapper | Phase | Null }
+pub enum Ship {
+    | Claw | Dart | Hull | Prism | Halo | Needle | Sapper | Phase | Null
+    | Lasher | Anchor | Carrier | Warden
+    | Hawk | Volt | Mortar | Brace | Sentry | Lantern | Coil | Kestrel | Rampart | Orbital
+    | Ghost | Glass
+}
 impl Copy for Ship
 impl Eq for Ship
 
-pub const SHIP_COUNT: i32 = 9
+// Twenty-five: nine authored originals, four authored newcomers, ten
+// specialists that teach a weapon, two secrets (progression-matrix §4).
+pub const SHIP_COUNT: i32 = 25
 
 pub fn ship_at(index: i32) -> Ship:
     match index:
@@ -18,7 +26,23 @@ pub fn ship_at(index: i32) -> Ship:
         5 => .Needle
         6 => .Sapper
         7 => .Phase
-        _ => .Null
+        8 => .Null
+        9 => .Lasher
+        10 => .Anchor
+        11 => .Carrier
+        12 => .Warden
+        13 => .Hawk
+        14 => .Volt
+        15 => .Mortar
+        16 => .Brace
+        17 => .Sentry
+        18 => .Lantern
+        19 => .Coil
+        20 => .Kestrel
+        21 => .Rampart
+        22 => .Orbital
+        23 => .Ghost
+        _ => .Glass
 
 // A run fact that unlocks something. Progress is read from the save.
 pub enum Condition {
@@ -43,6 +67,8 @@ pub enum Condition {
     | Merges(count: i32)
     | HurryClear
     | Deaths(count: i32)
+    // The derelict in a stage recovered (progression-plan §7).
+    | Derelict(stage: Stage)
 }
 impl Copy for Condition
 
@@ -76,6 +102,7 @@ extend Condition:
             .Merges(n) => f"Complete {n} merges, lifetime"
             .HurryClear => "Clear a run in Hurry"
             .Deaths(n) => f"Lose {n} runs"
+            .Derelict(stage) => f"Recover the derelict in the {stage.name()}"
 
 extend Ship:
     pub fn index(self: &Self) -> i32:
@@ -89,6 +116,22 @@ extend Ship:
             .Sapper => 6
             .Phase => 7
             .Null => 8
+            .Lasher => 9
+            .Anchor => 10
+            .Carrier => 11
+            .Warden => 12
+            .Hawk => 13
+            .Volt => 14
+            .Mortar => 15
+            .Brace => 16
+            .Sentry => 17
+            .Lantern => 18
+            .Coil => 19
+            .Kestrel => 20
+            .Rampart => 21
+            .Orbital => 22
+            .Ghost => 23
+            .Glass => 24
 
     pub fn name(self: &Self) -> str:
         match self:
@@ -101,6 +144,22 @@ extend Ship:
             .Sapper => "Sapper"
             .Phase => "Phase"
             .Null => "Null"
+            .Lasher => "Lasher"
+            .Anchor => "Anchor"
+            .Carrier => "Carrier"
+            .Warden => "Warden"
+            .Hawk => "Hawk"
+            .Volt => "Volt"
+            .Mortar => "Mortar"
+            .Brace => "Brace"
+            .Sentry => "Sentry"
+            .Lantern => "Lantern"
+            .Coil => "Coil"
+            .Kestrel => "Kestrel"
+            .Rampart => "Rampart"
+            .Orbital => "Orbital"
+            .Ghost => "Ghost"
+            .Glass => "Glass"
 
     pub fn base_weapon(self: &Self) -> Weapon:
         match self:
@@ -113,6 +172,22 @@ extend Ship:
             .Sapper => .Mines
             .Phase => .Arc
             .Null => .Nova
+            .Lasher => .Tether
+            .Anchor => .GravityWell
+            .Carrier => .Drone
+            .Warden => .Repulsor
+            .Hawk => .Seeker
+            .Volt => .Arc
+            .Mortar => .Lob
+            .Brace => .Flak
+            .Sentry => .Turret
+            .Lantern => .Sweep
+            .Coil => .TeslaField
+            .Kestrel => .Boomerang
+            .Rampart => .Shockwave
+            .Orbital => .Satellite
+            .Ghost => .Satellite
+            .Glass => .Lob
 
     pub fn strength(self: &Self) -> str:
         match self:
@@ -125,6 +200,22 @@ extend Ship:
             .Sapper => "+50% area, faster cooldowns, mines chain-detonate"
             .Phase => "Phases out on a rhythm, +1 lightning bolt, invulnerable 3 s on level-up"
             .Null => "Starts at level 5 with three weapons at III, +30% credits"
+            .Lasher => "+20% damage; the Tether's chain is a third longer"
+            .Anchor => "Wells pull half again as hard and last longer; +2 max health"
+            .Carrier => "Two drones from the start, +1 bolt each; +10% fire rate"
+            .Warden => "Self-repair, +1 armor; the Repulsor's zone lasts half again"
+            .Hawk => "+25% projectile speed, +1 seeker"
+            .Volt => "+15% damage; lightning strikes more often"
+            .Mortar => "Shells fly +20% farther; +10% area"
+            .Brace => "+1 fragment every fan; +10% damage"
+            .Sentry => "Emplacements stand +30% longer"
+            .Lantern => "Faster cooldowns; the beam turns quicker"
+            .Coil => "+20% area; the field reaches farther"
+            .Kestrel => "+20% projectile speed, +1 boomerang"
+            .Rampart => "+1 armor; rings shove harder"
+            .Orbital => "+2 max health; the orbit is wider"
+            .Ghost => "Double damage once its weapons wake"
+            .Glass => "Triple damage"
 
     pub fn growth(self: &Self) -> str:
         match self:
@@ -137,6 +228,22 @@ extend Ship:
             .Sapper => "The cooldown edge fades after level 18"
             .Phase => "Its damage edge fades with level"
             .Null => "+1% credits per level"
+            .Lasher => "+1% damage per level"
+            .Anchor => "+1 max health every 5 levels"
+            .Carrier => "+1% fire rate per level"
+            .Warden => "+1 armor every 8 levels"
+            .Hawk => "+1% projectile speed per level"
+            .Volt => "+1% damage per level"
+            .Mortar => "+1% range per level"
+            .Brace => "+1% damage per level"
+            .Sentry => "+1% emplacement life per level"
+            .Lantern => "+1% cooldown per level"
+            .Coil => "+1% area per level"
+            .Kestrel => "+1% projectile speed per level"
+            .Rampart => "+1% area per level"
+            .Orbital => "+1 max health every 6 levels"
+            .Ghost => "+2% damage per level"
+            .Glass => "+1% damage per level"
 
     pub fn weakness(self: &Self) -> str:
         match self:
@@ -149,6 +256,22 @@ extend Ship:
             .Sapper => "Only 3 weapon slots"
             .Phase => "Max health 1. Reboots do not work"
             .Null => "-25% XP gain. Cannot merge"
+            .Lasher => "-15% move speed"
+            .Anchor => "Cannot move while a well is live"
+            .Carrier => "Cannot take the Cannon"
+            .Warden => "-5% move speed, -10% damage"
+            .Hawk => "-10% max health"
+            .Volt => "-10% max health"
+            .Mortar => "-10% move speed"
+            .Brace => "-10% projectile speed"
+            .Sentry => "-10% move speed"
+            .Lantern => "-10% damage"
+            .Coil => "-10% max health"
+            .Kestrel => "-10% max health"
+            .Rampart => "-10% move speed"
+            .Orbital => "-10% damage"
+            .Ghost => "No new weapons until level 8: passives only"
+            .Glass => "Max health 1"
 
     pub fn condition(self: &Self) -> Condition:
         match self:
@@ -161,8 +284,30 @@ extend Ship:
             .Sapper => .MergesInRun(count: 2)
             .Phase => .ClearNoReboot
             .Null => .KillNull
+            .Lasher => .Derelict(stage: .Corridor)
+            .Anchor => .Derelict(stage: .Shaft)
+            .Carrier => .Derelict(stage: .Ring)
+            .Warden => .HurryClear
+            .Hawk => .Survive(seconds: 480)
+            .Volt => .Elites(count: 5)
+            .Mortar => .Survive(seconds: 720)
+            .Brace => .SurviveWith(weapon: .Flak, seconds: 300)
+            .Sentry => .Derelict(stage: .Cross)
+            .Lantern => .Survive(seconds: 900)
+            .Coil => .Bosses(count: 6)
+            .Kestrel => .SurviveWith(weapon: .Boomerang, seconds: 300)
+            .Rampart => .Clear
+            .Orbital => .HitsSurvived(count: 30)
+            .Ghost => .Deaths(count: 25)
+            .Glass => .Derelict(stage: .Expanse)
 
-    pub fn secret(self: &Self) -> bool: *self == .Null
+    pub fn secret(self: &Self) -> bool: *self == .Null or *self == .Ghost or *self == .Glass
+
+    // The Ghost flies on passives alone until this level.
+    pub fn weapon_lock_level(self: &Self) -> i32:
+        match self:
+            .Ghost => 8
+            _ => 0
 
     pub fn weapon_slots(self: &Self) -> i32:
         match self:
@@ -173,6 +318,7 @@ extend Ship:
         match self:
             .Halo => Some(.Cannon)
             .Needle => Some(.Cannon)
+            .Carrier => Some(.Cannon)
             _ => None
 
     pub fn can_aim(self: &Self) -> bool: *self != .Needle
@@ -247,6 +393,22 @@ extend Ship:
                 m.xp *= 0.75
                 m.max_health += 3
             }
+            .Lasher => { m.damage *= 1.2 * (1.0 + 0.01 * l); m.speed *= 0.85; m.area *= 1.33 }
+            .Anchor => { m.max_health += 2 + level / 5; m.duration *= 1.3; m.damage *= 1.25 }
+            .Carrier => { m.count += 1; m.cooldown *= 0.9 * (1.0 - 0.01 * clamp(l, 0.0, 40.0)) }
+            .Warden => { m.regen += 0.5; m.armor += 1 + level / 8; m.speed *= 0.95; m.damage *= 0.9; m.duration *= 1.5 }
+            .Hawk => { m.proj_speed *= 1.25 * (1.0 + 0.01 * l); m.count += 1; m.max_health = m.max_health * 9 / 10 }
+            .Volt => { m.damage *= 1.15 * (1.0 + 0.01 * l); m.cooldown *= 0.9; m.max_health = m.max_health * 9 / 10 }
+            .Mortar => { m.duration *= 1.2 * (1.0 + 0.01 * l); m.area *= 1.1; m.speed *= 0.9 }
+            .Brace => { m.count += 1; m.damage *= 1.1 * (1.0 + 0.01 * l); m.proj_speed *= 0.9 }
+            .Sentry => { m.duration *= 1.3 * (1.0 + 0.01 * l); m.speed *= 0.9 }
+            .Lantern => { m.cooldown *= 0.85 * (1.0 - 0.01 * clamp(l, 0.0, 40.0)); m.damage *= 0.9 }
+            .Coil => { m.area *= 1.2 * (1.0 + 0.01 * l); m.max_health = m.max_health * 9 / 10 }
+            .Kestrel => { m.proj_speed *= 1.2 * (1.0 + 0.01 * l); m.count += 1; m.max_health = m.max_health * 9 / 10 }
+            .Rampart => { m.armor += 1; m.area *= 1.0 + 0.01 * l; m.speed *= 0.9 }
+            .Orbital => { m.max_health += 2 + level / 6; m.area *= 1.2; m.damage *= 0.9 }
+            .Ghost => { m.damage *= 2.0 * (1.0 + 0.02 * l) }
+            .Glass => { m.max_health = 1; m.damage *= 3.0 * (1.0 + 0.01 * l) }
         if m.max_health < 1: m.max_health = 1
         m
 

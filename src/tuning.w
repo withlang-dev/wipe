@@ -124,6 +124,14 @@ pub fn events() -> [Event; 12]:
         Event { minute: 19.0, formation: .Ring, kind_index: 2, count: 56 },
     ]
 
+// A derelict: a wreck placed in a stage with one objective, the verb. Its
+// position is a fraction of the arena (progression-plan §7).
+pub enum Verb { | BlackBox | Defend | Relays | Chase | Carrier }
+impl Copy for Verb
+impl Eq for Verb
+pub type Derelict { verb: Verb = .BlackBox, x: f64 = 0.5, y: f64 = 0.5 }
+impl Copy for Derelict
+
 // A solid block inside the arena: ships, enemies, cores, and shots stop at
 // it. Stages are built from them.
 pub type Wall { x: f64 = 0.0, y: f64 = 0.0, w: f64 = 0.0, h: f64 = 0.0 }
@@ -201,6 +209,19 @@ extend Stage:
             .Expanse => "Vast and open, a few rocks. Room to run, and nothing to stop the swarm."
             .Cross => "A plus-shaped hall. Four arms, one crossing where everything meets."
             .Gridlock => "City blocks and streets. Enemies flood the avenues."
+    // The stage's derelict, if it has one: reach the Corridor's and clear
+    // its escort for the black box; hold the Shaft's for a minute; light
+    // the Cross's three relays; catch the Expanse's drifting wreck; kill
+    // the elite carrying the Ring's core.
+    pub fn derelict(self: &Self) -> Option[Derelict]:
+        match self:
+            .Corridor => Some(Derelict { verb: .BlackBox, x: 0.93, y: 0.5 })
+            .Shaft => Some(Derelict { verb: .Defend, x: 0.5, y: 0.1 })
+            .Cross => Some(Derelict { verb: .Relays, x: 0.5, y: 0.5 })
+            .Expanse => Some(Derelict { verb: .Chase, x: 0.3, y: 0.3 })
+            .Ring => Some(Derelict { verb: .Carrier, x: 0.5, y: 0.12 })
+            _ => None
+
     // True where enemies need a path around walls rather than a straight
     // chase: every stage with walls, or a ship could hide behind one.
     pub fn needs_paths(self: &Self) -> bool: self.walls().len() > 0

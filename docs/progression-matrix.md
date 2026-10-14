@@ -125,35 +125,37 @@ first guesses, to be set by `runs`.
 | 6 | Needle | 3 | Lance | combo ×1,500 (was 3,000) | no aim at all | 2.5 |
 | 7 | Sapper | 3 | Proximity Mine | 2 merges in a run | 3 weapon slots | 2.5 |
 | 8 | Phase | 4 | Cannon | clear without a reboot | 1 hull, long invulnerability | 3 |
-| 9 | Lasher | 2 | Tether | black box in Corridor | turning is the weapon; slow strafe | 1.2 |
-| 10 | Anchor | 3 | Gravity Well | derelict in Shaft, defend 60 s | cannot move while a well is live | 2 |
-| 11 | Carrier | 3 | Drone | kill 30 elites | no own cannon; two drones from the start | 2.5 |
+| 9 | Lasher | 2 | Tether | the Corridor's black box | turning is the weapon; slow strafe | 1.2 |
+| 10 | Anchor | 3 | Gravity Well | hold the Shaft's derelict a minute | cannot move while a well is live | 2 |
+| 11 | Carrier | 3 | Drone | kill the Ring's carrier | no Cannon; two drones from the start | 2.5 |
 | 12 | Warden | 4 | Repulsor | clear in Hurry | regenerates in the zone, nothing else | 5 |
 | **Specialists** | | | | | | |
-| 13 | Seeker-class | 2 | Seeker | survive 8:00 | +homing turn rate | 0.5 |
-| 14 | Arc-class | 2 | Arc | kill 5 elites | +chain | 0.6 |
-| 15 | Lob-class (Mortar) | 2 | Lob | survive 12:00 | +throw range | 1.2 |
-| 16 | Flak-class | 3 | Flak | 500 kills under 100 px | +cone width | 1.8 |
-| 17 | Turret-class | 3 | Turret | a derelict relay objective | +turret life | 2 |
-| 18 | Sweep-class | 3 | Sweep | survive 15:00 | +turn speed | 2.2 |
-| 19 | Tesla-class | 3 | Tesla Field | 3,000 chain kills | +radius | 2.5 |
-| 20 | Boomerang-class | 3 | Boomerang | 300 return hits | +range | 3 |
-| 21 | Shockwave-class | 4 | Shockwave | push 1,000 enemies into walls | +mark duration | 3.5 |
-| 22 | Satellite-class | 4 | Satellite | intercept 500 | +orbit count | 4 |
+| 13 | Hawk | 2 | Seeker | survive 8:00 | +projectile speed, +1 seeker | 0.5 |
+| 14 | Volt | 2 | Arc | kill 5 elites | +damage, faster lightning | 0.6 |
+| 15 | Mortar | 2 | Lob | survive 12:00 | shells fly farther | 1.2 |
+| 16 | Brace | 3 | Flak | survive 5:00 holding the Flak | +1 fragment a fan | 1.8 |
+| 17 | Sentry | 3 | Turret | the Cross's relays | emplacements stand longer | 2 |
+| 18 | Lantern | 3 | Sweep | survive 15:00 | faster cooldowns, quicker beam | 2.2 |
+| 19 | Coil | 3 | Tesla Field | kill 6 bosses | +area, wider field | 2.5 |
+| 20 | Kestrel | 3 | Boomerang | survive 5:00 holding the Boomerang | +projectile speed, +1 boomerang | 3 |
+| 21 | Rampart | 4 | Shockwave | clear a run | +1 armor, harder shove | 3.5 |
+| 22 | Orbital | 4 | Satellite | survive 30 hits in a run | +2 hull, wider orbit | 4 |
 | **Secrets** | | | | | | |
 | 23 | Null | 4 | Cannon | kill the Null | -25% XP, cannot merge | 6+ |
-| 24 | Ghost | 4 | none | survive 5:00 without firing | passives only for 3 minutes | 4 |
-| 25 | Mirror | 4 | Shard | clear the mirrored stage | every projectile is reflected once | 5 |
-| 26 | Glass | 4 | Lob | black box in Cross, then clear at 1 hull | 1 hull, triple damage | 6+ |
+| 24 | Ghost | 4 | Satellite | lose 25 runs | passives only until level 8, then double damage | 4 |
+| 25 | Mirror | 4 | Shard | clear the mirrored stage (phase 8) | every projectile is reflected once | 5 |
+| 26 | Glass | 4 | Lob | catch the Expanse's drifting wreck | 1 hull, triple damage | 6+ |
 
 Twelve authored, ten specialists, four secrets: 26. The specialists are
 thin by design (one weapon, one stat lean) and exist to put each family in
 the player's hands within a run of unlocking it; the authored ships carry
 the roster. Lowered conditions in parentheses are first guesses.
 
-Derelict verbs used above: black box (Lasher, Glass), defend (Anchor),
-relays (Turret-class), with chase, carrier-kill and survive-the-zone
-reserved for stages 6–15.
+Derelict verbs (implemented 2026-10-14): the Corridor's black box
+(Lasher), the Shaft's minute held (Anchor), the Cross's three relays
+(Sentry), the Expanse's drifting wreck (Glass), the Ring's carrier
+(Carrier). Survive-the-zone waits for Rotor. Twenty-five ships ship;
+Mirror comes with its stage.
 
 ## 5. Stages
 
