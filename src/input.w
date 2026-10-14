@@ -1,4 +1,5 @@
-use c_import("raylib.h")
+// The input layer: pure arbitration between the keyboard (Keys), a
+// controller (ActionFrame) and the mouse, with no window system in it.
 use game
 use controls
 
@@ -93,16 +94,14 @@ pub fn stick(x: f64, y: f64, deadzone: f64 = 0.2) -> V2:
 
 pub type Input { pad_aim: bool = false, last_mouse: V2 = V2 {}, deadzone: f64 = 0.2 }
 extend Input:
-    pub fn sample(mut self: Self, player: V2, previous_aim: V2, pad: ActionFrame) -> Controls:
-        if not IsWindowFocused(): return Controls { aim: previous_aim }
+    pub fn sample(mut self: Self, keys: Keys, player: V2, previous_aim: V2, pad: ActionFrame) -> Controls:
+        if not keys.focused: return Controls { aim: previous_aim }
         var motion = V2 {}
-        if IsKeyDown(KEY_W) or IsKeyDown(KEY_UP): motion.y -= 1.0
-        if IsKeyDown(KEY_S) or IsKeyDown(KEY_DOWN): motion.y += 1.0
-        if IsKeyDown(KEY_A) or IsKeyDown(KEY_LEFT): motion.x -= 1.0
-        if IsKeyDown(KEY_D) or IsKeyDown(KEY_RIGHT): motion.x += 1.0
-        let raw_mouse = GetMousePosition()
-        let mouse = V2 { x: raw_mouse.x as f64, y: raw_mouse.y as f64 }
-        self.resolve(motion, mouse, player, previous_aim, pad)
+        if keys.move_up: motion.y -= 1.0
+        if keys.move_down: motion.y += 1.0
+        if keys.move_left: motion.x -= 1.0
+        if keys.move_right: motion.x += 1.0
+        self.resolve(motion, keys.mouse, player, previous_aim, pad)
 
     // Pure input arbitration shared with acceptance tests. Real mouse movement
     // selects mouse aim; meaningful right-stick input takes priority this frame.
@@ -158,27 +157,27 @@ pub fn one_press(seen: [i32; 2], key: bool, pad: bool, frame: i32) -> ([i32; 2],
         marks[1] = frame
     (marks, fired)
 extend MenuState:
-    pub fn sample(mut self: Self, pad: ActionFrame, deadzone: f64 = 0.2) -> MenuInput:
+    pub fn sample(mut self: Self, keys: Keys, pad: ActionFrame, deadzone: f64 = 0.2) -> MenuInput:
         var m = MenuInput {}
-        if not IsWindowFocused(): return m
-        m.confirm = IsKeyPressed(KEY_SPACE) or IsKeyPressed(KEY_ENTER) or pad.down(ACT_CONFIRM)
-        m.back = IsKeyPressed(KEY_ESCAPE) or pad.down(ACT_BACK)
-        m.back_held = IsKeyDown(KEY_ESCAPE) or pad.holding(ACT_BACK)
-        m.shop = IsKeyPressed(KEY_X) or pad.down(ACT_SHOP)
-        m.collection = IsKeyPressed(KEY_C) or pad.down(ACT_COLLECTION)
-        m.lb = IsKeyPressed(KEY_Q) or pad.down(ACT_TAB_LEFT)
-        m.rb = IsKeyPressed(KEY_E) or pad.down(ACT_TAB_RIGHT)
-        m.start = IsKeyPressed(KEY_ESCAPE) or pad.down(ACT_PAUSE)
-        m.tab = IsKeyPressed(KEY_TAB) or pad.down(ACT_NEXT)
-        m.reroll = IsKeyPressed(KEY_R) or pad.down(ACT_REROLL)
+        if not keys.focused: return m
+        m.confirm = keys.confirm or pad.down(ACT_CONFIRM)
+        m.back = keys.escape or pad.down(ACT_BACK)
+        m.back_held = keys.escape_held or pad.holding(ACT_BACK)
+        m.shop = keys.x or pad.down(ACT_SHOP)
+        m.collection = keys.c or pad.down(ACT_COLLECTION)
+        m.lb = keys.q or pad.down(ACT_TAB_LEFT)
+        m.rb = keys.e or pad.down(ACT_TAB_RIGHT)
+        m.start = keys.escape or pad.down(ACT_PAUSE)
+        m.tab = keys.tab or pad.down(ACT_NEXT)
+        m.reroll = keys.r or pad.down(ACT_REROLL)
         // Not S: S is a movement key, and a level-up can open mid-stride.
-        m.skip = IsKeyPressed(KEY_K) or pad.down(ACT_SKIP)
-        m.banish = IsKeyPressed(KEY_N) or pad.down(ACT_BANISH)
+        m.skip = keys.k or pad.down(ACT_SKIP)
+        m.banish = keys.n or pad.down(ACT_BANISH)
         self.frame += 1
-        let (up_marks, up) = one_press(self.last_up, IsKeyPressed(KEY_UP) or IsKeyPressed(KEY_W), pad.down(ACT_UP), self.frame)
-        let (down_marks, down) = one_press(self.last_down, IsKeyPressed(KEY_DOWN) or IsKeyPressed(KEY_S), pad.down(ACT_DOWN), self.frame)
-        let (left_marks, left) = one_press(self.last_left, IsKeyPressed(KEY_LEFT) or IsKeyPressed(KEY_A), pad.down(ACT_LEFT), self.frame)
-        let (right_marks, right) = one_press(self.last_right, IsKeyPressed(KEY_RIGHT) or IsKeyPressed(KEY_D), pad.down(ACT_RIGHT), self.frame)
+        let (up_marks, up) = one_press(self.last_up, keys.up, pad.down(ACT_UP), self.frame)
+        let (down_marks, down) = one_press(self.last_down, keys.down, pad.down(ACT_DOWN), self.frame)
+        let (left_marks, left) = one_press(self.last_left, keys.left, pad.down(ACT_LEFT), self.frame)
+        let (right_marks, right) = one_press(self.last_right, keys.right, pad.down(ACT_RIGHT), self.frame)
         self.last_up = up_marks
         self.last_down = down_marks
         self.last_left = left_marks
@@ -198,22 +197,17 @@ extend MenuState:
             if sy < 0: m.up = true
         self.stick_x = sx
         self.stick_y = sy
-        if IsKeyPressed(KEY_ONE): m.digit = 1
-        if IsKeyPressed(KEY_TWO): m.digit = 2
-        if IsKeyPressed(KEY_THREE): m.digit = 3
-        if IsKeyPressed(KEY_FOUR): m.digit = 4
-        let raw = GetMousePosition()
-        m.mouse = V2 { x: raw.x as f64, y: raw.y as f64 }
-        let delta = GetMouseDelta()
-        m.mouse_moved = self.mouse_seen and delta.x * delta.x + delta.y * delta.y > 4.0
+        m.digit = keys.digit
+        m.mouse = keys.mouse
+        m.mouse_moved = self.mouse_seen and length2(keys.mouse_delta) > 4.0
         self.mouse_seen = true
         self.last_mouse = m.mouse
-        m.click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
-        m.escape = IsKeyPressed(KEY_ESCAPE)
-        m.q = IsKeyPressed(KEY_Q)
-        m.escape_held = IsKeyDown(KEY_ESCAPE)
-        m.debug = IsKeyPressed(KEY_F1)
-        let key_pressed = GetKeyPressed() != 0
+        m.click = keys.click
+        m.escape = keys.escape
+        m.q = keys.q
+        m.escape_held = keys.escape_held
+        m.debug = keys.f1
+        let key_pressed = keys.any_key
         m.any = m.confirm or m.back or m.shop or m.collection or m.click or m.start or key_pressed
         self.device = active_device(self.device, key_pressed or m.click, m.mouse_moved, pad, deadzone)
         m

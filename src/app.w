@@ -9,6 +9,7 @@ use achievements
 use account
 use input
 use controls
+use keyboard
 use presentation
 use pilots
 use record
@@ -358,11 +359,12 @@ extend App:
     pub fn update(mut self: Self, pad: ActionFrame, dt: f64):
         // Alt-tabbing out of a run pauses it: input is ignored while the
         // window is unfocused, so an unpaused run would be lost unseen.
-        if not IsWindowFocused() and self.screen == .Run and self.game.phase != .Over:
+        let keys = sample_keys()
+        if not keys.focused and self.screen == .Run and self.game.phase != .Over:
             self.screen = .Pause
             self.pause_cursor = 0
             self.confirm_abandon = false
-        var m = self.menu.sample(pad, self.settings.deadzone)
+        var m = self.menu.sample(keys, pad, self.settings.deadzone)
         self.prompts.device = self.menu.device
         if self.menu.device == .Pad: HideCursor() else: ShowCursor()
         // Menus, pause and the boost cards are laid out in the 1280x800
@@ -370,7 +372,7 @@ extend App:
         m.mouse = sub(m.mouse, frame_offset(self.view_w, self.view_h))
         // Aim is resolved against the ship's position on screen.
         let screen_player = sub(self.game.player, self.game.view_origin())
-        let controls = if self.screen == .Run: self.input.sample(screen_player, self.game.aim, pad) else: Controls { aim: self.game.aim }
+        let controls = if self.screen == .Run: self.input.sample(keys, screen_player, self.game.aim, pad) else: Controls { aim: self.game.aim }
         self.step(m, controls, dt)
 
     // Events last for exactly one presented frame, including transitions to

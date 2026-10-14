@@ -35,3 +35,21 @@ pub type ActionFrame {
 extend ActionFrame:
     pub fn down(self: &Self, bit: u32) -> bool: (self.pressed & bit) != 0
     pub fn holding(self: &Self, bit: u32) -> bool: (self.held & bit) != 0
+
+// What the keyboard and mouse say, sampled once per frame by the window
+// layer (src/keyboard.w). Pressed fields are edges; held fields are state.
+// A console has no keyboard and leaves this at its default.
+pub type Keys {
+    focused: bool = true,
+    // Flight: WASD or the arrows, held.
+    move_up: bool = false, move_down: bool = false, move_left: bool = false, move_right: bool = false,
+    // Menus: edges. Space or Enter confirms; the arrows and WASD navigate.
+    confirm: bool = false, escape: bool = false, escape_held: bool = false,
+    x: bool = false, c: bool = false, q: bool = false, e: bool = false, tab: bool = false,
+    r: bool = false, k: bool = false, n: bool = false, f1: bool = false,
+    up: bool = false, down: bool = false, left: bool = false, right: bool = false,
+    digit: i32 = 0,
+    // Any key went down this frame: the prompts follow the keyboard.
+    any_key: bool = false,
+    mouse: V2 = V2 {}, mouse_delta: V2 = V2 {}, click: bool = false,
+} with Copy

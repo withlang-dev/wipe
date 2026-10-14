@@ -1,4 +1,4 @@
-//! expect-stdout: UAT passed: native axis range, independent sticks, aim retention, mouse takeover, disconnect
+//! expect-stdout: UAT passed: native axis range, independent sticks, aim retention, mouse takeover, disconnect, menu sampling
 use game
 use gamepads
 use controls
@@ -70,4 +70,23 @@ fn main:
     let (twice_marks, one) = one_press([-100, -100], false, true, 40)
     let (_, two) = one_press(twice_marks, false, true, 42)
     assert(one and two)
-    print("UAT passed: native axis range, independent sticks, aim retention, mouse takeover, disconnect")
+    // Menus sample keys and actions without a window: a key and the pad
+    // action both confirm, an unfocused window yields nothing, the pad
+    // selects pad prompts, and a key press selects the keyboard's.
+    var menu = MenuState {}
+    let both = menu.sample(Keys { confirm: true, any_key: true }, ActionFrame { id: 1, pressed: ACT_BACK, held: ACT_BACK })
+    assert(both.confirm and both.back and both.back_held and both.any)
+    assert(menu.device == .Pad)
+    let typed = menu.sample(Keys { x: true, any_key: true, digit: 3 }, ActionFrame {})
+    assert(typed.shop and typed.digit == 3 and menu.device == .Keyboard)
+    let away = menu.sample(Keys { focused: false, confirm: true }, ActionFrame { id: 1, pressed: ACT_CONFIRM })
+    assert(not away.confirm and not away.any)
+    // The left stick flicks once per deflection.
+    let flick = menu.sample(Keys {}, ActionFrame { id: 1, motion: V2 { y: 1.0 } })
+    let held_over = menu.sample(Keys {}, ActionFrame { id: 1, motion: V2 { y: 1.0 } })
+    assert(flick.down and not held_over.down)
+    var flight = Input {}
+    let keyed = flight.sample(Keys { move_up: true, move_right: true }, V2 {}, V2 { x: 1.0 }, ActionFrame {})
+    near(keyed.motion.x, 1.0)
+    near(keyed.motion.y, -1.0)
+    print("UAT passed: native axis range, independent sticks, aim retention, mouse takeover, disconnect, menu sampling")

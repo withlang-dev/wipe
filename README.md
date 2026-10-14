@@ -317,7 +317,9 @@ an automated fixture, not a human playthrough or a hardware certification.
 
 - `src/main.w`: the entry point; tools construct `NoPlatform` instead.
 - `src/run.w`: window, devices, and the shared frame loop.
-- `src/controls.w`: the action frame every controller path produces.
+- `src/controls.w`, `src/keyboard.w`, `src/input.w`: the action frame every
+  controller path produces and the keyboard's keys, sampled once per frame;
+  the input layer arbitrates between them with no window system in it.
 - `src/platform.w`, `src/steam.w`, `src/achievement_sync.w`: the platform
   seam (controllers, prompts, achievements, overlay), Steam Input and
   callbacks, and achievement upload retries.
