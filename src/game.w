@@ -250,7 +250,7 @@ extend PickupKind:
 pub type Pickup { pos: V2 = V2 {}, kind: PickupKind = .Credits, age: f64 = 0.0 }
 pub type Beacon { pos: V2 = V2 {}, alive: bool = true, respawn: f64 = 0.0 }
 pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bool = false, age: f64 = 0.0 }
-pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0 }
+pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0, gold: bool = false }
 // A lightning stroke. The seed fixes its jagged shape for its lifetime.
 pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3, seed: u32 = 0 }
 pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.125, total: f64 = 0.125, push: f64 = 0.0, mark: f64 = 0.0 }
@@ -384,6 +384,8 @@ pub type Game {
     derelict_event: bool = false,
     // The Rotor's bite, accumulating outside the safe sector.
     rotor_bite: f64 = 0.0,
+    // A satellite just caught a shot: its shield flares for a moment.
+    satellite_flare: f64 = 0.0,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -1360,6 +1362,8 @@ extend Game:
                             var beam = stats
                             beam.damage = stats.damage
                             self.fire_beam(self.player, V2 { x: cos(a), y: sin(a) }, beam)
+                            // The Lighthouse's second beam is gold, so the two read apart.
+                            if k == 1 and self.beam_count > 0: self.beams[self.beam_count - 1].gold = true
                 }
                 .Tesla => {
                     // Everything in the field is shocked twice a second; a
@@ -1387,6 +1391,7 @@ extend Game:
                         while b < self.bullet_count:
                             if self.bullets[b].hostile and length2(sub(self.bullets[b].pos, body)) < 26.0 * 26.0:
                                 self.pulse(body, 20.0, .White)
+                                self.satellite_flare = 0.3
                                 self.bullet_count -= 1
                                 self.bullets[b] = self.bullets[self.bullet_count]
                                 continue
@@ -1440,6 +1445,7 @@ extend Game:
                                 shell.pierce = 0
                                 self.fire_bullet(add(self.player, scale(self.aim, 20.0)), scale(heading, stats.speed), shell, s.weapon)
                                 self.bullets[self.bullet_count - 1].burst = stats.radius
+                                self.bullets[self.bullet_count - 1].total = stats.lifetime
                             self.shot_event = true
                         }
                         .Aimed => {
@@ -1963,7 +1969,7 @@ extend Game:
 
     // The tether: a short Verlet rope from the ship, the blade on its end.
     // Turning swings the blade wide, and the blade's own speed is its
-    // damage, so a committed turn hits hardest and a wiggle does nothing.
+    // damage, so a spun stick hits hardest and a held one hangs the blade.
     fn step_tether(mut self: Self, slot: i32, stats: WeaponStats, dt: f64):
         let links = TETHER_LINKS
         let seg = stats.radius / (links as f64)
@@ -1979,7 +1985,16 @@ extend Game:
             let p: V2 = self.tether[i]
             let v = scale(sub(p, self.tether_prev[i]), 0.96)
             self.tether_prev[i] = p
-            self.tether[i] = add(p, v)
+            // A swung chain flies out under tension: a nudge outward from
+            // the ship, every tick, that the length constraints straighten.
+            let out = sub(p, self.player)
+            let fling = if length2(out) > 1.0: scale(direction(out), 0.8) else: V2 {}
+            self.tether[i] = add(add(p, v), fling)
+        // The aim stick is the handle: the first link is drawn to where the
+        // stick points, so a spun stick whirls the chain around the ship and
+        // the blade, lagging at the end of it, hits at full swing.
+        let handle = add(self.player, scale(self.aim, seg))
+        self.tether[0] = add(self.tether[0], scale(sub(handle, self.tether[0]), 0.45))
         for _ in 0..4:
             var anchor: V2 = self.player
             for i in 0..links:
@@ -1996,6 +2011,11 @@ extend Game:
         let factor = limit(speed / 300.0, 0.6, 2.0)
         let damage = (stats.damage as f64 * factor + 0.5) as i32
         let _ = self.damage_area(blade, 36.0, damage, false, stats.cooldown)
+        // The chain itself cuts as hard as the blade, narrower: an enemy is
+        // struck once a cooldown by whichever part of the chain touches it,
+        // so a spun chain clears the ring around the ship and not only its rim.
+        for i in 1..links - 1:
+            let _ = self.damage_area(self.tether[i], 20.0, damage, false, stats.cooldown)
         self.break_beacons_near(blade, 16.0)
         if stats.count > 1:
             let mid: V2 = self.tether[links / 2]
@@ -2852,6 +2872,7 @@ extend Game:
                 self.phase_timer += PHASE_PERIOD + 0.45 * self.level as f64
                 if self.invulnerable < PHASE_LENGTH: self.invulnerable = PHASE_LENGTH
         self.enemies_frozen = limit(self.enemies_frozen - dt, 0.0, 5.0)
+        self.satellite_flare = limit(self.satellite_flare - dt, 0.0, 1.0)
         self.breather = limit(self.breather - dt, 0.0, 10.0)
         self.combo_timer -= dt
         if self.combo_timer <= 0.0 and self.combo > 0:

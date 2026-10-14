@@ -30,24 +30,19 @@ fn step(g_in: Game, motion: V2, aim: V2) -> Game:
     g.tick(Controls { motion, aim }, 1.0 / 120.0)
     g
 
-// How far the Tether's blade and the ship travel in two seconds of a given
-// input: on a committed turn the blade swings wide and outruns the ship;
-// flicked each frame, the rope just follows.
-fn blade_travel(wiggle: bool) -> (f64, f64):
+// How far the Tether's blade travels in two seconds with the ship still:
+// the aim stick is the chain's handle, so a spun stick whirls the blade
+// around the ship, and a held stick leaves it hanging.
+fn blade_travel(spin: bool) -> f64:
     var g = armed(.Tether, 1)
     var travel = 0.0
-    var ship = 0.0
     for i in 0..240:
-        let t = i as f64 / 120.0
-        // A committed circle, or the stick flicked left and right each frame.
-        let m = if wiggle: (if i % 2 == 0: V2 { x: 1.0 } else: V2 { x: -1.0 }) else: V2 { x: cos(t * 2.5), y: sin(t * 2.5) }
+        let t = i as f64 / 120.0 * 9.42
+        let aim = if spin: V2 { x: cos(t), y: sin(t) } else: V2 { x: 1.0 }
         let before: V2 = g.tether[TETHER_LINKS - 1]
-        let at: V2 = g.player
-        g = step(g, m, V2 { x: 1.0 })
-        if g.tether_live and i > 0:
-            travel += sqrt(length2(sub(g.tether[TETHER_LINKS - 1], before)))
-            ship += sqrt(length2(sub(g.player, at)))
-    (travel, ship)
+        g = step(g, V2 {}, aim)
+        if g.tether_live and i > 30: travel += sqrt(length2(sub(g.tether[TETHER_LINKS - 1], before)))
+    travel
 
 // A still enemy of a kind near a well: how far it is pulled in a second.
 fn pulled(kind: Kind, elite: bool) -> f64:
@@ -65,11 +60,11 @@ fn pulled(kind: Kind, elite: bool) -> f64:
     at.x - now.x
 
 fn main:
-    // The Tether swings wide on a committed turn and barely moves on a wiggle.
-    let (swing, swing_ship) = blade_travel(false)
-    let (wiggle, wiggle_ship) = blade_travel(true)
-    assert(swing > swing_ship * 1.3)
-    assert(wiggle < wiggle_ship * 1.1)
+    // The Tether whirls on a spun stick and hangs on a held one.
+    let spun = blade_travel(true)
+    let held = blade_travel(false)
+    assert(spun > 600.0)
+    assert(held < spun * 0.1)
     // The well pulls a Dart farther than a Block, an elite less, a boss not at all.
     let dart = pulled(.Dart, false)
     let block = pulled(.Block, false)
@@ -115,8 +110,8 @@ fn main:
     let longer = weapon_stats(.Lob, MAX_WEAPON_LEVEL, Mods { duration: 1.5 })
     assert(longer.lifetime > stats.lifetime * 1.49)
     // Exact replay: the Tether's rope lands in the same place twice.
-    let (a, _) = blade_travel(false)
-    let (b, _) = blade_travel(false)
+    let a = blade_travel(true)
+    let b = blade_travel(true)
     assert(a == b)
     // Flak: a fan of several bolts that die within a short reach.
     var flak = armed(.Flak, 5)

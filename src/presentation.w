@@ -868,11 +868,28 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let remaining = b.life / b.total
         let a = to_screen(cam, b.a)
         let e = to_screen(cam, b.b)
-        line(a, e, b.width * 3.0 * remaining, red(0.10 * remaining))
-        line(a, e, b.width * 1.2 * remaining, red(0.65 * remaining))
+        let hue = if b.gold: gold(0.10 * remaining) else: red(0.10 * remaining)
+        let body = if b.gold: gold(0.65 * remaining) else: red(0.65 * remaining)
+        let tip = if b.gold: gold(remaining) else: red(remaining)
+        line(a, e, b.width * 3.0 * remaining, hue)
+        line(a, e, b.width * 1.2 * remaining, body)
         line(a, e, 3.0 * remaining + 1.0, white(remaining))
         circle(a, 8.0 * remaining, white(remaining))
-        circle(e, 5.0 * remaining, red(remaining))
+        circle(e, 5.0 * remaining, tip)
+    // The Sweep's afterglow: a fading wedge behind each beam, so the turn
+    // leaves a trail.
+    for slot in 0..SLOT_COUNT:
+        let s = g.build.weapons[slot]
+        if s.level == 0 or s.weapon.family() != .Sweep: continue
+        let stats = weapon_stats(s.weapon, s.level, g.mods)
+        let ship = to_screen(cam, g.player)
+        for k in 0..stats.count:
+            let a = s.phase + (k as f64) * 3.14159265
+            for step_back in 1..9:
+                let back = a - step_back as f64 * 0.045
+                let fade = 0.22 - step_back as f64 * 0.025
+                let tint = if k == 1: gold(fade) else: red(fade)
+                line(ship, add(ship, V2 { x: cos(back) * stats.radius, y: sin(back) * stats.radius }), 10.0, tint)
     // Lightning: a jagged stroke with forks, a white-hot core in a blue-violet glow.
     for i in 0..g.arc_count:
         let bolt = g.arcs[i]
@@ -901,19 +918,41 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             circle(blade, 4.0, white(1.0))
     // The tether: a chain from the ship to a blade, the blade bright with speed.
     if g.tether_live:
+        // A chain of links, taut and white when the blade is fast, and the
+        // blade with a motion-blur arc behind it: the sweep is the weapon.
+        let blade = to_screen(cam, g.tether[TETHER_LINKS - 1])
+        let back = to_screen(cam, g.tether_prev[TETHER_LINKS - 1])
+        let swing = sub(blade, back)
+        let speed = sqrt(length2(swing)) * 120.0
+        let heat = limit(speed / 600.0, 0.0, 1.0)
         var from = to_screen(cam, g.player)
         for i in 0..TETHER_LINKS:
             let to = to_screen(cam, g.tether[i])
-            line(from, to, 3.0, cyan(0.35))
-            line(from, to, 1.2, white(0.6))
-            circle(to, 2.0, cyan(0.8))
+            let mid = scale(add(from, to), 0.5)
+            let along = direction(sub(to, from))
+            line(from, to, 8.0, cyan(0.18 + 0.2 * heat))
+            line(from, to, 2.6, cyan(0.75 + 0.25 * heat))
+            // Each link: a short bar across the chain, alternating.
+            let across = perpendicular(along)
+            let half = if i % 2 == 0: 6.0 else: 3.5
+            line(sub(mid, scale(across, half)), add(mid, scale(across, half)), 2.6, white(0.7 + 0.3 * heat))
+            circle(to, 2.2, cyan(0.9))
             from = to
-        let blade = to_screen(cam, g.tether[TETHER_LINKS - 1])
-        let back = to_screen(cam, g.tether_prev[TETHER_LINKS - 1])
-        line(back, blade, 10.0, cyan(0.15))
-        glow_line(sub(blade, V2 { x: 9.0 }), add(blade, V2 { x: 9.0 }), cyan(1.0))
-        glow_line(sub(blade, V2 { y: 9.0 }), add(blade, V2 { y: 9.0 }), cyan(1.0))
+        // The blade's arc: a tapered streak back along its motion.
+        if speed > 40.0:
+            let dir = direction(swing)
+            let reach = limit(speed * 0.12, 10.0, 90.0)
+            for k in 0..6:
+                let t0 = k as f64 / 6.0
+                let t1 = (k + 1) as f64 / 6.0
+                line(sub(blade, scale(dir, reach * t0)), sub(blade, scale(dir, reach * t1)), 12.0 * (1.0 - t0), cyan(0.35 * (1.0 - t0)))
+        let bright = 0.8 + 0.2 * heat
+        glow_line(sub(blade, V2 { x: 15.0 }), add(blade, V2 { x: 15.0 }), cyan(bright))
+        glow_line(sub(blade, V2 { y: 15.0 }), add(blade, V2 { y: 15.0 }), cyan(bright))
+        DrawPolyLinesEx(rv(blade), 4, 12.0, (clock * 300.0) as f32, 2.4, white(0.6 + 0.4 * heat))
+        ring(blade, 18.0, cyan(0.2 + 0.3 * heat))
         circle(blade, 4.0, white(1.0))
+        if heat > 0.6: circle(blade, 8.0, white(0.25 * heat))
     // Wells: rings drawing inward, a dark middle.
     for i in 0..g.well_count:
         let w = g.wells[i]
@@ -923,8 +962,18 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         for k in 0..3:
             let t = ((clock * 0.9 + k as f64 / 3.0) % 1.0)
             ring(pos, w.radius * (1.0 - t), violet(0.5 * (1.0 - t) * remaining + 0.05))
+        // Motes streaming inward, faster near the middle.
+        for k in 0..18:
+            let t = ((clock * (0.6 + (k % 4) as f64 * 0.15) + k as f64 * 0.37) % 1.0)
+            let r = w.radius * (1.0 - t * t)
+            let a = k as f64 * 0.349 + t * 2.5
+            let at = add(pos, V2 { x: cos(a) * r, y: sin(a) * r })
+            let tail = add(pos, V2 { x: cos(a - 0.08) * (r + 10.0 + t * 14.0), y: sin(a - 0.08) * (r + 10.0 + t * 14.0) })
+            line(tail, at, 1.8, violet((0.25 + t * 0.6) * remaining))
+            circle(at, 1.6 + t * 1.6, white((0.3 + t * 0.6) * remaining))
         circle(pos, 14.0, ink(0.9))
         ring(pos, 14.0, violet(0.9))
+        ring(pos, 18.0 + 3.0 * sin(clock * 6.0), white(0.35 * remaining))
         circle(pos, 3.0, white(0.9))
     // The Rotor: everything outside the safe sector dims, the sector's edges glow.
     if g.rules.rotor:
@@ -961,24 +1010,56 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let pos = to_screen(cam, t.pos)
         let remaining = limit(t.life / t.total, 0.0, 1.0)
         let a = 0.4 + 0.6 * remaining
-        DrawPolyLinesEx(rv(pos), 4, 12.0, 45.0, 2.0, gold(a))
-        DrawPolyLinesEx(rv(pos), 4, 16.0, 45.0 + (clock * 20.0) as f32, 1.0, gold(0.3 * a))
+        // It drops in and unfolds over the first third of a second.
+        let unfold = limit(t.age / 0.35, 0.0, 1.0)
+        let size = 12.0 * unfold
+        DrawPolyLinesEx(rv(pos), 4, size as f32, 45.0 + (1.0 - unfold) as f32 * 180.0, 2.0, gold(a))
+        DrawPolyLinesEx(rv(pos), 4, (16.0 * unfold) as f32, 45.0 + (clock * 20.0) as f32, 1.0, gold(0.3 * a))
+        if unfold < 1.0: ring(pos, 30.0 * (1.0 - unfold), gold(0.5 * (1.0 - unfold)))
         let target = g.nearest_enemy(t.pos, t.reach, false)
         let heading = if target >= 0: direction(sub(g.enemies[target].pos, t.pos)) else: V2 { x: 1.0 }
-        glow_line(pos, add(pos, scale(heading, 16.0)), gold(a))
+        // The barrel tracks and glows as it is about to fire.
+        let charge = limit(1.0 - t.timer / 0.25, 0.0, 1.0)
+        glow_line(pos, add(pos, scale(heading, 16.0 * unfold)), gold(a))
+        circle(add(pos, scale(heading, 16.0 * unfold)), 2.0 + 2.5 * charge, white(0.4 + 0.6 * charge))
         circle(pos, 3.0, white(a))
         ring(pos, t.reach, gold(0.04))
+        // The Net: lightning strung between the emplacements.
+        if t.chain > 0 and i + 1 < g.turret_count:
+            let other = to_screen(cam, g.turrets[i + 1].pos)
+            draw_lightning(pos, other, (clock * 12.0) as u32 ^ (i as u32 * 7919), 0.35 * a)
     // Satellites: bodies on their orbit.
     for slot in 0..SLOT_COUNT:
         let s = g.build.weapons[slot]
         if s.level == 0 or s.weapon.family() != .Satellite: continue
         let stats = weapon_stats(s.weapon, s.level, g.mods)
-        ring(to_screen(cam, g.player), stats.radius, blue(0.08))
+        let hub = to_screen(cam, g.player)
+        ring(hub, stats.radius, blue(0.14))
+        ring(hub, stats.radius - 3.0, blue(0.05))
+        var previous = hub
         for k in 0..stats.count:
             let body = to_screen(cam, g.satellite_position(slot, k, stats.count, stats.radius))
-            DrawPolyLinesEx(rv(body), 6, 11.0, (clock * 40.0) as f32, 2.0, blue(1.0))
-            ring(body, 14.0, blue(0.3))
+            // A constellation: the bodies joined by faint lines.
+            if stats.count > 1:
+                let next = to_screen(cam, g.satellite_position(slot, (k + 1) % stats.count, stats.count, stats.radius))
+                line(body, next, 3.0, blue(0.18))
+                line(body, next, 1.2, white(0.45))
+            // A wake along the orbit behind the body shows its direction.
+            let turn = s.phase + (k as f64) * 6.283185307 / (stats.count as f64)
+            for t in 1..9:
+                let back = turn - t as f64 * 0.06
+                let at = add(hub, V2 { x: cos(back) * stats.radius, y: sin(back) * stats.radius })
+                circle(at, 6.0 - t as f64 * 0.6, blue(0.45 - t as f64 * 0.05))
+            DrawPolyLinesEx(rv(body), 6, 15.0, (clock * 40.0) as f32, 2.6, blue(1.0))
+            DrawPolyLinesEx(rv(body), 6, 8.0, (-clock * 60.0) as f32, 1.4, white(0.8))
+            ring(body, 19.0, blue(0.35))
+            // The shield: a flare when it has just caught a shot.
+            if g.satellite_flare > 0.0:
+                let f = g.satellite_flare / 0.3
+                ring(body, 16.0 + 12.0 * (1.0 - f), white(0.8 * f))
+                circle(body, 14.0, blue(0.25 * f))
             circle(body, 3.0, white(1.0))
+            previous = body
     // The Repulsor's zone while it holds.
     if g.repulse > 0.0:
         let ship = to_screen(cam, g.player)
@@ -1039,6 +1120,32 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             ring(pos, 11.0 + 2.0 * sin(clock * 10.0), red(0.25))
             continue
         let color = weapon_tint(b.weapon)
+        if b.burst > 0.0:
+            // A thrown shell: it climbs and falls in screen space over its
+            // flight, a shadow on the ground, a fuse trail behind.
+            let progress = if b.total > 0.0: 1.0 - b.life / b.total else: 0.5
+            let height = sin(limit(progress, 0.0, 1.0) * 3.14159) * 70.0
+            let air = sub(pos, V2 { y: height })
+            circle(pos, 4.0, ink(0.7))
+            ring(pos, 5.0 + height * 0.06, gold(0.12))
+            for k in 1..5:
+                let back = sub(air, scale(heading, k as f64 * 7.0))
+                circle(add(back, V2 { y: k as f64 * 1.5 }), 3.0 - k as f64 * 0.5, gold(0.5 - k as f64 * 0.1))
+            circle(air, 11.0, gold(0.22))
+            circle(air, 6.5, gold(1.0))
+            circle(air, 3.0, white(1.0))
+            ring(air, 9.0, white(0.35))
+            continue
+        if b.weapon == .Railgun:
+            // A heavy slug: a long white-hot streak, a shock ring at its head.
+            let tail = sub(pos, scale(heading, 90.0))
+            line(tail, pos, 14.0, gold(0.10))
+            line(tail, pos, 7.0, gold(0.35))
+            line(sub(pos, scale(heading, 50.0)), pos, 3.0, white(0.9))
+            circle(pos, 5.0, white(1.0))
+            ring(pos, 10.0 + 4.0 * sin(clock * 30.0 + b.pos.x), white(0.4))
+            line(add(pos, scale(side, 9.0)), sub(pos, scale(side, 9.0)), 2.0, white(0.6))
+            continue
         match b.weapon.family():
             .Bouncing => {
                 let spin = (clock * 400.0 + b.pos.x) as f32
@@ -1048,10 +1155,17 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
                 circle(pos, 2.2, white(1.0))
             }
             .Homing => {
-                line(sub(pos, scale(heading, 28.0)), pos, 6.0, paint_alpha(color, 0.2))
-                line(sub(pos, scale(heading, 28.0)), pos, 2.0, color)
-                line(sub(pos, scale(heading, 10.0)), pos, 2.0, white(1.0))
-                circle(pos, 3.2, white(1.0))
+                // A comet: a tail that bends with the turn, so a swarm reads
+                // as a flock.
+                let bend = scale(side, sin(clock * 9.0 + b.pos.x * 0.05) * 6.0)
+                var from = pos
+                for k in 1..6:
+                    let to = add(sub(pos, scale(heading, k as f64 * 9.0)), scale(bend, k as f64 * 0.3))
+                    line(from, to, 7.0 - k as f64, paint_alpha(color, 0.26 - k as f64 * 0.04))
+                    line(from, to, 2.4 - k as f64 * 0.3, paint_alpha(color, 0.95 - k as f64 * 0.15))
+                    from = to
+                line(sub(pos, scale(heading, 10.0)), pos, 2.2, white(1.0))
+                circle(pos, 3.4, white(1.0))
             }
             _ => {
                 // Twin streaks with a white-hot head.

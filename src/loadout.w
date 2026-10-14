@@ -188,7 +188,7 @@ extend Weapon:
             .Mines => "A proximity mine where the ship is, every 3 s, never twice in one place. Area widens it; Projectiles arm more at once."
             .Arc => "Lightning from the ship strikes a random enemy each second, and anything in its path. More bolts, then chains, as it levels."
             .Shard => "Fragments that ricochet off the arena walls."
-            .Tether => "A blade on a chain. Turn and it swings wide; the harder the turn, the harder it hits."
+            .Tether => "A blade on a chain. Spin the aim stick and it whirls; the faster the spin, the harder it hits."
             .GravityWell => "A well where you aim: it pulls the swarm in and crushes what reaches the middle."
             .Drone => "A wingman that shoots whatever is not in front of you."
             .Lob => "A shell thrown along the aim, a fixed distance out, bursting where it lands. Nothing closer is touched."
@@ -517,12 +517,13 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.max_active = MINE_BASE_CAP + (if mods.count > MINE_CAP_BONUS: MINE_CAP_BONUS else: mods.count)
         }
         .Tether => {
-            // A blade on a chain: radius is the chain's length, cooldown how
-            // often one enemy can be struck by it. Damage grows with the
-            // blade's speed in game.w, so a committed turn hits hardest.
-            s.cooldown = 0.22
-            s.radius = 70.0 + l * 5.0
-            s.damage = 4 + level * 2 / 3
+            // A blade on a chain the aim stick swings: radius is the chain's
+            // length, cooldown how often one enemy can be struck by any part
+            // of it. Damage grows with the blade's speed in game.w, so a
+            // spun stick hits hardest.
+            s.cooldown = 0.1
+            s.radius = 95.0 + l * 6.0
+            s.damage = 5 + level
             s.count = 1
         }
         .Field => {
@@ -678,7 +679,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .Pulsar => { s.count += 2; s.damage *= 2; s.ring_on_orbit = true }
         .Grid => { s.damage = s.damage * 3 / 2; s.max_active += 3; s.chains_on_hit = true }
         .Refractor => { s.pierce += 6; s.damage *= 2; s.shatters = true }
-        .LongTether => { s.radius *= 1.4; s.count = 2; s.damage = s.damage * 3 / 2 }
+        .LongTether => { s.radius *= 1.25; s.count = 2; s.damage = s.damage * 5 / 4 }
         .Singularity => { s.radius *= 1.4; s.pull *= 1.5; s.lifetime *= 1.5; s.damage = s.damage * 3 / 2 }
         .TwinDrones => { s.drones = 2; s.chain = 2; s.damage = s.damage * 3 / 2 }
         .Barrage => { s.count = 3; s.radius *= 1.3; s.damage = s.damage * 3 / 2 }

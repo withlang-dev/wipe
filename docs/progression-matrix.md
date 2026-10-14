@@ -26,7 +26,7 @@ position). Blank in all three means the weapon is questioned (plan §2).
 | 6 | Arc | Chain | 1 | 0 | Storm | Count | Grid (+Mines) | — | crowd chain | — | — | — |
 | 7 | Proximity Mine | Dropped | 1 | 0.3 | Minefield | Cooldown | Grid | Sapper | area denial | — | keep moving to lay | chokepoints |
 | 8 | Shard | Bouncing | 2 | 0.8 | Shatter | Speed | Refractor | Prism | wall-fed spread | aim | — | walls, corners |
-| 9 | Tether | Orbiting | 2 | 0.5 | Long Tether | Duration | — (waits) | Lasher | sweep | turning | committed turns | — |
+| 9 | Tether | Orbiting | 2 | 0.5 | Long Tether | Duration | — (waits) | Lasher | sweep | spinning the aim stick | a fast spin | — |
 | 10 | Gravity Well | Field | 2 | 0.7 | Singularity | Magnet | Well Burst (+Nova) | Anchor | pull + crush | — | positioning the well | arena center |
 | 11 | Drone | Homing | 2 | 1.0 | Twin Drones | Count | Net (+Turret) | Carrier | flank DPS | aim cone defines flank | — | — |
 | 12 | Lob | Aimed | 2 | 1.2 | Barrage | Area | — | Mortar ship | far burst | aim past near | min range forces spacing | — |
@@ -125,7 +125,7 @@ first guesses, to be set by `runs`.
 | 6 | Needle | 3 | Lance | combo ×1,500 (was 3,000) | no aim at all | 2.5 |
 | 7 | Sapper | 3 | Proximity Mine | 2 merges in a run | 3 weapon slots | 2.5 |
 | 8 | Phase | 4 | Cannon | clear without a reboot | 1 hull, long invulnerability | 3 |
-| 9 | Lasher | 2 | Tether | the Corridor's black box | turning is the weapon; slow strafe | 1.2 |
+| 9 | Lasher | 2 | Tether | the Corridor's black box | spinning the stick is the weapon; slow strafe | 1.2 |
 | 10 | Anchor | 3 | Gravity Well | hold the Shaft's derelict a minute | cannot move while a well is live | 2 |
 | 11 | Carrier | 3 | Drone | kill the Ring's carrier | no Cannon; two drones from the start | 2.5 |
 | 12 | Warden | 4 | Repulsor | clear in Hurry | regenerates in the zone, nothing else | 5 |

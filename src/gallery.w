@@ -74,13 +74,19 @@ fn main:
         early.tick(Controls { aim: V2 { x: cos(i as f64 * 0.2), y: sin(i as f64 * 0.2) } }, 1.0 / 120.0)
     shot(&renderer, &early, 20.0, "01-early-combat")
     // 2. Every weapon at its maximum level, and four merged weapons.
-    let showcase = [Weapon.Cannon, Weapon.Orbit, Weapon.Nova, Weapon.Seeker, Weapon.Lance, Weapon.Mines, Weapon.Arc, Weapon.Shard, Weapon.Tether, Weapon.GravityWell, Weapon.Drone, Weapon.Lob, Weapon.Flak, Weapon.Turret, Weapon.Sweep, Weapon.TeslaField, Weapon.Boomerang, Weapon.Shockwave, Weapon.Satellite, Weapon.Repulsor, Weapon.Railgun, Weapon.Corona, Weapon.Storm, Weapon.Shatter, Weapon.LongTether, Weapon.Singularity, Weapon.TwinDrones, Weapon.Net]
+    let showcase = [Weapon.Cannon, Weapon.Orbit, Weapon.Nova, Weapon.Seeker, Weapon.Lance, Weapon.Mines, Weapon.Arc, Weapon.Shard, Weapon.Tether, Weapon.GravityWell, Weapon.Drone, Weapon.Lob, Weapon.Flak, Weapon.Turret, Weapon.Sweep, Weapon.TeslaField, Weapon.Boomerang, Weapon.Shockwave, Weapon.Satellite, Weapon.Repulsor, Weapon.Railgun, Weapon.Corona, Weapon.Storm, Weapon.Shatter, Weapon.LongTether, Weapon.Singularity, Weapon.TwinDrones, Weapon.Net, Weapon.Swarm, Weapon.Lighthouse, Weapon.Barrage, Weapon.Battery, Weapon.Constellation]
     var n = 2
     for w in showcase:
         var g = staged()
         g.build.weapons[0] = WeaponSlot { weapon: w, level: MAX_WEAPON_LEVEL }
         g = surround(g, 14, 260.0, Kind.Block)
         g = surround(g, 10, 150.0, Kind.Spinner)
+        // A Tether only shows in motion: spin the stick before the shot.
+        if w.family() == .Tether:
+            for i in 0..90:
+                let t = i as f64 / 120.0 * 9.42
+                g.clear_events()
+                g.tick(Controls { aim: V2 { x: cos(t), y: sin(t) } }, 1.0 / 120.0)
         g = step(g, 1.0, V2 { x: 0.8, y: -0.6 })
         // Capture just after the weapon fires.
         g.build.weapons[0].timer = 0.0

@@ -10,6 +10,10 @@ impl Copy for Style
 impl Eq for Style
 
 pub fn nearest_aim(g: &Game) -> V2:
+    // A Tether is a flail: the bot spins the stick, two turns a second.
+    if g.build.weapons[0].weapon.family() == .Tether:
+        let turn = g.elapsed * 12.57
+        return V2 { x: cos(turn), y: sin(turn) }
     var aim = g.aim
     var best = 1.0e12
     for e in 0..g.enemy_count:
