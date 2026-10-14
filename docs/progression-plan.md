@@ -254,10 +254,10 @@ touches it: base 10; shop Hull +1 per rank; Hull passive +2 per level; Null
 ## 11. Phased implementation
 
 Eight phases, each landing on `main` with its tests and its `runs` numbers.
-Sizes are working days for one person with the harness; dependencies are
-stated so the order is justified, not asserted. File names are today's.
+Dependencies are stated so the order is justified, not asserted. File
+names are today's.
 
-### Phase 1: Telemetry (2 days)
+### Phase 1: Telemetry
 
 Nothing else is measured without it, so it comes first and changes no
 gameplay.
@@ -269,7 +269,7 @@ gameplay.
 | New | `test/progression_contracts.w`: the score table of §3 on save pairs; a streak of two is reported; time-to-first from a synthetic log |
 | Exit | `runs account` on your own `runs.tsv` and on a bot account (`runs profile` extended to play an account of twenty runs with the careful bot, buying ranks between runs) prints the control numbers, committed in `docs/verification/progression-control.md` |
 
-### Phase 2: Hour one (3 days)
+### Phase 2: Hour one
 
 The largest effect on a new player for the least code.
 
@@ -280,7 +280,7 @@ The largest effect on a new player for the least code.
 | New | `test/hurry_contracts.w`: a Hurry run replays exactly; bosses arrive at real 2:30, 5:00, 7:30; invulnerability and projectile speed are unchanged. `test/threads_contracts.w`: three distinct threads, a 70%-complete ship is "near", a just-revealed condition is "new" |
 | Exit | the bot's `first_new_stage` is run 1; your own is run 1 or 2; `zero_progress_streak` max falls against the control; Hurry's card-screen cadence per real minute recorded for phase 4 |
 
-### Phase 3: Staged content (2 days)
+### Phase 3: Staged content
 
 | | |
 |---|---|
@@ -289,7 +289,7 @@ The largest effect on a new player for the least code.
 | New | `test/staging_contracts.w`: a fresh save sees seven weapons and eight passives; tier 2 opens on a first boss kill; a fresh weapon is offered within two card screens at the default weight and the draw stays seeded |
 | Exit | `runs exposure` ≤ 2 runs for every tier-1 and tier-2 weapon on the bot account |
 
-### Phase 4: Pressure and power (4 days, mostly tuning)
+### Phase 4: Pressure and power
 
 | | |
 |---|---|
@@ -298,7 +298,7 @@ The largest effect on a new player for the least code.
 | New | `test/pressure_contracts.w`: a Block's HP at 1:30, 3:00, 5:00; XP per minute within 10% of the control at minutes 5, 10, 15 despite fewer kills; the weapon kill-rate bands in `test/weapon_bands.w` re-pinned |
 | Exit | `runs profile` with the careful bot at ranks 0, 3 and 6 reaches 5:00, 10:00 and 15:00 medians; your own `runs.tsv` over the next sessions tracks §3's survival targets; the stress harness's frame time at the new cap is at or under today's |
 
-### Phase 5: Proximity Mine (2 days)
+### Phase 5: Proximity Mine
 
 | | |
 |---|---|
@@ -307,7 +307,7 @@ The largest effect on a new player for the least code.
 | New | `test/mine_contracts.w`: one mine per 3 s at the ship; none while within 1.5 × radius; `Count` raises the cap and never the rate; radius follows `Area`; the oldest expires at the cap; a replay with mines is exact |
 | Exit | the Sapper's `runs profile` row at or above today's; stress frame time at cap 8 |
 
-### Phase 6: Weapons (12 days: 3 per prototype, then 8 at a day each)
+### Phase 6: Weapons
 
 | | |
 |---|---|
@@ -317,7 +317,7 @@ The largest effect on a new player for the least code.
 | New | `test/weapon_contracts.w` grows per weapon: Tether's sweep width grows with committed turn rate and not with stick wiggle; Gravity Well pulls a Dart farther than a Block and a boss not at all; the Drone never targets inside the aim cone while an enemy is outside it; Lob's minimum range; Shockwave's mark. `test/weapon_bands.w` gets a band per weapon |
 | Exit | each weapon's row in the matrix filled from play (role and the three columns confirmed, not asserted); the aim-identity count stays at 14 of 20; a bot run and a gallery frame per weapon |
 
-### Phase 7: Ships and derelicts (6 days)
+### Phase 7: Ships and derelicts
 
 | | |
 |---|---|
@@ -326,7 +326,7 @@ The largest effect on a new player for the least code.
 | New | `test/derelict_contracts.w`: each verb completes under the bot on its stage and fails cleanly when abandoned; a black box reveals and does not unlock; `test/ships.w` (every ship's condition is reachable: the bot account meets each within its matrix hour) |
 | Exit | `first_ship_unlock` on run 1 (Dart) and three ships inside 90 minutes on the bot account; no derelict verb used more than three times |
 
-### Phase 8: Stages and modes (6 days)
+### Phase 8: Stages and modes
 
 | | |
 |---|---|
@@ -335,20 +335,8 @@ The largest effect on a new player for the least code.
 | New | `test/maps.w` grows a case per stage: the one variable it changes is asserted (Bone Field's HP at minute 10 is 4×; Collapse's arena at 10:00 is half; Rotor's safe sector rotates once a minute) and a bot run on each replays exactly |
 | Exit | every stage has its variable, its derelict verb and its hour in the matrix confirmed from play; the bot account opens three stages inside two hours |
 
-### Schedule
+### Stops
 
-| Phase | Days | Cumulative |
-|---|---|---|
-| 1 Telemetry | 2 | 2 |
-| 2 Hour one | 3 | 5 |
-| 3 Staging | 2 | 7 |
-| 4 Pressure and power | 4 | 11 |
-| 5 Proximity Mine | 2 | 13 |
-| 6 Weapons | 12 | 25 |
-| 7 Ships and derelicts | 6 | 31 |
-| 8 Stages and modes | 6 | 37 |
-
-About seven working weeks. Phases 1–4 are the first two weeks and change
-how the game feels in hour one more than everything after; the plan can
-stop for a playtest after phase 4 and again after phase 6 without leaving
-anything half-landed.
+The plan has two natural playtest stops: after phase 4, when hour one has
+changed, and after phase 6, when the arsenal has. Nothing is left
+half-landed at either.
