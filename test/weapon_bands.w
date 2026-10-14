@@ -9,6 +9,9 @@ fn main:
     var failures = 0
     for i in 0..WEAPON_COUNT:
         let w = weapon_at(i)
+        // The bench piles the swarm onto the ship; a Lob lands past it by
+        // design, so its reach is pinned in weapon_contracts.w instead.
+        if w.family() == .Lobbed: continue
         let merged = w.is_merged()
         let kills = if merged: weapon_kills(w, 5, 14.0, 60.0, 260) else: weapon_kills(w, 5, 8.0, 60.0, 160)
         // Re-pinned for enemies that toughen from minute two (pressure, 2026-10-13).

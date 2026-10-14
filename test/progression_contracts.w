@@ -15,12 +15,13 @@ fn main:
     let same = progress_score(&fresh, &fresh)
     assert(same.score == 0 and same.events.len() == 0)
     // Surviving 5:00 unlocks the Dart, the Lance and the Mines (3 each) and
-    // is half way to the Pillars (survive 10:00), a goal advanced: 1 more.
+    // advances four survival goals a fifth or more (the Pillars, the Tether,
+    // the Lob, Duration): 1 each.
     var dart = Save {}
     dart.best_time[0] = 300.0
     let unlocked = progress_score(&fresh, &dart)
-    assert(unlocked.score == 10 and has(&unlocked.events, "ship:Dart") and has(&unlocked.events, "weapon:Lance"))
-    assert(has(&unlocked.events, "weapon:Mines") and has(&unlocked.events, "goal:Pillars stage"))
+    assert(unlocked.score == 13 and has(&unlocked.events, "ship:Dart") and has(&unlocked.events, "weapon:Lance"))
+    assert(has(&unlocked.events, "weapon:Mines") and has(&unlocked.events, "goal:Pillars stage") and has(&unlocked.events, "goal:Tether"))
     // A rank bought is 2; the cheapest rank newly affordable is 2.
     var bought = Save {}
     bought.ranks[6] = 1

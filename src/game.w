@@ -127,6 +127,18 @@ extend Kind:
             .Boss => 60.0
             .Null => 90.0
             _ => 14.0
+    // How far a push or a pull moves this kind, as a share of the force:
+    // Darts fly, Blocks lean, elites resist, bosses do not move
+    // (progression-plan §5.4). One table, so pull and push agree.
+    pub fn displacement(self: &Self) -> f64:
+        match self:
+            .Dart => 1.0
+            .Weaver => 0.8
+            .Skimmer => 0.8
+            .Spinner => 0.5
+            .Block => 0.35
+            .Well => 0.2
+            _ => 0.0
     // Health grows with the square of the minute, and early: a Block has 2
     // by 1:30, 4 by 3:00, 8 by 5:00, 28 by 10:00, 100 by 20:00, so damage
     // and fire rate matter from minute two and the back half outpaces a
@@ -202,7 +214,15 @@ pub type Bullet {
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
     weapon: Weapon = .Cannon, homing: bool = false, splits: bool = false, shatters: bool = false,
     hostile: bool = false,
+    // A thrown shell: no contact, a burst of this radius where it lands.
+    burst: f64 = 0.0,
 }
+// A gravity well: pulls what is in reach toward its middle and crushes
+// what arrives; a Well Burst ends in a Nova ring.
+pub type Well { pos: V2 = V2 {}, radius: f64 = 150.0, pull: f64 = 240.0, damage: i32 = 2, life: f64 = 3.0, total: f64 = 3.0, burst: bool = false }
+pub const WELL_CAP: i32 = 4
+// The tether's chain: segments between the ship and the blade.
+pub const TETHER_LINKS: i32 = 7
 pub type Core { pos: V2 = V2 {}, value: i32 = 1, age: f64 = 0.0 }
 pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache }
 impl Copy for PickupKind
@@ -270,14 +290,14 @@ pub type Launch {
     ship: Ship = .Claw,
     shop: Mods = Mods {},
     rerolls: i32 = 0, skips: i32 = 0, banishes: i32 = 0, reboots: i32 = 0,
-    unlocked_weapons: [bool; 20] = [false; 20],
-    unlocked_passives: [bool; 14] = [false; 14],
-    taken_weapons: [bool; 20] = [false; 20],
-    taken_passives: [bool; 14] = [false; 14],
+    unlocked_weapons: [bool; 29] = [false; 29],
+    unlocked_passives: [bool; 15] = [false; 15],
+    taken_weapons: [bool; 29] = [false; 29],
+    taken_passives: [bool; 15] = [false; 15],
     // Unlocked in the last two runs and never picked: the draft weights
     // these up so the player meets what they earned.
-    fresh_weapons: [bool; 20] = [false; 20],
-    fresh_passives: [bool; 14] = [false; 14],
+    fresh_weapons: [bool; 29] = [false; 29],
+    fresh_passives: [bool; 15] = [false; 15],
     best_time: f64 = 0.0,
     endless: bool = false,
     // Hurry: the timeline at twice the rate, the run in ten real minutes.
@@ -341,6 +361,10 @@ pub type Game {
     enemy_count: i32 = 0, bullet_count: i32 = 0, core_count: i32 = 0, particle_count: i32 = 0,
     pulse_count: i32 = 0, popup_count: i32 = 0, pickup_count: i32 = 0, beacon_count: i32 = 0,
     mine_count: i32 = 0, beam_count: i32 = 0, arc_count: i32 = 0, wave_count: i32 = 0,
+    well_count: i32 = 0,
+    // The tether's chain, a Verlet rope anchored at the ship; live while a
+    // Tether is held. The blade is the last link.
+    tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
     enemies: List[Enemy],
     cell_heads: List[i32],
     cell_next: List[i32],
@@ -355,6 +379,7 @@ pub type Game {
     beams: List[Beam],
     arcs: List[ArcBolt],
     waves: List[Shockwave],
+    wells: List[Well],
     rng: u32 = 1234567,
     // The stage's walls, and for maze stages a distance field on the enemy
     // grid toward the ship, rebuilt a few times a second.
@@ -387,6 +412,7 @@ pub fn Game.new(rules: Rules = Rules {}) -> Game:
         beams: storage(Beam {}, BEAM_CAP),
         arcs: storage(ArcBolt {}, ARC_CAP),
         waves: storage(Shockwave {}, SHOCKWAVE_CAP),
+        wells: storage(Well {}, WELL_CAP),
         walls: List.new(),
         flow: storage(-1, CELL_COUNT),
     }
@@ -541,6 +567,8 @@ extend Game:
         self.beam_count = 0
         self.arc_count = 0
         self.wave_count = 0
+        self.well_count = 0
+        self.tether_live = false
         let stage = stage_at(self.rules.layout)
         self.walls = stage.walls()
         self.uses_paths = stage.needs_paths()
@@ -1222,11 +1250,15 @@ extend Game:
     // ----- weapons -------------------------------------------------------
 
     fn fire_weapons(mut self: Self, motion: V2, dt: f64):
+        var tether_held = false
         for slot in 0..SLOT_COUNT:
             let s: WeaponSlot = self.build.weapons[slot]
             if s.level == 0: continue
             let stats = weapon_stats(s.weapon, s.level, self.mods)
             self.build.weapons[slot].timer -= dt
+            if s.weapon.family() == .Tether: tether_held = true
+            if s.weapon.family() == .Drone: self.build.weapons[slot].phase += dt * 2.2
+            if slot == SLOT_COUNT - 1 and not tether_held: self.tether_live = false
             match s.weapon.family():
                 .Orbiting => {
                     // Blades are positions on a ring; each hits once per cooldown.
@@ -1245,9 +1277,57 @@ extend Game:
                             self.spawn_wave(blade, WeaponStats { radius: 90.0, damage: stats.damage })
                     if pulsed: self.build.weapons[slot].timer = 1.4
                 }
+                .Tether => { self.step_tether(slot, stats, dt) }
                 _ => {
                     if self.build.weapons[slot].timer > 0.0: continue
                     match s.weapon.family():
+                        .Field => {
+                            // A well where the ship aims, a little out: it
+                            // gathers the swarm there, not on the ship.
+                            self.build.weapons[slot].timer = stats.cooldown
+                            let at = self.clamp_to_arena(add(self.player, scale(self.aim, 220.0)), 20.0)
+                            if self.well_count >= WELL_CAP:
+                                var oldest = 0
+                                for i in 1..self.well_count:
+                                    if self.wells[i].life < self.wells[oldest].life: oldest = i
+                                self.well_count -= 1
+                                self.wells[oldest] = self.wells[self.well_count]
+                            self.wells[self.well_count] = Well { pos: at, radius: stats.radius, pull: stats.pull, damage: stats.damage, life: stats.lifetime, total: stats.lifetime, burst: stats.burst_on_end }
+                            self.well_count += 1
+                            self.pulse(at, stats.radius * 0.5, .Violet)
+                        }
+                        .Drone => {
+                            // Each wingman shoots the nearest enemy outside the
+                            // ship's forward cone: the front is the player's,
+                            // the flank is the drone's.
+                            self.build.weapons[slot].timer = stats.cooldown
+                            for k in 0..stats.drones:
+                                let from = self.drone_position(slot, k, stats.drones)
+                                let target = self.flank_target(from)
+                                if target < 0: continue
+                                let heading = direction(sub(self.enemies[target].pos, from))
+                                let side = perpendicular(heading)
+                                for b in 0..stats.count:
+                                    let spread = (b as f64 - (stats.count as f64 - 1.0) / 2.0) * 0.12
+                                    self.fire_bullet(from, scale(direction(add(heading, scale(side, spread))), stats.speed), stats, s.weapon)
+                                if stats.chain > 0: self.arc_chain(self.enemies[target].pos, stats.chain, 170.0, stats.damage / 2 + 1)
+                            self.shot_event = true
+                        }
+                        .Lobbed => {
+                            // A shell along the aim to a fixed distance: it
+                            // touches nothing on the way and bursts where it lands.
+                            if not self.launch.ship.can_aim(): continue
+                            self.build.weapons[slot].timer = stats.cooldown
+                            let side = perpendicular(self.aim)
+                            for k in 0..stats.count:
+                                let spread = (k as f64 - (stats.count as f64 - 1.0) / 2.0) * 0.16
+                                let heading = direction(add(self.aim, scale(side, spread)))
+                                var shell = stats
+                                shell.pierce = 0
+                                self.fire_bullet(add(self.player, scale(self.aim, 20.0)), scale(heading, stats.speed), shell, s.weapon)
+                                self.bullets[self.bullet_count - 1].burst = stats.radius
+                            self.shot_event = true
+                        }
                         .Aimed => {
                             if not self.launch.ship.can_aim(): continue
                             self.build.weapons[slot].timer = stats.cooldown
@@ -1709,6 +1789,93 @@ extend Game:
             if self.enemy_count < ENEMY_CAP - 64: self.spawn_enemy()
             else: self.spawn_timer += 0.05
 
+    // The tether: a short Verlet rope from the ship, the blade on its end.
+    // Turning swings the blade wide, and the blade's own speed is its
+    // damage, so a committed turn hits hardest and a wiggle does nothing.
+    fn step_tether(mut self: Self, slot: i32, stats: WeaponStats, dt: f64):
+        let links = TETHER_LINKS
+        let seg = stats.radius / (links as f64)
+        if not self.tether_live:
+            for i in 0..links:
+                let at = add(self.player, scale(V2 { x: -1.0 }, seg * (i + 1) as f64))
+                self.tether[i] = at
+                self.tether_prev[i] = at
+            self.tether_live = true
+        // Inertia, lightly damped; then the links keep their length, from
+        // the anchor out, a few passes.
+        for i in 0..links:
+            let p: V2 = self.tether[i]
+            let v = scale(sub(p, self.tether_prev[i]), 0.96)
+            self.tether_prev[i] = p
+            self.tether[i] = add(p, v)
+        for _ in 0..4:
+            var anchor: V2 = self.player
+            for i in 0..links:
+                let p: V2 = self.tether[i]
+                let d = sub(p, anchor)
+                let len = sqrt(length2(d))
+                let fixed = if len > 0.0001: add(anchor, scale(d, seg / len)) else: add(anchor, V2 { x: seg })
+                self.tether[i] = fixed
+                anchor = fixed
+        self.build.weapons[slot].timer -= 0.0
+        // The blade's speed sets its damage: half at rest, double at full swing.
+        let blade: V2 = self.tether[links - 1]
+        let speed = sqrt(length2(sub(blade, self.tether_prev[links - 1]))) / dt
+        let factor = limit(speed / 300.0, 0.6, 2.0)
+        let damage = (stats.damage as f64 * factor + 0.5) as i32
+        let _ = self.damage_area(blade, 36.0, damage, false, stats.cooldown)
+        self.break_beacons_near(blade, 16.0)
+        if stats.count > 1:
+            let mid: V2 = self.tether[links / 2]
+            let _ = self.damage_area(mid, 30.0, damage, false, stats.cooldown)
+
+    // Where a wingman flies: a slow orbit of the ship, the second opposite.
+    pub fn drone_position(self: &Self, slot: i32, k: i32, count: i32) -> V2:
+        let turn = self.build.weapons[slot].phase + (k as f64) * 6.283185307 / (count as f64)
+        add(self.player, V2 { x: cos(turn) * 72.0, y: sin(turn) * 72.0 })
+
+    // The nearest enemy outside the ship's forward cone (35 degrees each
+    // side of the aim), within reach; the nearest of all when none is.
+    pub fn flank_target(self: &Self, from: V2) -> i32:
+        var best = -1
+        var best_d = 620.0 * 620.0
+        for i in 0..self.enemy_count:
+            let e = self.enemies[i]
+            let to = sub(e.pos, self.player)
+            let d = length2(sub(e.pos, from))
+            if d >= best_d: continue
+            let along = (to.x * self.aim.x + to.y * self.aim.y) / (sqrt(length2(to)) + 0.001)
+            if along > 0.819: continue
+            best = i
+            best_d = d
+        if best >= 0: best else: self.nearest_enemy(from, 620.0, false)
+
+    // Wells pull what is in reach toward their middle, by each kind's
+    // displacement, and crush what arrives; a Well Burst ends in a ring.
+    fn step_wells(mut self: Self, dt: f64):
+        var w = 0
+        while w < self.well_count:
+            var well: Well = self.wells[w]
+            well.life -= dt
+            for i in 0..self.enemy_count:
+                var e: Enemy = self.enemies[i]
+                let to = sub(well.pos, e.pos)
+                let d2 = length2(to)
+                if d2 > well.radius * well.radius or d2 < 1.0: continue
+                let share = e.kind.displacement() * (if e.elite: 0.25 else: 1.0)
+                if share <= 0.0: continue
+                e.pos = add(e.pos, scale(direction(to), well.pull * share * dt))
+                self.enemies[i] = e
+            let _ = self.damage_area(well.pos, 42.0, well.damage, false, 0.25)
+            if well.life <= 0.0:
+                if well.burst: self.spawn_wave(well.pos, WeaponStats { radius: well.radius * 1.2, damage: well.damage * 2 })
+                self.pulse(well.pos, well.radius * 0.4, .Violet)
+                self.well_count -= 1
+                self.wells[w] = self.wells[self.well_count]
+                continue
+            self.wells[w] = well
+            w += 1
+
     fn boss_position(self: &Self) -> Option[V2]:
         for i in 0..self.enemy_count:
             if self.enemies[i].kind == .Boss: return Some(self.enemies[i].pos)
@@ -2076,7 +2243,15 @@ extend Game:
                     self.pulse(bullet.pos, 24.0, .Gold)
                 else: spent = true
             var hit = false
-            if not spent:
+            if bullet.burst > 0.0:
+                // A shell touches nothing on the way; where it lands it bursts.
+                if bullet.life <= 0.0 or spent:
+                    self.pulse(bullet.pos, bullet.burst, .Gold)
+                    self.burst(bullet.pos, V2 {}, 14, .Gold, 1.4)
+                    let _ = self.damage_area(bullet.pos, bullet.burst, bullet.damage)
+                    self.break_beacons_near(bullet.pos, bullet.burst)
+                    spent = true
+            else if not spent:
                 // Enemies in the cells around the bolt; big enemies are few
                 // and checked by radius as the grid cannot bound them.
                 let cell = cell_index(bullet.pos)
@@ -2357,6 +2532,7 @@ extend Game:
         self.rebuild_grid()
         self.step_bullets(dt)
         self.step_fields(dt)
+        self.step_wells(dt)
         // Contact.
         for e in 0..self.enemy_count:
             let enemy: Enemy = self.enemies[e]
@@ -2377,6 +2553,7 @@ impl Copy for Mine
 impl Copy for Beam
 impl Copy for ArcBolt
 impl Copy for Shockwave
+impl Copy for Well
 impl Copy for Particle
 impl Copy for Pulse
 impl Copy for Popup

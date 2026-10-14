@@ -9,7 +9,9 @@ use game
 
 // The player never loses a save. One file of `key value` lines, written
 // atomically with a backup on every change, read before the first frame.
-pub const SAVE_VERSION: i32 = 1
+// Version 2 (2026-10-13): twelve base weapons; a version-1 file's weapon
+// indices are remapped on load (weapon_index_v1).
+pub const SAVE_VERSION: i32 = 2
 pub const SHOP_ITEM_COUNT: i32 = 16
 
 pub type Save {
@@ -30,12 +32,12 @@ pub type Save {
     cleared: [bool; 9] = [false; 9],
     ship_runs: [i32; 9] = [0; 9],
     // Longest a run held each base weapon, in seconds.
-    held: [f64; 8] = [0.0; 8],
-    taken_weapons: [bool; 20] = [false; 20],
-    taken_passives: [bool; 14] = [false; 14],
+    held: [f64; 12] = [0.0; 12],
+    taken_weapons: [bool; 29] = [false; 29],
+    taken_passives: [bool; 15] = [false; 15],
     // The run that met each condition (0: not yet, or from the start).
-    weapon_unlocked_run: [i32; 8] = [0; 8],
-    passive_unlocked_run: [i32; 14] = [0; 14],
+    weapon_unlocked_run: [i32; 12] = [0; 12],
+    passive_unlocked_run: [i32; 15] = [0; 15],
     registry_kills: [i32; 8] = [0; 8],
     registry_first: [f64; 8] = [-1.0; 8],
     // Each boss's first kill, the achievement.
@@ -46,6 +48,12 @@ pub type Save {
     deadzone: f64 = 0.2,
 }
 impl Copy for Save
+
+// Where a version-1 file's weapon index lives now: the eight base weapons
+// kept their places, the evolutions moved from 8 to 12, the unions from
+// 16 to 24.
+pub fn weapon_index_v1(old: i32) -> i32:
+    if old < 8: old else if old < 16: old + 4 else: old + 8
 
 // A save that could be read only partly, or not at all, says so once.
 pub enum LoadNotice { | Fresh | Loaded | Restored | SetAside | TooNew(version: i32) }
@@ -174,7 +182,8 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
         else if key == "passive_unlocked_run":
             if index >= 0 and index < PASSIVE_COUNT: s.passive_unlocked_run[index] = parse(third)
         else if key == "taken_weapon":
-            if index >= 0 and index < WEAPON_COUNT: s.taken_weapons[index] = parse_bool(third)
+            let at = if s.version < 2: weapon_index_v1(index) else: index
+            if at >= 0 and at < WEAPON_COUNT: s.taken_weapons[at] = parse_bool(third)
         else if key == "taken_passive":
             if index >= 0 and index < PASSIVE_COUNT: s.taken_passives[index] = parse_bool(third)
         else if key == "registry":

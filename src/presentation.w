@@ -307,6 +307,10 @@ pub fn weapon_tint(weapon: Weapon) -> Color:
         .Dropped => gold(1.0)
         .Chain => violet(1.0)
         .Bouncing => magenta(1.0)
+        .Tether => cyan(1.0)
+        .Field => violet(1.0)
+        .Drone => blue(1.0)
+        .Lobbed => gold(1.0)
 pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f64):
     let color = paint_alpha(weapon_tint(weapon), alpha as f32)
     let merged = weapon.is_merged()
@@ -363,6 +367,48 @@ pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f
             line(c, d, 2.0, color)
             if merged: circle(d, size * 0.25, white(alpha))
         }
+        .Tether => {
+            // A chain swinging from the center to a blade.
+            let swing = sin(clock * 2.0) * 0.6
+            var from = pos
+            for k in 1..4:
+                let a = -1.2 + swing * k as f64 * 0.5
+                let to = add(from, V2 { x: cos(a) * size * 0.3, y: sin(a) * size * 0.3 })
+                line(from, to, 1.5, color)
+                from = to
+            circle(from, size * 0.22, white(alpha))
+            if merged: circle(add(pos, V2 { x: 0.0, y: -size * 0.45 }), size * 0.15, white(alpha * 0.7))
+        }
+        .Field => {
+            // Rings closing on a point.
+            let t = (clock * 0.8) % 1.0
+            ring(pos, size * (1.0 - t * 0.7), paint_alpha(color, 1.0 - t))
+            ring(pos, size * (0.6 - t * 0.4), paint_alpha(color, 0.8))
+            circle(pos, size * 0.18, white(alpha))
+            if merged: ring(pos, size * 1.1, paint_alpha(color, 0.4))
+        }
+        .Drone => {
+            // A small wing beside a dot: the ship and its wingman.
+            circle(pos, size * 0.18, white(alpha * 0.6))
+            let a = clock * 1.6
+            let at = add(pos, V2 { x: cos(a) * size * 0.75, y: sin(a) * size * 0.75 })
+            line(add(at, V2 { x: -size * 0.25, y: size * 0.18 }), add(at, V2 { x: size * 0.25, y: 0.0 }), 2.0, color)
+            line(add(at, V2 { x: size * 0.25, y: 0.0 }), add(at, V2 { x: -size * 0.25, y: -size * 0.18 }), 2.0, color)
+            if merged:
+                let at2 = add(pos, V2 { x: -cos(a) * size * 0.75, y: -sin(a) * size * 0.75 })
+                circle(at2, size * 0.2, color)
+        }
+        .Lobbed => {
+            // An arc out to a burst.
+            var from = add(pos, V2 { x: -size, y: size * 0.5 })
+            for k in 1..6:
+                let t = k as f64 / 5.0
+                let to = add(pos, V2 { x: -size + t * size * 1.7, y: size * 0.5 - sin(t * 3.14159) * size * 0.9 })
+                line(from, to, 1.5, color)
+                from = to
+            ring(from, size * 0.3, white(alpha))
+            if merged: ring(from, size * 0.5, paint_alpha(color, 0.5))
+        }
 pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
     let color = lime(alpha)
     match passive:
@@ -404,6 +450,13 @@ pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
         .Overclock => {
             DrawPolyLinesEx(rv(pos), 3, size as f32, 90.0, 2.0, red(alpha))
             line(add(pos, V2 { y: -size * 0.4 }), add(pos, V2 { y: size * 0.3 }), 1.6, red(alpha))
+        }
+        .Duration => {
+            // An hourglass.
+            line(add(pos, V2 { x: -size * 0.6, y: -size * 0.7 }), add(pos, V2 { x: size * 0.6, y: -size * 0.7 }), 2.0, color)
+            line(add(pos, V2 { x: -size * 0.6, y: size * 0.7 }), add(pos, V2 { x: size * 0.6, y: size * 0.7 }), 2.0, color)
+            line(add(pos, V2 { x: -size * 0.6, y: -size * 0.7 }), add(pos, V2 { x: size * 0.6, y: size * 0.7 }), 1.5, color)
+            line(add(pos, V2 { x: size * 0.6, y: -size * 0.7 }), add(pos, V2 { x: -size * 0.6, y: size * 0.7 }), 1.5, color)
         }
 
 pub fn draw_pick_icon(pick: Pick, pos: V2, size: f64, clock: f64, alpha: f64):
@@ -675,6 +728,46 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
             glow_line(sub(blade, scale(tangent, 20.0)), add(blade, scale(tangent, 20.0)), cyan(1.0))
             glow_line(sub(blade, scale(radial, 8.0)), add(blade, scale(radial, 8.0)), white(0.9))
             circle(blade, 4.0, white(1.0))
+    // The tether: a chain from the ship to a blade, the blade bright with speed.
+    if g.tether_live:
+        var from = to_screen(cam, g.player)
+        for i in 0..TETHER_LINKS:
+            let to = to_screen(cam, g.tether[i])
+            line(from, to, 3.0, cyan(0.35))
+            line(from, to, 1.2, white(0.6))
+            circle(to, 2.0, cyan(0.8))
+            from = to
+        let blade = to_screen(cam, g.tether[TETHER_LINKS - 1])
+        let back = to_screen(cam, g.tether_prev[TETHER_LINKS - 1])
+        line(back, blade, 10.0, cyan(0.15))
+        glow_line(sub(blade, V2 { x: 9.0 }), add(blade, V2 { x: 9.0 }), cyan(1.0))
+        glow_line(sub(blade, V2 { y: 9.0 }), add(blade, V2 { y: 9.0 }), cyan(1.0))
+        circle(blade, 4.0, white(1.0))
+    // Wells: rings drawing inward, a dark middle.
+    for i in 0..g.well_count:
+        let w = g.wells[i]
+        let pos = to_screen(cam, w.pos)
+        let remaining = w.life / w.total
+        ring(pos, w.radius, violet(0.12 + 0.1 * remaining))
+        for k in 0..3:
+            let t = ((clock * 0.9 + k as f64 / 3.0) % 1.0)
+            ring(pos, w.radius * (1.0 - t), violet(0.5 * (1.0 - t) * remaining + 0.05))
+        circle(pos, 14.0, ink(0.9))
+        ring(pos, 14.0, violet(0.9))
+        circle(pos, 3.0, white(0.9))
+    // Wingmen: small wings on a slow orbit of the ship.
+    for slot in 0..SLOT_COUNT:
+        let s = g.build.weapons[slot]
+        if s.level == 0 or s.weapon.family() != .Drone: continue
+        let stats = weapon_stats(s.weapon, s.level, g.mods)
+        for k in 0..stats.drones:
+            let at = to_screen(cam, g.drone_position(slot, k, stats.drones))
+            let heading = direction(sub(at, to_screen(cam, g.player)))
+            let side = perpendicular(heading)
+            glow_line(add(at, scale(side, 7.0)), add(at, scale(heading, 10.0)), blue(1.0))
+            glow_line(add(at, scale(heading, 10.0)), sub(at, scale(side, 7.0)), blue(1.0))
+            glow_line(sub(at, scale(side, 7.0)), add(at, scale(side, 7.0)), blue(0.7))
+            circle(at, 2.5, white(1.0))
     for i in 0..g.enemy_count:
         let e = g.enemies[i]
         if not g.on_screen(e.pos, 120.0): continue
@@ -1250,11 +1343,12 @@ pub fn passive_total(p: Passive, level: i32) -> str:
         .Credit => f"+{15 * level}%"
         .Rebound => f"{level}"
         .Overclock => f"+{10 * level}%"
+        .Duration => f"+{12 * level}%"
 
 // What a pick leads to: the merge this item is part of, and how close.
 // Only for recipes the player has completed before: finding a recipe is the
 // player's discovery, and the card never gives it away.
-pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 20]) -> str:
+pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 29]) -> str:
     for r in recipes():
         if b.weapon_level(r.result) > 0: continue
         if not discovered[r.result.index()]: continue

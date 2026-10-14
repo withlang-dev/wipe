@@ -68,7 +68,8 @@ fn main:
     fought.hits = 40
     fought.caches = 5
     fought.banked = 2000
-    assert(unlocked_counts(&fought) == (7, 12))
+    // ...and the first boss opens the Gravity Well.
+    assert(unlocked_counts(&fought) == (8, 12))
     // Stamping records the run a condition was met; the card is fresh for
     // two runs and until it is picked.
     var after = five

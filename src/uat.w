@@ -4,6 +4,7 @@ use c_import("raylib.h")
 use game
 use tuning
 use presentation
+use input
 use audio
 use std.process.env
 use metrics

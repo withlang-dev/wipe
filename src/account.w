@@ -217,6 +217,10 @@ pub fn weapon_condition(w: Weapon) -> Condition:
         .Mines => .Survive(seconds: 300)
         .Arc => .Start
         .Shard => .BouncedKills(count: 100)
+        .Tether => .Survive(seconds: 420)
+        .GravityWell => .Bosses(count: 1)
+        .Drone => .Elites(count: 5)
+        .Lob => .Survive(seconds: 720)
         _ => .Start
 
 pub fn passive_condition(p: Passive) -> Condition:
@@ -227,6 +231,7 @@ pub fn passive_condition(p: Passive) -> Condition:
         .Credit => .Banked(credits: 2000)
         .Rebound => .BouncedKills(count: 50)
         .Overclock => .Bosses(count: 6)
+        .Duration => .Survive(seconds: 480)
         _ => .Start
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)
