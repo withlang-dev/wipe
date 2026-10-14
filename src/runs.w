@@ -227,6 +227,14 @@ fn profile_game(ship: Ship, seed: i32, ranks: i32) -> Game:
     for i in 0..8: launch.unlocked_passives[i] = true
     g.rng = 55555 +% (seed as u32) *% 2654435761
     g.start(launch)
+    // WIPE_PASSIVE=Name:level presets one passive, for a real-run check of it.
+    let preset = env("WIPE_PASSIVE")
+    if preset.len() > 0:
+        let parts = preset.split(":")
+        for i in 0..PASSIVE_COUNT:
+            if passive_at(i).name() == parts[0]:
+                g.build.passives[0] = PassiveSlot { passive: passive_at(i), level: parse(parts[1]) }
+                g.refresh_mods()
     g
 
 // Fly to a limit, noting the level and kills as each mark passes.

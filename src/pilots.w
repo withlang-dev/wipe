@@ -148,6 +148,10 @@ pub fn fly(start: Game, style: Style, seconds: f64) -> (Game, Stats):
 // Kills per minute for one weapon alone against a steady swarm: the
 // balance bench. The ship circles the center with an unkillable hull.
 pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i32, seeds: i32 = 3) -> i32:
+    pair_kills(weapon, None, level, minute, seconds, density, seeds)
+
+// The same bench with a second weapon in the next slot, or none.
+pub fn pair_kills(weapon: Weapon, second: Option[Weapon], level: i32, minute: f64, seconds: f64, density: i32, seeds: i32 = 3) -> i32:
     var total = 0
     for seed in 0..seeds:
         var g = Game.new(Rules { minimum_start: 0.0 })
@@ -157,6 +161,7 @@ pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, densi
         for i in 0..8: launch.unlocked_passives[i] = true
         g.start(launch)
         g.build.weapons[0] = WeaponSlot { weapon, level }
+        if let Some(other) = second: g.build.weapons[1] = WeaponSlot { weapon: other, level }
         g.rules.contact_radius = 0.0
         g.spawn_timer = 1.0e9
         g.next_elite = 1.0e9
