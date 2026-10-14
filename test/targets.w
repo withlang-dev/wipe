@@ -1,6 +1,6 @@
 //! expect-stdout: UAT passed: Vampire Survivors opening, ship profiles
 // The balance targets of spec §9 (ship profiles) and §4 (the opening),
-// measured with the careful and stationary bots over sixteen seeds. A
+// measured with the careful and stationary bots over eight seeds. A
 // change that moves a ship out of its intended shape fails the build.
 use game
 use tuning
@@ -8,18 +8,20 @@ use loadout
 use ships
 use pilots
 
-const SEEDS = 16
+// Eight, not sixteen: the whole suite must pass in under two minutes, and
+// this file is the bulk of it. The bands below are per eight.
+const SEEDS = 8
 
 // A phase's rating: 0 Weak, 1 Even, 2 Strong.
 // Guards, not guarantees: a ship may be weak by design. The test fails only
 // when a ship collapses outright (a bug, like a weapon that stops firing)
-// or outgrows everything (a runaway), at what sixteen bot runs can resolve.
+// or outgrows everything (a runaway), at what eight bot runs can resolve.
 fn in_band(phase: i32, rating: i32, count: i32) -> bool:
     let _ = rating
     match phase:
-        0 => count >= 6
-        1 => count <= 15
-        _ => count <= 12
+        0 => count >= 3
+        1 => count <= 7
+        _ => count <= 6
 
 // Opening, middle, late for each ship, as the spec's profile table.
 fn profile(ship: Ship) -> [i32; 3]:

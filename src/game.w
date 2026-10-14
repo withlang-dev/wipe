@@ -274,6 +274,8 @@ pub type Launch {
     taken_passives: [bool; 14] = [false; 14],
     best_time: f64 = 0.0,
     endless: bool = false,
+    // Hurry: the timeline at twice the rate, the run in ten real minutes.
+    hurry: bool = false,
     // Bosses this account has ever killed; a first kill is an achievement.
     bosses_known: [bool; 3] = [false; 3],
 }
@@ -397,10 +399,14 @@ extend Game:
 
     pub fn center(self: &Self) -> V2: V2 { x: self.rules.arena_width / 2.0, y: self.rules.arena_height / 2.0 }
     pub fn minute(self: &Self) -> f64: self.elapsed / 60.0
+    // Timeline seconds per real second: the stage's rate, doubled in Hurry.
+    // `elapsed` is timeline time; the step count is real time.
+    pub fn timeline_rate(self: &Self) -> f64:
+        self.rules.timeline_rate * (if self.launch.hurry: 2.0 else: 1.0)
     // Benches, the gallery and tests start a run at a given second.
     pub fn jump_to(mut self: Self, seconds: f64):
-        self.steps = (seconds * STEPS_PER_SECOND as f64 + 0.5) as i64
-        self.elapsed = self.steps as f64 / STEPS_PER_SECOND as f64
+        self.steps = (seconds / self.timeline_rate() * STEPS_PER_SECOND as f64 + 0.5) as i64
+        self.elapsed = self.steps as f64 * self.timeline_rate() / STEPS_PER_SECOND as f64
     // The minute the spawn tables read: endless loops from minute ten.
     pub fn table_minute(self: &Self) -> f64:
         let m = self.minute()
@@ -1673,7 +1679,8 @@ extend Game:
                 self.refill_timer = 0.12
                 self.spawn_enemy()
         // Ordinary spawns, thinned in a breather and clamped to the budget.
-        self.spawn_timer -= dt
+        // The waves are timeline: Hurry compresses them with the clock.
+        self.spawn_timer -= dt * self.timeline_rate()
         if self.spawn_timer <= 0.0:
             var rate = self.rules.spawn_rate(self.table_minute()) * self.rules.spawn_scale * (1.0 + self.mods.overclock) * self.loop_scale(1.3)
             if self.breather > 0.0: rate *= 0.25
@@ -2285,7 +2292,7 @@ extend Game:
         if self.phase == .Over: return
         // dt is one step (STEP) or zero: a zero tick settles without time passing.
         if dt > 0.0: self.steps += 1
-        self.elapsed = self.steps as f64 / STEPS_PER_SECOND as f64
+        self.elapsed = self.steps as f64 * self.timeline_rate() / STEPS_PER_SECOND as f64
         // The best-time marker: crossing it is called out once.
         if not self.best_crossed and self.launch.best_time > 0.0 and self.elapsed >= self.launch.best_time:
             self.best_crossed = true

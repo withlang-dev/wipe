@@ -136,7 +136,7 @@ fn score_recordings(paths: &List[str]) -> List[Scored]:
         let (after, _) = record_run(r.header.save, &r.game)
         let report = progress_score(&logged, &after)
         let number = out.len() as i32 + 1
-        out.push(Scored { row: RunRow { number, seconds: r.stats.seconds, cleared: r.game.cleared and not r.header.endless, score: report.score, events: report.events.clone() }, before: logged, after })
+        out.push(Scored { row: RunRow { number, seconds: r.stats.seconds, cleared: r.game.cleared and not r.header.endless, hurry: r.header.hurry, score: report.score, events: report.events.clone() }, before: logged, after })
         logged = after
     out
 

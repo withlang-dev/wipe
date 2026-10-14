@@ -165,6 +165,8 @@ pub fn progress(c: Condition, s: &Save) -> (f64, f64):
         .HitsTaken(n) => (s.hits as f64, n as f64)
         .Clear => (s.clears as f64, 1.0)
         .Bosses(n) => (s.bosses as f64, n as f64)
+        .Merges(n) => (s.merges as f64, n as f64)
+        .HurryClear => (s.hurry_clears as f64, 1.0)
 
 pub fn met(c: Condition, s: &Save) -> bool:
     let (have, need) = progress(c, s)
@@ -205,17 +207,23 @@ pub fn passive_condition(p: Passive) -> Condition:
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)
 
+// Stages open on a level reached within a run, so a failed run still opens
+// doors (progression-plan §8; the numbers are the matrix's first guesses,
+// to be set from the run log). The bonus arenas follow the normal ones.
 pub fn stage_condition(stage: Stage) -> Condition:
     match stage:
         .Field => .Start
-        .Corridor => .Clear
-        .Shaft => .Bosses(count: 10)
-        .Ring => .Elites(count: 50)
-        .Pillars => .Start
-        .Maze => .Start
-        .Gridlock => .Start
-        .Expanse => .Start
-        .Cross => .Level(level: 30)
+        .Corridor => .Level(level: 12)
+        .Shaft => .Level(level: 20)
+        .Ring => .Level(level: 28)
+        .Cross => .Level(level: 35)
+        .Pillars => .Survive(seconds: 600)
+        .Maze => .Level(level: 12)
+        .Gridlock => .Merges(count: 3)
+        .Expanse => .Level(level: 28)
+
+// Hurry opens with the first clear: the run in ten real minutes.
+pub fn hurry_unlocked(s: &Save) -> bool: met(.Clear, s)
 
 pub fn stage_unlocked(stage: Stage, s: &Save) -> bool: met(stage_condition(stage), s)
 
@@ -226,13 +234,13 @@ pub fn unlocked_ship_count(s: &Save) -> i32:
     n
 
 // The run's launch: ship, ranks, unlocks, and the best to beat.
-pub fn launch_for(ship: Ship, s: &Save, endless: bool) -> Launch:
+pub fn launch_for(ship: Ship, s: &Save, endless: bool, hurry: bool = false) -> Launch:
     var l = Launch {
         ship, shop: shop_mods(s),
         reboots: s.ranks[12], skips: s.ranks[13], rerolls: s.ranks[14], banishes: s.ranks[15],
         taken_weapons: s.taken_weapons, taken_passives: s.taken_passives,
         best_time: if endless: s.best_endless[ship.index()] else: s.best_time[ship.index()],
-        endless, bosses_known: s.boss_slain,
+        endless, hurry, bosses_known: s.boss_slain,
     }
     for i in 0..BASE_WEAPON_COUNT: l.unlocked_weapons[i] = met(weapon_condition(weapon_at(i)), s)
     for i in 0..PASSIVE_COUNT: l.unlocked_passives[i] = met(passive_condition(passive_at(i)), s)
@@ -278,6 +286,71 @@ pub fn next_unlock(s: &Save) -> Option[NextUnlock]:
             best_f = f
             best = Some(NextUnlock { name: p.name(), condition: c, fraction: f })
     if ship_pick.is_some(): ship_pick else: best
+
+// Three open loops at once, so progression forks (progression-plan §3):
+// `near` is the goal closest to done; `new` the one most recently begun
+// (under a third of the way, the furthest along of those); `stretch` a
+// stage or ship far off, the long-term pull. Each is a different goal.
+pub type Threads { near: Option[NextUnlock] = None, new: Option[NextUnlock] = None, stretch: Option[NextUnlock] = None }
+
+fn every_goal(s: &Save) -> List[NextUnlock]:
+    var out: List[NextUnlock] = List.new()
+    for i in 0..SHIP_COUNT:
+        let ship = ship_at(i)
+        if ship.secret() and not s.null_killed and s.clears == 0: continue
+        let c = ship.condition()
+        if not met(c, s): out.push(NextUnlock { name: f"{ship.name()} ship", condition: c, fraction: fraction(c, s) })
+    for i in 0..STAGE_COUNT:
+        let c = stage_condition(stage_at(i))
+        if not met(c, s): out.push(NextUnlock { name: f"{stage_at(i).name()} stage", condition: c, fraction: fraction(c, s) })
+    for i in 0..BASE_WEAPON_COUNT:
+        let c = weapon_condition(weapon_at(i))
+        if not met(c, s): out.push(NextUnlock { name: weapon_at(i).name(), condition: c, fraction: fraction(c, s) })
+    for i in 0..PASSIVE_COUNT:
+        let c = passive_condition(passive_at(i))
+        if not met(c, s): out.push(NextUnlock { name: passive_at(i).name(), condition: c, fraction: fraction(c, s) })
+    if not hurry_unlocked(s): out.push(NextUnlock { name: "Hurry mode", condition: .Clear, fraction: fraction(.Clear, s) })
+    out
+
+fn same_goal(a: &Option[NextUnlock], b: &NextUnlock) -> bool:
+    match a:
+        Some(g) => g.name == b.name
+        None => false
+
+pub fn next_unlocks(s: &Save) -> Threads:
+    let goals = every_goal(s)
+    var t = Threads {}
+    var near_f = -1.0
+    for g in &goals:
+        if g.fraction > near_f:
+            near_f = g.fraction
+            t.near = Some(NextUnlock { name: g.name.clone(), condition: g.condition, fraction: g.fraction })
+    var new_f = 0.0
+    for g in &goals:
+        if same_goal(&t.near, g): continue
+        if g.fraction > new_f and g.fraction < 0.34:
+            new_f = g.fraction
+            t.new = Some(NextUnlock { name: g.name.clone(), condition: g.condition, fraction: g.fraction })
+    // Nothing begun yet (a fresh account): the first weapon or passive to
+    // start on.
+    if t.new.is_none():
+        for g in &goals:
+            if same_goal(&t.near, g) or g.name.ends_with(" stage") or g.name.ends_with(" ship") or g.name == "Hurry mode": continue
+            t.new = Some(NextUnlock { name: g.name.clone(), condition: g.condition, fraction: g.fraction })
+            break
+    // A stage first, then a ship, the farthest off.
+    var stretch_f = 2.0
+    for pass in 0..2:
+        if t.stretch.is_some(): break
+        for g in &goals:
+            if same_goal(&t.near, g) or same_goal(&t.new, g): continue
+            let is_stage = g.name.ends_with(" stage")
+            let is_ship = g.name.ends_with(" ship")
+            if (pass == 0 and not is_stage) or (pass == 1 and not is_ship): continue
+            if g.fraction < stretch_f:
+                stretch_f = g.fraction
+                t.stretch = Some(NextUnlock { name: g.name.clone(), condition: g.condition, fraction: g.fraction })
+    t
 
 // The next shop rank: the cheapest one not yet bought.
 pub type NextRank { item: ShopItem = .Damage, rank: i32 = 0, price: i32 = 0 }

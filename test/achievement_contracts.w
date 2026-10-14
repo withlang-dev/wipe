@@ -11,10 +11,12 @@ fn main:
         assert(achievement_name(i).len() > 0 and achievement_description(i).len() > 0)
         for j in i + 1..ACHIEVEMENT_COUNT:
             assert(ACHIEVEMENT_IDS[i] != ACHIEVEMENT_IDS[j])
-    // A first clear earns exactly the clear and the map it opens.
+    // A first clear earns exactly the clear; the maps open on levels reached
+    // within a run, so level 12 earns the Corridor on its own.
     let first = earned(&Save { clears: 1 })
-    assert(first.len() == 2)
-    assert(first[0] == "MAP_CORRIDOR" and first[1] == "FIRST_CLEAR")
+    assert(first.len() == 1 and first[0] == "FIRST_CLEAR")
+    let opened = earned(&Save { best_level: 12 })
+    assert(opened.len() == 1 and opened[0] == "MAP_CORRIDOR")
     // An account that has done everything has earned every achievement.
     var s = Save {
         clears: 3, no_reboot_clear: true, null_killed: true, best_combo: 3000,

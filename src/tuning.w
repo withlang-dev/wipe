@@ -10,6 +10,10 @@ pub type Rules {
     player_speed: f64 = 265.0,
     max_health: i32 = 10,
     run_cap: f64 = 1200.0,           // twenty minutes
+    // How fast the timeline runs against the simulation: waves, bosses, the
+    // XP curve and the end move at this rate; movement, telegraphs and
+    // projectiles do not. Hurry doubles it on top (Game.timeline_rate).
+    timeline_rate: f64 = 1.0,
     cannon_interval: f64 = 1.0 / 7.0,
     bullet_speed: f64 = 940.0,
     bullet_lifetime: f64 = 1.6,
@@ -260,6 +264,7 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ f"max_health {r.max_health}\n"
     out = out ++ f"layout {r.layout}\n"
     out = out ++ "run_cap " ++ num(r.run_cap) ++ "\n"
+    out = out ++ "timeline_rate " ++ num(r.timeline_rate) ++ "\n"
     out = out ++ "cannon_interval " ++ num(r.cannon_interval) ++ "\n"
     out = out ++ "bullet_speed " ++ num(r.bullet_speed) ++ "\n"
     out = out ++ "bullet_lifetime " ++ num(r.bullet_lifetime) ++ "\n"
@@ -310,6 +315,7 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "player_speed": out.player_speed = value
     else if key == "max_health": out.max_health = (value as i32)
     else if key == "run_cap": out.run_cap = value
+    else if key == "timeline_rate": out.timeline_rate = value
     else if key == "cannon_interval": out.cannon_interval = value
     else if key == "bullet_speed": out.bullet_speed = value
     else if key == "bullet_lifetime": out.bullet_lifetime = value

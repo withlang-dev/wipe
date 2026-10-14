@@ -40,6 +40,8 @@ pub enum Condition {
     | HitsTaken(count: i32)
     | Clear
     | Bosses(count: i32)
+    | Merges(count: i32)
+    | HurryClear
 }
 impl Copy for Condition
 
@@ -70,6 +72,8 @@ extend Condition:
             .HitsTaken(n) => f"Take {n} hits, lifetime"
             .Clear => "Clear a 20-minute run"
             .Bosses(n) => f"Kill {n} bosses, lifetime"
+            .Merges(n) => f"Complete {n} merges, lifetime"
+            .HurryClear => "Clear a run in Hurry"
 
 extend Ship:
     pub fn index(self: &Self) -> i32:

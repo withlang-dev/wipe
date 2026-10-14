@@ -23,6 +23,8 @@ pub type Save {
     best_level: i32 = 0, best_combo: i32 = 0, best_merges_in_run: i32 = 0,
     best_hits_survived: i32 = 0, bounced_kills: i32 = 0,
     no_reboot_clear: bool = false, null_killed: bool = false,
+    // Clears in Hurry (the timeline at twice the rate); a Hurry clear is a clear too.
+    hurry_clears: i32 = 0,
     best_time: [f64; 9] = [0.0; 9],
     best_endless: [f64; 9] = [0.0; 9],
     cleared: [bool; 9] = [false; 9],
@@ -97,7 +99,7 @@ extend Save:
         out = out ++ f"hits {self.hits}\nbanked {self.banked}\nmerges {self.merges}\n"
         out = out ++ f"best_level {self.best_level}\nbest_combo {self.best_combo}\nbest_merges_in_run {self.best_merges_in_run}\n"
         out = out ++ f"best_hits_survived {self.best_hits_survived}\nbounced_kills {self.bounced_kills}\n"
-        out = out ++ f"no_reboot_clear {fmt_bool(self.no_reboot_clear)}\nnull_killed {fmt_bool(self.null_killed)}\n"
+        out = out ++ f"no_reboot_clear {fmt_bool(self.no_reboot_clear)}\nnull_killed {fmt_bool(self.null_killed)}\nhurry_clears {self.hurry_clears}\n"
         for i in 0..SHIP_COUNT:
             out = out ++ f"best_time {i} {fmt_float(self.best_time[i])}\nbest_endless {i} {fmt_float(self.best_endless[i])}\n"
             out = out ++ f"cleared {i} {fmt_bool(self.cleared[i])}\nship_runs {i} {self.ship_runs[i]}\n"
@@ -135,6 +137,7 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
             if index >= 0 and index < SHOP_ITEM_COUNT: s.ranks[index] = parse(third)
         else if key == "runs": s.runs = index
         else if key == "clears": s.clears = index
+        else if key == "hurry_clears": s.hurry_clears = index
         else if key == "kills": s.kills = index
         else if key == "seconds": s.seconds = parse_float(a)
         else if key == "cores": s.cores = index
@@ -272,6 +275,7 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
     if g.cleared and not g.launch.endless:
         s.clears += 1
         s.cleared[ship] = true
+        if g.launch.hurry: s.hurry_clears += 1
         if not g.reboot_used: s.no_reboot_clear = true
     if g.null_killed: s.null_killed = true
     var new_best = false

@@ -77,7 +77,7 @@ pub type ResultsView {
     kills_by_kind: [i32; 8] = [0; 8],
     build: Build = Build {},
     earned: i32 = 0, bank: i32 = 0,
-    next_unlock: Option[NextUnlock] = None,
+    threads: Threads = Threads {},
     next_rank: Option[NextRank] = None,
     bar: f64 = 0.0,
     merge: Option[(Weapon, i32)] = None,
@@ -96,7 +96,7 @@ pub type App {
     // for the first seconds, like the save notice.
     platform_notice: str = "",
     game: Game, attract: Game, attract_frame: i32 = 0, attract_pending: f64 = 0.0,
-    ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false,
+    ship: Ship = .Claw, stage: Stage = .Field, endless: bool = false, hurry: bool = false,
     ship_cursor: i32 = 0, stage_cursor: i32 = 0,
     boost_cursor: i32 = 0, pause_cursor: i32 = 0, confirm_abandon: bool = false,
     shop_cursor: i32 = 0, shop_by_price: bool = false, confirm_refund: bool = false, shop_flash: f64 = 0.0,
@@ -228,13 +228,14 @@ extend App:
             self.persist()
         let cleared = self.save.cleared[picked.index()]
         let run_endless = self.endless and cleared
+        let run_hurry = self.hurry and not run_endless and hurry_unlocked(&self.save)
         // A fresh game per run, built exactly as a replay builds it.
         let h = Header {
             seed: 1234567 +% (self.save.runs as u32) *% 2654435761 +% (GetTime() * 1000.0) as u32,
-            ship: picked, stage: self.stage, endless: run_endless, view_w: self.view_w, view_h: self.view_h, save: self.save, tuning: self.tuning_text.clone(),
+            ship: picked, stage: self.stage, endless: run_endless, hurry: run_hurry, view_w: self.view_w, view_h: self.view_h, save: self.save, tuning: self.tuning_text.clone(),
         }
         self.game = start_game(&h)
-        self.rec.begin(h.seed, picked, self.stage, run_endless, self.view_w, self.view_h, self.save.serialize(), self.tuning_text)
+        self.rec.begin(h.seed, picked, self.stage, run_endless, run_hurry, self.view_w, self.view_h, self.save.serialize(), self.tuning_text)
         self.picks = ""
         self.screen = .Run
         self.boost_cursor = 0
@@ -261,7 +262,7 @@ extend App:
             }
             None => if g.null_killed: "The Null is down. You ended what ends the run." else: "Run abandoned"
         let cause = if g.cleared and not g.null_killed: "Cleared. The Null ended the run at 20:00" else: killer
-        let unlock = next_unlock(&self.save)
+        let threads = next_unlocks(&self.save)
         let rank = next_rank(&self.save)
         self.results = ResultsView {
             ship: self.ship, stage: self.stage,
@@ -272,7 +273,7 @@ extend App:
             kills_by_kind: g.kills_by_kind,
             build: g.build,
             earned: g.credits, bank: self.save.credits,
-            next_unlock: unlock,
+            threads,
             next_rank: rank,
             bar: limit(g.xp as f64 / g.xp_next as f64, 0.0, 1.0),
             // A merge is a near miss only when it was near: three levels or fewer.
@@ -283,7 +284,7 @@ extend App:
             unlocks: new_unlocks(&before, &self.save),
             shown: GetTime(),
         }
-        let unlock_fraction = match &self.results.next_unlock:
+        let unlock_fraction = match &self.results.threads.near:
             Some(u) => u.fraction
             None => 0.0
         let shop_fraction = match rank:
@@ -445,8 +446,14 @@ extend App:
             self.ship_cursor = wrap(self.ship_cursor + (if m.right: 1 else: -1), SHIP_COUNT)
             self.ui_move = true
         let cursor_ship = ship_at(self.ship_cursor)
-        if (m.up or m.down) and self.save.cleared[cursor_ship.index()]:
-            self.endless = not self.endless
+        // The mode cycles 20:00 run, Hurry, Endless; Hurry after any clear,
+        // Endless after this ship's.
+        if (m.up or m.down) and hurry_unlocked(&self.save):
+            let forward = m.down
+            let can_endless = self.save.cleared[cursor_ship.index()]
+            if not self.hurry and not self.endless: { if forward: self.hurry = true else if can_endless: self.endless = true }
+            else if self.hurry: { self.hurry = false; if forward and can_endless: self.endless = true }
+            else: { self.endless = false; if not forward: self.hurry = true }
             self.ui_move = true
         if m.click:
             for i in 0..SHIP_COUNT:
@@ -745,8 +752,24 @@ extend App:
         var events = ""
         // Events carry spaces ("goal:Prism ship"), so commas separate them.
         for e in &report.events: events = if events.len() == 0: e.clone() else: events ++ "," ++ e
-        let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\t{report.score}\t{events}\n"
+        let row = f"{number}\t{self.ship.name()}\t{self.stage.name()}\t{if g.launch.endless: 1 else if g.launch.hurry: 2 else: 0}\t{g.elapsed as i32}\t{g.level}\t{g.kills}\t{g.hits_taken}\t{killer}\t{if g.cleared: 1 else: 0}\t{g.credits}\t{weapons.trim()}\t{passives.trim()}\t{self.picks}\t{name}\t{report.score}\t{events}\n"
         let _ = write_file(log_path, previous ++ row)
+
+    fn collection_thread(self: &Self, kind: &str, thread: &Option[NextUnlock], y: i32) -> i32:
+        let Some(u) = thread else return y
+        let color = if kind == "NEAR": gold(0.9) else if kind == "NEW": cyan(0.9) else: magenta(0.8)
+        label(f"{kind}  {u.name}  {(u.fraction * 100.0) as i32}%", 900, y, 16, color)
+        wrapped_label(u.condition.describe(), 900, y + 20, 320, 14, white(0.6)) + 8
+
+    // One open loop: its name and condition, and how far along it is.
+    fn draw_thread(self: &Self, kind: &str, thread: &Option[NextUnlock], x: i32, y: i32):
+        let Some(u) = thread else return
+        let color = if kind == "NEAR": gold(0.9) else if kind == "NEW": cyan(0.9) else: magenta(0.8)
+        neon(f"{kind}   {u.name}", x, y, 18, white(1.0))
+        label(u.condition.describe(), x, y + 24, 14, white(0.7))
+        DrawRectangle(x + 900, y + 6, 240, 8, white(0.15))
+        DrawRectangle(x + 900, y + 6, (240.0 * u.fraction) as i32, 8, color)
+        label(f"{(u.fraction * 100.0) as i32}%", x + 900, y + 24, 20, color)
 
     fn debug_info(self: &Self) -> DebugInfo:
         var lines = self.metrics.lines()
@@ -890,11 +913,11 @@ extend App:
             let best = self.save.best_time[entry_ship.index()]
             label(f"BEST  {stamp(best)}     RUNS  {self.save.ship_runs[entry_ship.index()]}", x, detail_y, 20, white(0.75))
             let cleared = self.save.cleared[entry_ship.index()]
-            if cleared:
-                let mode = if self.endless: "ENDLESS" else: "20:00 RUN"
-                neon(f"MODE  {mode}", x, detail_y + 36, 20, if self.endless: magenta(1.0) else: white(0.9))
-                label(f"[{self.key(.Toggle)}] TOGGLE", x, detail_y + 64, 20, white(0.5))
-                if self.endless: label(f"BEST ENDLESS  {stamp(self.save.best_endless[entry_ship.index()])}", x, detail_y + 92, 20, magenta(0.8))
+            if hurry_unlocked(&self.save):
+                let mode = if self.endless and cleared: "ENDLESS" else if self.hurry: "HURRY  10:00 REAL" else: "20:00 RUN"
+                neon(f"MODE  {mode}", x, detail_y + 36, 20, if self.endless and cleared: magenta(1.0) else if self.hurry: gold(1.0) else: white(0.9))
+                label(f"[{self.key(.Toggle)}] MODE", x, detail_y + 64, 20, white(0.5))
+                if self.endless and cleared: label(f"BEST ENDLESS  {stamp(self.save.best_endless[entry_ship.index()])}", x, detail_y + 92, 20, magenta(0.8))
         else:
             let c = entry_ship.condition()
             label("LOCKED", x, 330, 14, white(0.5))
@@ -970,15 +993,12 @@ extend App:
         // The open loops slide in last.
         if t > 0.6:
             var y = 368
-            match &r.next_unlock:
-                Some(u) => {
-                    neon(f"NEXT UNLOCK   {u.name}", 60, y, 18, white(1.0))
-                    label(u.condition.describe(), 60, y + 24, 14, white(0.7))
-                    DrawRectangle(960, y + 6, 240, 8, white(0.15))
-                    DrawRectangle(960, y + 6, (240.0 * u.fraction) as i32, 8, gold(0.9))
-                    label(f"{(u.fraction * 100.0) as i32}%", 960, y + 24, 20, gold(0.9))
-                }
-                None => neon("EVERY UNLOCK IS OPEN", 60, y, 18, gold(1.0))
+            if r.threads.near.is_none(): neon("EVERY UNLOCK IS OPEN", 60, y, 18, gold(1.0))
+            else:
+                self.draw_thread("NEAR", &r.threads.near, 60, y)
+                self.draw_thread("NEW", &r.threads.new, 60, y + 40)
+                self.draw_thread("STRETCH", &r.threads.stretch, 60, y + 80)
+                y += 80
             y += 60
             match r.next_rank:
                 Some(n) => {
@@ -1111,6 +1131,12 @@ extend App:
         var y = wrapped_label(if open or self.tab == .Achievements: self.entry_name(self.tab, i) else: "LOCKED", 900, 158, 320, 24, white(1.0)) + 16
         for line_text in self.entry_detail(self.tab, i):
             y = wrapped_label(line_text.clone(), 900, y, 320, 16, white(0.8)) + 6
+        // The open loops, under the entry: where the account is going.
+        let threads = next_unlocks(&self.save)
+        var ty = 520
+        ty = self.collection_thread("NEAR", &threads.near, ty)
+        ty = self.collection_thread("NEW", &threads.new, ty)
+        ty = self.collection_thread("STRETCH", &threads.stretch, ty)
         if count > 20: label(f"PAGE {page + 1}/{(count + 19) / 20}   KEEP MOVING TO BROWSE", 40, 674, 20, white(0.6))
         centered(f"[{self.key(.Tabs)}] TAB     [{self.key(.Back)}] BACK", 720, 14, white(0.7))
 

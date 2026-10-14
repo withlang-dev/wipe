@@ -66,7 +66,7 @@ pub fn cadence_lines(c: &Cadence) -> List[str]:
 pub fn parse_row(line: &str) -> Option[RunRow]:
     let f = line.split("\t")
     if f.len() < 15: return None
-    var row = RunRow { number: parse(f[0]), seconds: parse(f[4]) as f64, cleared: f[9] == "1" }
+    var row = RunRow { number: parse(f[0]), seconds: parse(f[4]) as f64, cleared: f[9] == "1", hurry: f[3] == "2" }
     if f.len() >= 17:
         row.score = parse(f[15])
         for e in f[16].split(","):
