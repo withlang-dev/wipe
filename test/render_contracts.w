@@ -5,6 +5,20 @@ use game
 use metrics
 use loadout
 fn main:
+    // Health icons: four hull each, hollow once hull is lost, never more
+    // than eight (the Hull ship thickens them instead).
+    assert(health_icons(10, 10) == (4, 3, 3))
+    assert(health_icons(8, 10) == (4, 3, 2))
+    assert(health_icons(7, 10) == (4, 3, 2))
+    assert(health_icons(4, 10) == (4, 3, 1))
+    assert(health_icons(3, 10) == (4, 3, 1))
+    assert(health_icons(0, 10) == (4, 3, 0))
+    assert(health_icons(1, 1) == (4, 1, 1))
+    assert(health_icons(5, 5) == (4, 2, 2))
+    assert(health_icons(30, 30) == (4, 8, 8))
+    assert(health_icons(100, 100) == (13, 8, 8))
+    assert(health_icons(50, 100) == (13, 8, 4))
+    assert(health_icons(12, 100) == (13, 8, 1))
     verify_colors()
     assert(text_size(10) == 20 and text_size(16) == 20 and text_size(20) == 20 and text_size(32) == 32)
     // A five-pixel lowercase body at 2x remains nine pixels at 720p.

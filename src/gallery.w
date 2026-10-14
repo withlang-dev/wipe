@@ -7,6 +7,7 @@ use tuning
 use loadout
 use ships
 use presentation
+use input
 use devices
 
 fn shot(renderer: &Renderer, g: &Game, clock: f64, name: &str, cursor: i32 = 0):

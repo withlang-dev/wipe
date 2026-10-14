@@ -37,9 +37,12 @@ pub fn paint(tint: Tint, alpha: f64) -> Color:
 pub fn rv(p: V2) -> Vector2: Vector2 { x: p.x as f32, y: p.y as f32 }
 pub fn line(a: V2, b: V2, width: f64, color: Color):
     DrawLineEx(rv(a), rv(b), width as f32, color)
+// The halo fades with the line: Fade sets alpha, so the passes scale by
+// the color's own (a hollow health icon, a locked ship's silhouette).
 pub fn glow_line(a: V2, b: V2, color: Color):
-    line(a, b, 6.0, paint_alpha(color, 0.10))
-    line(a, b, 3.0, paint_alpha(color, 0.35))
+    let own = color.a as f64 / 255.0
+    line(a, b, 6.0, paint_alpha(color, 0.10 * own))
+    line(a, b, 3.0, paint_alpha(color, 0.35 * own))
     line(a, b, 1.6, color)
 pub fn circle(p: V2, radius: f64, color: Color):
     DrawCircleV(rv(p), radius as f32, color)
@@ -866,6 +869,18 @@ fn hud_centered(g: &Game, text: str, y: i32, size: i32, color: Color):
 
 pub type Hud { best_time: f64 = 0.0, bank: i32 = 0, show_hints: bool = true, prompts: Prompts = Prompts {} }
 
+// One ship icon per four health, filled while that hull is intact. A hull
+// past 32 (the Hull ship) thickens the icons instead of adding more, so the
+// row never passes eight. Returns (health per icon, icons, filled icons).
+pub fn health_icons(health: i32, max_health: i32) -> (i32, i32, i32):
+    let top = if max_health < 1: 1 else: max_health
+    var per_icon = (top + 7) / 8
+    if per_icon < 4: per_icon = 4
+    let icons = (top + per_icon - 1) / per_icon
+    let left = limit(health as f64, 0.0, top as f64) as i32
+    let filled = (left + per_icon - 1) / per_icon
+    (per_icon, icons, filled)
+
 fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
     let sw = g.screen_w as i32
     let sh = g.screen_h as i32
@@ -877,13 +892,17 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
     DrawRectangle(0, 0, (g.screen_w * fraction) as i32, 8, lime(0.85))
     DrawRectangle((g.screen_w * fraction) as i32 - 3, 0, 3, 8, white(1.0))
     neon(f"LV {g.level}", 22, 16, 28, hud_lime(1.0))
-    // Health lives in the HUD, out of the action: a bar under the level.
+    // Health lives in the HUD, out of the action: ship icons under the
+    // level, the arcade's lives. Filled icons are hull left, hollow ones
+    // hull to repair; the number beside them is for anyone who wants it.
     let health_fraction = limit(g.health as f64 / g.max_health as f64, 0.0, 1.0)
     let bar_color = if health_fraction > 0.5: lime(0.95) else if health_fraction > 0.25: gold(0.95) else: red(1.0)
-    DrawRectangle(22, 50, 96, 8, ink(0.8))
-    DrawRectangle(22, 50, (96.0 * health_fraction) as i32, 8, bar_color)
-    stroke_box(22, 50, 96, 8, white(0.25))
-    label(f"{g.health}/{g.max_health}", 124, 49, 10, bar_color)
+    let (per_icon, icons, filled) = health_icons(g.health, g.max_health)
+    for i in 0..icons:
+        let alpha = if i < filled: 1.0 else: 0.18
+        draw_ship(g.launch.ship, V2 { x: 30.0 + i as f64 * 18.0, y: 56.0 }, V2 { y: -1.0 }, alpha, 0.42)
+    label(f"{g.health}/{g.max_health}", 30 + icons * 18 + 4, 50, 10, bar_color)
+    let _ = per_icon
     if g.combo > 1:
         // The combo, its credit multiplier, the drain of its window, and the
         // way to the next tier.
