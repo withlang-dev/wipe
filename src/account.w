@@ -109,7 +109,7 @@ extend ShopItem:
     pub fn effect(self: &Self, rank: i32) -> str:
         match self:
             .Damage => f"+{rank * 5}% damage"
-            .FireRate => f"-{rank * 4}% cannon interval"
+            .FireRate => f"-{rank * 4}% bolt interval"
             .Count => f"+{rank} projectile"
             .Area => f"+{rank * 5}% area"
             .Speed => f"+{rank * 4}% move speed"

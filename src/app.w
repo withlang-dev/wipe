@@ -74,7 +74,7 @@ pub type ResultsView {
     elapsed: f64 = 0.0, previous_best: f64 = 0.0, new_best: bool = false,
     cause: str = "",
     level: i32 = 1, best_combo: i32 = 0, kills: i32 = 0,
-    kills_by_kind: [i32; 8] = [0; 8],
+    kills_by_kind: [i32; 9] = [0; 9],
     build: Build = Build {},
     earned: i32 = 0, bank: i32 = 0,
     threads: Threads = Threads {},

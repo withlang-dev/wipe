@@ -40,7 +40,7 @@ const CELL_SIZE = 64
 const CELL_COLS = 60
 const CELL_ROWS = 44
 const CELL_COUNT = CELL_COLS * CELL_ROWS
-pub const KIND_COUNT: i32 = 8
+pub const KIND_COUNT: i32 = 9
 // The Phase is invulnerable for PHASE_LENGTH seconds every PHASE_PERIOD.
 pub const PHASE_PERIOD: f64 = 5.0
 pub const PHASE_LENGTH: f64 = 1.5
@@ -75,7 +75,7 @@ pub enum Tint { | Cyan | Magenta | Gold | White | Lime | Blue | Red | Violet }
 impl Copy for Tint
 
 // Every kind is defined by how it moves. Numbers scale with the minute.
-pub enum Kind { | Block | Spinner | Dart | Weaver | Skimmer | Well | Boss | Null }
+pub enum Kind { | Block | Spinner | Dart | Weaver | Skimmer | Well | Boss | Null | Tank }
 impl Copy for Kind
 impl Eq for Kind
 extend Kind:
@@ -89,6 +89,7 @@ extend Kind:
             .Well => 5
             .Boss => 6
             .Null => 7
+            .Tank => 8
     pub fn name(self: &Self) -> str:
         match self:
             .Block => "Block"
@@ -99,6 +100,7 @@ extend Kind:
             .Well => "Well"
             .Boss => "Boss"
             .Null => "the Null"
+            .Tank => "Tank"
     pub fn tint(self: &Self) -> Tint:
         match self:
             .Block => .Lime
@@ -109,6 +111,7 @@ extend Kind:
             .Well => .Violet
             .Boss => .Red
             .Null => .White
+            .Tank => .Red
     // Darts rush, weavers lag.
     fn speed_bonus(self: &Self) -> f64:
         match self:
@@ -120,12 +123,14 @@ extend Kind:
             .Well => -60.0
             .Boss => -20.0
             .Null => 240.0
+            .Tank => -45.0
     pub fn radius(self: &Self) -> f64:
         match self:
             .Block => 15.0
             .Well => 26.0
             .Boss => 60.0
             .Null => 90.0
+            .Tank => 22.0
             _ => 14.0
     // How far a push or a pull moves this kind, as a share of the force:
     // Darts fly, Blocks lean, elites resist, bosses do not move
@@ -138,6 +143,7 @@ extend Kind:
             .Spinner => 0.5
             .Block => 0.35
             .Well => 0.2
+            .Tank => 0.1
             _ => 0.0
     // Health grows with the square of the minute, and early: a Block has 2
     // by 1:30, 4 by 3:00, 8 by 5:00, 28 by 10:00, 100 by 20:00, so damage
@@ -157,6 +163,9 @@ extend Kind:
             .Well => (24.0 + curve * 6.0) as i32
             .Boss => (500.0 + m * 200.0 + m * m * 12.0) as i32
             .Null => 6000
+            // A Tank: a plated hull that takes a dozen Blocks' worth, and
+            // shrugs off the first few points of every hit (tank_armor).
+            .Tank => (12.0 + curve * 5.0) as i32
     fn contact_damage(self: &Self, minute: f64) -> i32:
         let scaled = (minute / 4.0) as i32
         match self:
@@ -168,6 +177,7 @@ extend Kind:
             .Well => 4 + scaled
             .Boss => 6 + scaled
             .Null => 1000
+            .Tank => 5 + scaled
     // XP a core from this kind carries.
     fn core_value(self: &Self) -> i32:
         match self:
@@ -179,6 +189,7 @@ extend Kind:
             .Well => 6
             .Boss => 40
             .Null => 100
+            .Tank => 8
 pub fn kind_at(index: i32) -> Kind:
     match index:
         0 => .Block
@@ -188,6 +199,7 @@ pub fn kind_at(index: i32) -> Kind:
         4 => .Skimmer
         5 => .Well
         6 => .Boss
+        8 => .Tank
         _ => .Null
 
 pub type Enemy {
@@ -233,6 +245,11 @@ pub type Well { pos: V2 = V2 {}, radius: f64 = 150.0, pull: f64 = 240.0, damage:
 pub const WELL_CAP: i32 = 4
 // The tether's chain: segments between the ship and the blade.
 pub const TETHER_LINKS: i32 = 7
+// Tanks: the first at 2:30, one every twenty-five seconds after; how much
+// nearer one looks to a weapon choosing its target (squared distance).
+pub const TANK_FIRST: f64 = 150.0
+pub const TANK_INTERVAL: f64 = 25.0
+pub const TANK_LURE: f64 = 0.16
 pub type Core { pos: V2 = V2 {}, value: i32 = 1, age: f64 = 0.0 }
 pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache }
 impl Copy for PickupKind
@@ -349,7 +366,7 @@ pub type Game {
     invulnerable: f64 = 0.0, muzzle: f64 = 0.0,
     trauma: f64 = 0.0, flash: f64 = 0.0, freeze: f64 = 0.0, kill_energy: f64 = 0.0,
     enemies_frozen: f64 = 0.0, breather: f64 = 0.0,
-    spawn_timer: f64 = 0.7, next_elite: f64 = 180.0, refill_timer: f64 = 0.0,
+    spawn_timer: f64 = 0.7, next_elite: f64 = 180.0, next_tank: f64 = 150.0, refill_timer: f64 = 0.0,
     boss_index: i32 = 0, boss_alive: bool = false,
     null_alive: bool = false, cleared: bool = false, endless_loop: i32 = 0,
     event_index: i32 = 0, event_telegraph: f64 = 0.0, event_side: i32 = 0,
@@ -359,7 +376,7 @@ pub type Game {
     hits_taken: i32 = 0, bounced_kills: i32 = 0, cores_collected: i32 = 0,
     elites_killed: i32 = 0, bosses_killed: i32 = 0, caches_opened: i32 = 0,
     reboot_used: bool = false, null_killed: bool = false,
-    kills_by_kind: [i32; 8] = [0; 8],
+    kills_by_kind: [i32; 9] = [0; 9],
     best_crossed: bool = false, best_flare: f64 = 0.0,
     // Boss entry pulls the camera back for a moment.
     zoom_timer: f64 = 0.0,
@@ -562,6 +579,7 @@ extend Game:
         self.spawn_timer = 0.7
         self.refill_timer = 0.0
         self.next_elite = self.rules.first_elite
+        self.next_tank = TANK_FIRST
         self.boss_index = 0
         self.boss_alive = false
         self.null_alive = false
@@ -650,7 +668,7 @@ extend Game:
         self.derelict_event = false
 
     // Recompute every multiplier: shop ranks, then passives, then the ship.
-    fn refresh_mods(mut self: Self):
+    pub fn refresh_mods(mut self: Self):
         let m = self.launch.ship.apply(self.build.passive_mods(self.launch.shop), self.level)
         let previous_max: i32 = self.max_health
         self.mods = m
@@ -927,6 +945,14 @@ extend Game:
             if self.rules.mirror:
                 let twin = V2 { x: self.rules.arena_width - at.x, y: at.y }
                 let _ = self.place_enemy(self.clamp_to_arena(twin, 8.0), kind)
+
+    fn spawn_tank(mut self: Self):
+        let Some(pos) = self.spawn_point() else return
+        let _ = self.place_enemy(pos, .Tank)
+
+    // What a Tank's plating takes off every hit: two points, and one more
+    // every two minutes. A hit always lands at least one.
+    pub fn tank_armor(self: &Self) -> i32: 2 + (self.table_minute() / 2.0) as i32
 
     fn spawn_elite(mut self: Self):
         let Some(pos) = self.spawn_point() else return
@@ -1205,6 +1231,10 @@ extend Game:
         var dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
         // Marked by a Shockwave: half again.
         if target.marked > 0.0: dealt = dealt * 3 / 2
+        // A Tank's plating: the first points of every hit do nothing.
+        if target.kind == .Tank:
+            dealt -= self.tank_armor()
+            if dealt < 1: dealt = 1
         self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = cooldown
@@ -1231,13 +1261,15 @@ extend Game:
             else: i += 1
         hits
 
-    fn nearest_enemy(self: &Self, from: V2, max_distance: f64, skip_cd: bool) -> i32:
+    // The nearest enemy in reach. A Tank draws fire: to anything that
+    // picks its own target it looks less than half as far away as it is.
+    pub fn nearest_enemy(self: &Self, from: V2, max_distance: f64, skip_cd: bool, lure: bool = true) -> i32:
         var best = -1
         var best_d = max_distance * max_distance
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             if skip_cd and e.hit_cd > 0.0: continue
-            let d = length2(sub(e.pos, from))
+            let d = length2(sub(e.pos, from)) * (if lure and e.kind == .Tank: TANK_LURE else: 1.0)
             if d < best_d:
                 best_d = d
                 best = i
@@ -1343,7 +1375,7 @@ extend Game:
                     for b in 0..stats.count:
                         let angle = slot_phase + (b as f64) * 6.283185307 / stats.count as f64
                         let blade = add(self.player, V2 { x: cos(angle) * stats.radius, y: sin(angle) * stats.radius })
-                        let _ = self.damage_area(blade, 30.0, stats.damage, false, 0.3)
+                        let _ = self.damage_area(blade, stats.hit, stats.damage, false, 0.3)
                         self.break_beacons_near(blade, 16.0)
                         if stats.ring_on_orbit and self.build.weapons[slot].timer <= 0.0 and not pulsed:
                             pulsed = true
@@ -1385,7 +1417,7 @@ extend Game:
                     self.build.weapons[slot].phase += dt * 1.6
                     for k in 0..stats.count:
                         let body = self.satellite_position(slot, k, stats.count, stats.radius)
-                        let _ = self.damage_area(body, 34.0, stats.damage, false, stats.cooldown)
+                        let _ = self.damage_area(body, stats.hit, stats.damage, false, stats.cooldown)
                         self.break_beacons_near(body, 14.0)
                         var b = 0
                         while b < self.bullet_count:
@@ -1519,7 +1551,7 @@ extend Game:
                             // A beam that only follows the stick fires away from the
                             // swarm whenever the player backs off it.
                             let travel = if length2(motion) > 0.01: direction(motion) else if self.launch.ship.can_aim(): self.aim else: V2 {}
-                            let target = self.nearest_enemy(self.player, stats.radius, false)
+                            let target = self.nearest_enemy(self.player, stats.radius, false, false)
                             let toward = if target >= 0: direction(sub(self.enemies[target].pos, self.player)) else: V2 {}
                             let assisted = length2(toward) > 0.01 and (length2(travel) < 0.01 or travel.x * toward.x + travel.y * toward.y > 0.5)
                             let heading2 = if assisted: toward else if length2(travel) > 0.01: travel else: V2 { x: 1.0 }
@@ -1931,6 +1963,11 @@ extend Game:
         if self.elapsed >= self.next_elite:
             self.next_elite += self.rules.elite_interval
             self.spawn_elite()
+        // A Tank now and then from two and a half: slow, plated, and the
+        // thing every homing weapon turns to.
+        if self.elapsed >= self.next_tank:
+            self.next_tank += TANK_INTERVAL
+            if self.rules.spawn_scale > 0.0: self.spawn_tank()
         // Events: telegraph for two seconds, then the formation.
         if self.event_telegraph > 0.0:
             self.event_telegraph -= dt
@@ -2034,7 +2071,7 @@ extend Game:
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             let to = sub(e.pos, self.player)
-            let d = length2(sub(e.pos, from))
+            let d = length2(sub(e.pos, from)) * (if e.kind == .Tank: TANK_LURE else: 1.0)
             if d >= best_d: continue
             let along = (to.x * self.aim.x + to.y * self.aim.y) / (sqrt(length2(to)) + 0.001)
             if along > 0.819: continue

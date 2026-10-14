@@ -346,6 +346,14 @@ pub fn draw_enemy(kind: Kind, pos: V2, radius: f64, clock: f64, speed: f64, towa
             line(l, sub(pos, scale(toward, radius * 0.2)), 1.2, paint_alpha(color, dim_by))
             line(r, sub(pos, scale(toward, radius * 0.2)), 1.2, paint_alpha(color, dim_by))
         }
+        .Tank => {
+            // Tank: a plated hexagon, slow to turn, a second plate inside it
+            // turning the other way.
+            let angle = clock * 20.0
+            outline(pos, 6, radius, angle, color, 2.6)
+            outline(pos, 6, radius * 0.55, -angle * 1.5, paint_alpha(color, dim_by), 1.6)
+            line(sub(pos, scale(toward, radius * 0.55)), add(pos, scale(toward, radius * 0.55)), 1.4, paint_alpha(color, dim_by))
+        }
         .Well => {
             // Well: concentric rings turning inward, a dark center.
             for i in 0..3:
@@ -1693,7 +1701,7 @@ pub fn passive_total(p: Passive, level: i32) -> str:
         .Rebound => f"{level}"
         .Overclock => f"+{10 * level}%"
         .Duration => f"+{12 * level}%"
-        .Pierce => f"+{level}"
+        .Pierce => f"+{(level + 1) / 2}"
         .Failsafe => (if level >= 4: "50% hull" else if level >= 2: "30% hull" else: "20% hull")
 
 // What a pick leads to: the merge this item is part of, and how close.

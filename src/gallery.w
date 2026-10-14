@@ -30,6 +30,7 @@ fn staged(ship: Ship = .Claw) -> Game:
     g.rules.contact_radius = 0.0
     g.spawn_timer = 1.0e9
     g.next_elite = 1.0e9
+    g.next_tank = 1.0e9
     g.boss_index = 3
     g.event_index = 12
     g
@@ -96,9 +97,9 @@ fn main:
         n += 1
     // 3. The enemy lineup, frozen, then a moving mixed swarm.
     var lineup = staged()
-    let kinds = [Kind.Block, Kind.Spinner, Kind.Dart, Kind.Weaver, Kind.Skimmer, Kind.Well]
-    for i in 0..6:
-        let pos = add(lineup.player, V2 { x: -375.0 + i as f64 * 150.0, y: -160.0 })
+    let kinds = [Kind.Block, Kind.Spinner, Kind.Dart, Kind.Weaver, Kind.Skimmer, Kind.Well, Kind.Tank]
+    for i in 0..7:
+        let pos = add(lineup.player, V2 { x: -420.0 + i as f64 * 140.0, y: -160.0 })
         let _ = lineup.place_enemy(pos, kinds[i])
         lineup.enemies[lineup.enemy_count - 1].age = 1.0
         let elite_pos = add(pos, V2 { y: 150.0 })

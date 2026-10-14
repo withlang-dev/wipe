@@ -18,6 +18,7 @@ fn armed(weapon: Weapon, seed: i32) -> Game:
     g.rules.spawn_scale = 0.0
     g.spawn_timer = 1.0e9
     g.next_elite = 1.0e9
+    g.next_tank = 1.0e9
     g.boss_index = 3
     g.event_index = 12
     g.xp_next = 1000000000

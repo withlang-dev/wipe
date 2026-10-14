@@ -20,6 +20,7 @@ fn miner(seed: i32, count_bonus: i32) -> Game:
     // the trickle, so nothing walks into a mine.
     g.rules.spawn_scale = 0.0
     g.next_elite = 1.0e9
+    g.next_tank = 1.0e9
     g.boss_index = 3
     g.event_index = 12
     g.xp_next = 1000000000

@@ -160,6 +160,7 @@ pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, densi
         g.rules.contact_radius = 0.0
         g.spawn_timer = 1.0e9
         g.next_elite = 1.0e9
+        g.next_tank = 1.0e9
         g.boss_index = 3
         g.event_index = 12
         g.jump_to(minute * 60.0)

@@ -227,6 +227,10 @@ extend Weapon:
             .WellBurst => "Gravity Well and Nova: a well that gathers the swarm, then bursts."
             .Net => "Drone and Turret: three emplacements whose bolts chain lightning."
 
+    // Weapons that fire bolts: what Fire rate quickens.
+    pub fn fires_bolts(self: &Self) -> bool:
+        self.family() in [.Aimed, .Homing, .Bouncing, .Cone, .Return, .Turret, .Drone]
+
     pub fn family(self: &Self) -> Family:
         match self:
             .Cannon => .Aimed
@@ -358,7 +362,7 @@ extend Passive:
     pub fn describe(self: &Self) -> str:
         match self:
             .Damage => "+15% damage"
-            .FireRate => "-8% cannon interval"
+            .FireRate => "-8% bolt interval"
             .Count => "+1 projectile every other level"
             .Area => "+12% area and radius"
             .ProjSpeed => "+12% projectile speed"
@@ -372,7 +376,7 @@ extend Passive:
             .Rebound => "projectiles bounce off walls once more"
             .Overclock => "+10% enemies, +10% XP and credits"
             .Duration => "+12% to how long wells and shells last, and how far a shell flies"
-            .Pierce => "every bolt passes through 1 more enemy"
+            .Pierce => "every bolt passes through 1 more enemy, every other rank"
             .Failsafe => "one revival a run: at I with 20% hull, more hull and grace with each level"
 
 // A merge recipe: weapons at max, key passive held at any level.
@@ -446,6 +450,9 @@ pub type WeaponStats {
     pull: f64 = 0.0, burst_on_end: bool = false,
     // Drones: how many wingmen fly.
     drones: i32 = 1,
+    // Orbiting blades and satellite bodies: the reach of each one; Area
+    // grows the blade, not the ring.
+    hit: f64 = 30.0,
     // A fan's spread between bolts (radians); a ring's shove and its mark.
     spread: f64 = 0.09, push: f64 = 0.0, mark: f64 = 0.0,
 }
@@ -629,6 +636,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.radius = 100.0 + l * 4.0
             s.damage = 8 + level * 3 / 2
             s.count = 1
+            s.hit = 34.0
         }
         .Repulsor => {
             // Now and then, a zone nothing holds position in: lifetime how
@@ -698,16 +706,18 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     s.damage = ((s.damage as f64) * mods.damage + 0.5) as i32
     if s.damage < 1: s.damage = 1
     s.cooldown *= mods.cooldown
-    if weapon.family() == .Aimed or weapon.family() == .Dropped: s.cooldown *= mods.cannon_rate
+    if weapon.fires_bolts() or weapon.family() == .Dropped: s.cooldown *= mods.cannon_rate
     if s.cooldown < 0.03: s.cooldown = 0.03
     // Lightning bolts are the Arc's level table, not projectiles: each carries
     // its chain, so the Projectiles passive would multiply the weapon.
-    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting or weapon.family() == .Cone or weapon.family() == .Return:
+    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting or weapon.family() == .Cone or weapon.family() == .Return or weapon.family() == .Satellite:
         s.count += mods.count
     // Pierce: every bolt passes through more.
     if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Cone or weapon.family() == .Drone or weapon.family() == .Turret:
         s.pierce += mods.pierce
-    s.radius *= mods.area
+    // Area widens what a weapon covers: an orbit's blade, not its ring.
+    if weapon.family() == .Orbiting or weapon.family() == .Satellite: s.hit *= mods.area
+    else: s.radius *= mods.area
     s.speed *= mods.proj_speed
     s.bounces += mods.rebound
     // Duration: how long a well, a shell or a bolt lasts; a thrown shell's
@@ -931,7 +941,7 @@ extend Build:
                 .Rebound => { m.rebound += s.level }
                 .Overclock => { m.overclock += 0.1 * l }
                 .Duration => { m.duration *= 1.0 + 0.12 * l }
-                .Pierce => { m.pierce += s.level }
+                .Pierce => { m.pierce += (s.level + 1) / 2 }
                 .Failsafe => { m.failsafe = s.level }
         m.xp *= 1.0 + m.overclock
         m.credit *= 1.0 + m.overclock

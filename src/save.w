@@ -44,8 +44,8 @@ pub type Save {
     // The run that met each condition (0: not yet, or from the start).
     weapon_unlocked_run: [i32; 20] = [0; 20],
     passive_unlocked_run: [i32; 17] = [0; 17],
-    registry_kills: [i32; 8] = [0; 8],
-    registry_first: [f64; 8] = [-1.0; 8],
+    registry_kills: [i32; 9] = [0; 9],
+    registry_first: [f64; 9] = [-1.0; 9],
     // Each boss's first kill, the achievement.
     boss_slain: [bool; 3] = [false; 3],
     boss_kills: [i32; 3] = [0; 3],
