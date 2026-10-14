@@ -9,9 +9,9 @@ use game
 
 // The player never loses a save. One file of `key value` lines, written
 // atomically with a backup on every change, read before the first frame.
-// Version 2 (2026-10-13): twelve base weapons; a version-1 file's weapon
-// indices are remapped on load (weapon_index_v1).
-pub const SAVE_VERSION: i32 = 2
+// Version 3 (2026-10-13): twenty base weapons; an older file's weapon
+// indices are remapped on load (weapon_index_from).
+pub const SAVE_VERSION: i32 = 3
 pub const SHOP_ITEM_COUNT: i32 = 16
 
 pub type Save {
@@ -32,12 +32,12 @@ pub type Save {
     cleared: [bool; 9] = [false; 9],
     ship_runs: [i32; 9] = [0; 9],
     // Longest a run held each base weapon, in seconds.
-    held: [f64; 12] = [0.0; 12],
-    taken_weapons: [bool; 29] = [false; 29],
-    taken_passives: [bool; 15] = [false; 15],
+    held: [f64; 20] = [0.0; 20],
+    taken_weapons: [bool; 46] = [false; 46],
+    taken_passives: [bool; 17] = [false; 17],
     // The run that met each condition (0: not yet, or from the start).
-    weapon_unlocked_run: [i32; 12] = [0; 12],
-    passive_unlocked_run: [i32; 15] = [0; 15],
+    weapon_unlocked_run: [i32; 20] = [0; 20],
+    passive_unlocked_run: [i32; 17] = [0; 17],
     registry_kills: [i32; 8] = [0; 8],
     registry_first: [f64; 8] = [-1.0; 8],
     // Each boss's first kill, the achievement.
@@ -49,11 +49,13 @@ pub type Save {
 }
 impl Copy for Save
 
-// Where a version-1 file's weapon index lives now: the eight base weapons
-// kept their places, the evolutions moved from 8 to 12, the unions from
-// 16 to 24.
-pub fn weapon_index_v1(old: i32) -> i32:
-    if old < 8: old else if old < 16: old + 4 else: old + 8
+// Where an older file's weapon index lives now. Version 1 had 8 base
+// weapons (evolutions from 8, unions from 16); version 2 had 12 (from 12
+// and 24); version 3 has 20 (from 20 and 40). Base weapons keep their places.
+pub fn weapon_index_from(version: i32, old: i32) -> i32:
+    if version < 2: (if old < 8: old else if old < 16: old + 12 else: old + 24)
+    else if version < 3: (if old < 12: old else if old < 24: old + 8 else: old + 16)
+    else: old
 
 // A save that could be read only partly, or not at all, says so once.
 pub enum LoadNotice { | Fresh | Loaded | Restored | SetAside | TooNew(version: i32) }
@@ -182,7 +184,7 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
         else if key == "passive_unlocked_run":
             if index >= 0 and index < PASSIVE_COUNT: s.passive_unlocked_run[index] = parse(third)
         else if key == "taken_weapon":
-            let at = if s.version < 2: weapon_index_v1(index) else: index
+            let at = weapon_index_from(s.version, index)
             if at >= 0 and at < WEAPON_COUNT: s.taken_weapons[at] = parse_bool(third)
         else if key == "taken_passive":
             if index >= 0 and index < PASSIVE_COUNT: s.taken_passives[index] = parse_bool(third)

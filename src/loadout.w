@@ -5,16 +5,19 @@
 pub enum Weapon {
     | Cannon | Orbit | Nova | Seeker | Lance | Mines | Arc | Shard
     | Tether | GravityWell | Drone | Lob
+    | Flak | Turret | Sweep | TeslaField | Boomerang | Shockwave | Satellite | Repulsor
     | Railgun | Corona | Supernova | Swarm | Pike | Minefield | Storm | Shatter
     | LongTether | Singularity | TwinDrones | Barrage
-    | Tracer | Pulsar | Grid | Refractor | WellBurst
+    | Shrapnel | Battery | Lighthouse | StormCage | TwinReturn | Tremor | Constellation | Bastion
+    | Tracer | Pulsar | Grid | Refractor | WellBurst | Net
 }
 impl Copy for Weapon
 impl Eq for Weapon
 
-// Twelve base weapons, their twelve evolutions, five unions (progression-matrix §1).
-pub const WEAPON_COUNT: i32 = 29
-pub const BASE_WEAPON_COUNT: i32 = 12
+// Twenty base weapons, their twenty evolutions, six unions (progression-matrix §1):
+// base 0-19, evolutions 20-39, unions from 40.
+pub const WEAPON_COUNT: i32 = 46
+pub const BASE_WEAPON_COUNT: i32 = 20
 // Five levels to a maxed weapon: a merge is six to eleven picks, reachable
 // in most runs that aim for it and not in every run.
 pub const MAX_WEAPON_LEVEL: i32 = 5
@@ -35,27 +38,44 @@ pub fn weapon_at(index: i32) -> Weapon:
         9 => .GravityWell
         10 => .Drone
         11 => .Lob
-        12 => .Railgun
-        13 => .Corona
-        14 => .Supernova
-        15 => .Swarm
-        16 => .Pike
-        17 => .Minefield
-        18 => .Storm
-        19 => .Shatter
-        20 => .LongTether
-        21 => .Singularity
-        22 => .TwinDrones
-        23 => .Barrage
-        24 => .Tracer
-        25 => .Pulsar
-        26 => .Grid
-        27 => .Refractor
-        _ => .WellBurst
+        12 => .Flak
+        13 => .Turret
+        14 => .Sweep
+        15 => .TeslaField
+        16 => .Boomerang
+        17 => .Shockwave
+        18 => .Satellite
+        19 => .Repulsor
+        20 => .Railgun
+        21 => .Corona
+        22 => .Supernova
+        23 => .Swarm
+        24 => .Pike
+        25 => .Minefield
+        26 => .Storm
+        27 => .Shatter
+        28 => .LongTether
+        29 => .Singularity
+        30 => .TwinDrones
+        31 => .Barrage
+        32 => .Shrapnel
+        33 => .Battery
+        34 => .Lighthouse
+        35 => .StormCage
+        36 => .TwinReturn
+        37 => .Tremor
+        38 => .Constellation
+        39 => .Bastion
+        40 => .Tracer
+        41 => .Pulsar
+        42 => .Grid
+        43 => .Refractor
+        44 => .WellBurst
+        _ => .Net
 
 // How a weapon fires. Merged weapons reuse a family with multipliers and
 // flags, so one firing routine per family covers twenty weapons.
-pub enum Family { | Aimed | Orbiting | Ring | Homing | Beam | Dropped | Chain | Bouncing | Tether | Field | Drone | Lobbed }
+pub enum Family { | Aimed | Orbiting | Ring | Homing | Beam | Dropped | Chain | Bouncing | Tether | Field | Drone | Lobbed | Cone | Turret | Sweep | Tesla | Return | Shock | Satellite | Repulsor }
 impl Copy for Family
 impl Eq for Family
 
@@ -74,23 +94,40 @@ extend Weapon:
             .GravityWell => 9
             .Drone => 10
             .Lob => 11
-            .Railgun => 12
-            .Corona => 13
-            .Supernova => 14
-            .Swarm => 15
-            .Pike => 16
-            .Minefield => 17
-            .Storm => 18
-            .Shatter => 19
-            .LongTether => 20
-            .Singularity => 21
-            .TwinDrones => 22
-            .Barrage => 23
-            .Tracer => 24
-            .Pulsar => 25
-            .Grid => 26
-            .Refractor => 27
-            .WellBurst => 28
+            .Flak => 12
+            .Turret => 13
+            .Sweep => 14
+            .TeslaField => 15
+            .Boomerang => 16
+            .Shockwave => 17
+            .Satellite => 18
+            .Repulsor => 19
+            .Railgun => 20
+            .Corona => 21
+            .Supernova => 22
+            .Swarm => 23
+            .Pike => 24
+            .Minefield => 25
+            .Storm => 26
+            .Shatter => 27
+            .LongTether => 28
+            .Singularity => 29
+            .TwinDrones => 30
+            .Barrage => 31
+            .Shrapnel => 32
+            .Battery => 33
+            .Lighthouse => 34
+            .StormCage => 35
+            .TwinReturn => 36
+            .Tremor => 37
+            .Constellation => 38
+            .Bastion => 39
+            .Tracer => 40
+            .Pulsar => 41
+            .Grid => 42
+            .Refractor => 43
+            .WellBurst => 44
+            .Net => 45
 
     pub fn name(self: &Self) -> str:
         match self:
@@ -106,6 +143,14 @@ extend Weapon:
             .GravityWell => "Gravity Well"
             .Drone => "Drone"
             .Lob => "Lob"
+            .Flak => "Flak"
+            .Turret => "Turret"
+            .Sweep => "Sweep"
+            .TeslaField => "Tesla Field"
+            .Boomerang => "Boomerang"
+            .Shockwave => "Shockwave"
+            .Satellite => "Satellite"
+            .Repulsor => "Repulsor"
             .Railgun => "Railgun"
             .Corona => "Corona"
             .Supernova => "Supernova"
@@ -118,11 +163,20 @@ extend Weapon:
             .Singularity => "Singularity"
             .TwinDrones => "Twin Drones"
             .Barrage => "Barrage"
+            .Shrapnel => "Shrapnel"
+            .Battery => "Battery"
+            .Lighthouse => "Lighthouse"
+            .StormCage => "Storm Cage"
+            .TwinReturn => "Twin Return"
+            .Tremor => "Tremor"
+            .Constellation => "Constellation"
+            .Bastion => "Bastion"
             .Tracer => "Tracer"
             .Pulsar => "Pulsar"
             .Grid => "Grid"
             .Refractor => "Refractor"
             .WellBurst => "Well Burst"
+            .Net => "Net"
 
     pub fn describe(self: &Self) -> str:
         match self:
@@ -138,6 +192,14 @@ extend Weapon:
             .GravityWell => "A well where you aim: it pulls the swarm in and crushes what reaches the middle."
             .Drone => "A wingman that shoots whatever is not in front of you."
             .Lob => "A shell thrown along the aim, a fixed distance out, bursting where it lands. Nothing closer is touched."
+            .Flak => "A short, wide cone of fragments. Close in and everything in front of you is shredded."
+            .Turret => "An emplacement dropped where the ship is, firing at the nearest enemy for a while. Place it well."
+            .Sweep => "A beam that turns slowly around the ship, burning everything it crosses."
+            .TeslaField => "A constant field: everything near the ship is shocked, twice a second."
+            .Boomerang => "Out along the aim and back along the same line, hitting twice."
+            .Shockwave => "A ring that shoves the swarm back and marks it: what it touched takes more damage for a while."
+            .Satellite => "A body on a slow orbit that catches hostile fire and breaks what it touches."
+            .Repulsor => "Now and then, a zone around the ship that nothing can hold position in."
             .Railgun => "Cannon evolved: three heavy bolts that pierce three."
             .Corona => "Orbit evolved: a wide, dense ring of blades."
             .Supernova => "Nova evolved: a vast ring, twice as often."
@@ -150,11 +212,20 @@ extend Weapon:
             .Singularity => "Gravity Well evolved: wider, longer, and it does not let go."
             .TwinDrones => "Drone evolved: two wingmen with chaining beams."
             .Barrage => "Lob evolved: three shells a volley, bigger bursts."
+            .Shrapnel => "Flak evolved: more fragments, and they pierce."
+            .Battery => "Turret evolved: four emplacements, faster fire."
+            .Lighthouse => "Sweep evolved: two beams, opposite, turning faster."
+            .StormCage => "Tesla Field evolved: a wider field whose shocks chain."
+            .TwinReturn => "Boomerang evolved: two, out to each side and back."
+            .Tremor => "Shockwave evolved: a wider ring, a harder shove, a longer mark."
+            .Constellation => "Satellite evolved: three bodies on a wider orbit."
+            .Bastion => "Repulsor evolved: a wider zone that lasts, and bites."
             .Tracer => "Cannon and Seeker: aimed bolts that hunt."
             .Pulsar => "Orbit and Nova: blades that burst as they turn."
             .Grid => "Mines and Arc: detonations that chain lightning."
             .Refractor => "Lance and Shard: a deep beam that shatters where it ends."
             .WellBurst => "Gravity Well and Nova: a well that gathers the swarm, then bursts."
+            .Net => "Drone and Turret: three emplacements whose bolts chain lightning."
 
     pub fn family(self: &Self) -> Family:
         match self:
@@ -187,6 +258,23 @@ extend Weapon:
             .TwinDrones => .Drone
             .Lob => .Lobbed
             .Barrage => .Lobbed
+            .Flak => .Cone
+            .Shrapnel => .Cone
+            .Turret => .Turret
+            .Battery => .Turret
+            .Net => .Turret
+            .Sweep => .Sweep
+            .Lighthouse => .Sweep
+            .TeslaField => .Tesla
+            .StormCage => .Tesla
+            .Boomerang => .Return
+            .TwinReturn => .Return
+            .Shockwave => .Shock
+            .Tremor => .Shock
+            .Satellite => .Satellite
+            .Constellation => .Satellite
+            .Repulsor => .Repulsor
+            .Bastion => .Repulsor
 
     pub fn is_merged(self: &Self) -> bool: self.index() >= BASE_WEAPON_COUNT
 
@@ -197,12 +285,12 @@ extend Weapon:
 // Fourteen passives: eight at launch, six unlockable.
 pub enum Passive {
     | Damage | FireRate | Count | Area | ProjSpeed | Magnet | Speed | Health
-    | Cooldown | Armor | Luck | Credit | Rebound | Overclock | Duration
+    | Cooldown | Armor | Luck | Credit | Rebound | Overclock | Duration | Pierce | Failsafe
 }
 impl Copy for Passive
 impl Eq for Passive
 
-pub const PASSIVE_COUNT: i32 = 15
+pub const PASSIVE_COUNT: i32 = 17
 pub const MAX_PASSIVE_LEVEL: i32 = 5
 
 pub fn passive_at(index: i32) -> Passive:
@@ -221,7 +309,9 @@ pub fn passive_at(index: i32) -> Passive:
         11 => .Credit
         12 => .Rebound
         13 => .Overclock
-        _ => .Duration
+        14 => .Duration
+        15 => .Pierce
+        _ => .Failsafe
 
 extend Passive:
     pub fn index(self: &Self) -> i32:
@@ -241,6 +331,8 @@ extend Passive:
             .Rebound => 12
             .Overclock => 13
             .Duration => 14
+            .Pierce => 15
+            .Failsafe => 16
 
     pub fn name(self: &Self) -> str:
         match self:
@@ -259,6 +351,8 @@ extend Passive:
             .Rebound => "Rebound"
             .Overclock => "Overclock"
             .Duration => "Duration"
+            .Pierce => "Pierce"
+            .Failsafe => "Failsafe"
 
     // The delta of one more level, in plain numbers.
     pub fn describe(self: &Self) -> str:
@@ -278,14 +372,16 @@ extend Passive:
             .Rebound => "projectiles bounce off walls once more"
             .Overclock => "+10% enemies, +10% XP and credits"
             .Duration => "+12% to how long wells and shells last, and how far a shell flies"
+            .Pierce => "every bolt passes through 1 more enemy"
+            .Failsafe => "one revival a run: at I with 20% hull, more hull and grace with each level"
 
 // A merge recipe: weapons at max, key passive held at any level.
 pub type Recipe { result: Weapon = .Railgun, first: Weapon = .Cannon, second: Option[Weapon] = None, key: Passive = .FireRate }
 impl Copy for Recipe
 
-pub const RECIPE_COUNT: i32 = 17
+pub const RECIPE_COUNT: i32 = 26
 
-pub fn recipes() -> [Recipe; 17]:
+pub fn recipes() -> [Recipe; 26]:
     [
         Recipe { result: .Railgun, first: .Cannon, key: .FireRate },
         Recipe { result: .Corona, first: .Orbit, key: .Area },
@@ -304,6 +400,15 @@ pub fn recipes() -> [Recipe; 17]:
         Recipe { result: .TwinDrones, first: .Drone, key: .Count },
         Recipe { result: .Barrage, first: .Lob, key: .Area },
         Recipe { result: .WellBurst, first: .GravityWell, second: Some(.Nova), key: .Area },
+        Recipe { result: .Shrapnel, first: .Flak, key: .Pierce },
+        Recipe { result: .Battery, first: .Turret, key: .Duration },
+        Recipe { result: .Lighthouse, first: .Sweep, key: .Rebound },
+        Recipe { result: .StormCage, first: .TeslaField, key: .Cooldown },
+        Recipe { result: .TwinReturn, first: .Boomerang, key: .ProjSpeed },
+        Recipe { result: .Tremor, first: .Shockwave, key: .Armor },
+        Recipe { result: .Constellation, first: .Satellite, key: .Luck },
+        Recipe { result: .Bastion, first: .Repulsor, key: .Health },
+        Recipe { result: .Net, first: .Drone, second: Some(.Turret), key: .Credit },
     ]
 
 pub fn recipe_for(result: Weapon) -> Option[Recipe]:
@@ -326,6 +431,8 @@ pub type Mods {
     rebound: i32 = 0, overclock: f64 = 0.0, xp: f64 = 1.0,
     regen: f64 = 0.0, invuln_bonus: f64 = 0.0,
     duration: f64 = 1.0,
+    // Pierce adds to every bolt; Failsafe is the level of the one revival (0: none).
+    pierce: i32 = 0, failsafe: i32 = 0,
 }
 impl Copy for Mods
 
@@ -339,6 +446,8 @@ pub type WeaponStats {
     pull: f64 = 0.0, burst_on_end: bool = false,
     // Drones: how many wingmen fly.
     drones: i32 = 1,
+    // A fan's spread between bolts (radians); a ring's shove and its mark.
+    spread: f64 = 0.09, push: f64 = 0.0, mark: f64 = 0.0,
 }
 impl Copy for WeaponStats
 
@@ -453,6 +562,82 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             s.damage = 4 + level
             s.count = 1
         }
+        .Cone => {
+            // Flak: a wide, short fan. Close in and all of it lands.
+            s.cooldown = 0.85 - (l - 1.0) * 0.05
+            s.count = 5 + step(level, 2, 2)
+            s.spread = 0.2
+            s.speed = 760.0
+            s.lifetime = 0.24
+            s.damage = 4 + level * 2 / 3
+            s.pierce = 1
+        }
+        .Turret => {
+            // An emplacement where the ship is, for a while; it fires at the
+            // nearest enemy. radius is its reach, max_active how many stand.
+            s.cooldown = 6.0 - (l - 1.0) * 0.25
+            s.lifetime = 8.0
+            s.radius = 480.0
+            s.damage = 3 + level * 2 / 3
+            s.speed = 900.0
+            s.max_active = 2
+            s.chain = 0
+            // Each emplacement fires a three-bolt spread four times a second.
+            s.count = 3
+            s.pierce = 1
+        }
+        .Sweep => {
+            // A beam turning around the ship: radius its length, speed its
+            // turn in radians a second, damage per crossing.
+            s.cooldown = 0.14
+            s.radius = 300.0 + l * 20.0
+            s.speed = 1.5 + (l - 1.0) * 0.08
+            s.damage = 2 + level / 2
+            s.pierce = 24
+            s.count = 1
+        }
+        .Tesla => {
+            // A constant field around the ship: everything inside is shocked
+            // twice a second.
+            s.cooldown = 0.5
+            s.radius = 120.0 + l * 10.0
+            s.damage = 2 + level / 2
+        }
+        .Return => {
+            // Out along the aim for half its life, back along the same line
+            // for the other half, hitting everything once each way.
+            s.cooldown = 1.2 - (l - 1.0) * 0.06
+            s.speed = 700.0
+            s.lifetime = 1.2
+            s.damage = 6 + level
+            s.pierce = 40
+            s.count = 1
+        }
+        .Shock => {
+            // A ring that shoves and marks: what it touched takes half again
+            // the damage for a while.
+            s.cooldown = 4.5 - (l - 1.0) * 0.15
+            s.radius = 200.0 + l * 12.0
+            s.damage = 1 + level / 3
+            s.push = 70.0
+            s.mark = 2.5
+        }
+        .Satellite => {
+            // Bodies on a slow orbit: count how many, radius the orbit.
+            s.cooldown = 0.25
+            s.radius = 100.0 + l * 4.0
+            s.damage = 8 + level * 3 / 2
+            s.count = 1
+        }
+        .Repulsor => {
+            // Now and then, a zone nothing holds position in: lifetime how
+            // long, radius how wide, push how hard, in pixels a second.
+            s.cooldown = 6.0 - (l - 1.0) * 0.2
+            s.lifetime = 2.5
+            s.radius = 160.0 + l * 8.0
+            s.push = 220.0
+            s.damage = 1 + level / 3
+        }
         .Chain => {
             // Bolts and chains by level, as designed: I one bolt; II two;
             // III two, each chaining once; IV two, chaining twice; V three,
@@ -498,6 +683,15 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
         .TwinDrones => { s.drones = 2; s.chain = 2; s.damage = s.damage * 3 / 2 }
         .Barrage => { s.count = 3; s.radius *= 1.3; s.damage = s.damage * 3 / 2 }
         .WellBurst => { s.radius *= 1.2; s.pull *= 1.2; s.damage = s.damage * 5 / 4; s.burst_on_end = true }
+        .Shrapnel => { s.count += 4; s.pierce += 2; s.damage = s.damage * 3 / 2 }
+        .Battery => { s.max_active = 4; s.cooldown *= 0.7; s.lifetime *= 1.5; s.damage = s.damage * 3 / 2 }
+        .Lighthouse => { s.count = 2; s.speed *= 1.5; s.damage = s.damage * 3 / 2 }
+        .StormCage => { s.radius *= 1.5; s.damage = s.damage * 3 / 2; s.chain = 2 }
+        .TwinReturn => { s.count = 2; s.damage = s.damage * 3 / 2 }
+        .Tremor => { s.radius *= 1.4; s.push *= 2.0; s.mark = 4.0; s.damage *= 2 }
+        .Constellation => { s.count = 3; s.radius *= 1.2; s.damage = s.damage * 3 / 2 }
+        .Bastion => { s.lifetime *= 1.6; s.radius *= 1.3; s.push *= 1.3; s.damage *= 2 }
+        .Net => { s.max_active = 3; s.chain = 2; s.lifetime *= 1.3; s.damage = s.damage * 3 / 2 }
         _ => ()
     // Passives and shop ranks apply on top.
     s.damage = ((s.damage as f64) * mods.damage + 0.5) as i32
@@ -507,8 +701,11 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
     if s.cooldown < 0.03: s.cooldown = 0.03
     // Lightning bolts are the Arc's level table, not projectiles: each carries
     // its chain, so the Projectiles passive would multiply the weapon.
-    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting:
+    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Orbiting or weapon.family() == .Cone or weapon.family() == .Return:
         s.count += mods.count
+    // Pierce: every bolt passes through more.
+    if weapon.family() == .Aimed or weapon.family() == .Homing or weapon.family() == .Bouncing or weapon.family() == .Cone or weapon.family() == .Drone or weapon.family() == .Turret:
+        s.pierce += mods.pierce
     s.radius *= mods.area
     s.speed *= mods.proj_speed
     s.bounces += mods.rebound
@@ -554,11 +751,11 @@ pub type Build {
     weapons: [WeaponSlot; 6] = [WeaponSlot {}; 6],
     passives: [PassiveSlot; 6] = [PassiveSlot {}; 6],
     weapon_slots: i32 = WEAPON_SLOTS,
-    banished_weapons: [bool; 29] = [false; 29],
-    banished_passives: [bool; 15] = [false; 15],
+    banished_weapons: [bool; 46] = [false; 46],
+    banished_passives: [bool; 17] = [false; 17],
     // Weapons and passives this account may be offered.
-    unlocked_weapons: [bool; 29] = [false; 29],
-    unlocked_passives: [bool; 15] = [false; 15],
+    unlocked_weapons: [bool; 46] = [false; 46],
+    unlocked_passives: [bool; 17] = [false; 17],
     forbidden_weapon: Option[Weapon] = None,
     merges_this_run: i32 = 0,
 }
@@ -730,6 +927,8 @@ extend Build:
                 .Rebound => { m.rebound += s.level }
                 .Overclock => { m.overclock += 0.1 * l }
                 .Duration => { m.duration *= 1.0 + 0.12 * l }
+                .Pierce => { m.pierce += s.level }
+                .Failsafe => { m.failsafe = s.level }
         m.xp *= 1.0 + m.overclock
         m.credit *= 1.0 + m.overclock
         m

@@ -143,9 +143,9 @@ pub fn fly(start: Game, style: Style, seconds: f64) -> (Game, Stats):
 
 // Kills per minute for one weapon alone against a steady swarm: the
 // balance bench. The ship circles the center with an unkillable hull.
-pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i32) -> i32:
+pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i32, seeds: i32 = 3) -> i32:
     var total = 0
-    for seed in 0..3:
+    for seed in 0..seeds:
         var g = Game.new(Rules { minimum_start: 0.0 })
         g.rng = 1234567 +% (seed as u32) *% 2654435761
         var launch = Launch {}
@@ -175,4 +175,4 @@ pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, densi
                 g.pending_cache_items = 0
                 g.phase = .Running
         total += g.kills * 60 / (seconds as i32)
-    total / 3
+    total / seeds

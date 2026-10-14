@@ -190,6 +190,7 @@ pub fn progress(c: Condition, s: &Save) -> (f64, f64):
         .Clear => (s.clears as f64, 1.0)
         .Bosses(n) => (s.bosses as f64, n as f64)
         .Merges(n) => (s.merges as f64, n as f64)
+        .Deaths(n) => ((s.runs - s.clears) as f64, n as f64)
         .HurryClear => (s.hurry_clears as f64, 1.0)
 
 pub fn met(c: Condition, s: &Save) -> bool:
@@ -221,6 +222,14 @@ pub fn weapon_condition(w: Weapon) -> Condition:
         .GravityWell => .Bosses(count: 1)
         .Drone => .Elites(count: 5)
         .Lob => .Survive(seconds: 720)
+        .Flak => .LifetimeKills(count: 5000)
+        .Turret => .Caches(count: 3)
+        .Sweep => .Survive(seconds: 900)
+        .TeslaField => .Elites(count: 15)
+        .Boomerang => .BouncedKills(count: 300)
+        .Shockwave => .Clear
+        .Satellite => .HitsSurvived(count: 30)
+        .Repulsor => .Bosses(count: 9)
         _ => .Start
 
 pub fn passive_condition(p: Passive) -> Condition:
@@ -232,6 +241,8 @@ pub fn passive_condition(p: Passive) -> Condition:
         .Rebound => .BouncedKills(count: 50)
         .Overclock => .Bosses(count: 6)
         .Duration => .Survive(seconds: 480)
+        .Pierce => .Merges(count: 1)
+        .Failsafe => .Deaths(count: 10)
         _ => .Start
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)

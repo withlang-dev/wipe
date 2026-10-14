@@ -311,6 +311,14 @@ pub fn weapon_tint(weapon: Weapon) -> Color:
         .Field => violet(1.0)
         .Drone => blue(1.0)
         .Lobbed => gold(1.0)
+        .Cone => gold(1.0)
+        .Turret => gold(1.0)
+        .Sweep => red(1.0)
+        .Tesla => violet(1.0)
+        .Return => magenta(1.0)
+        .Shock => cyan(1.0)
+        .Satellite => blue(1.0)
+        .Repulsor => cyan(1.0)
 pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f64):
     let color = paint_alpha(weapon_tint(weapon), alpha as f32)
     let merged = weapon.is_merged()
@@ -398,6 +406,67 @@ pub fn draw_weapon_icon(weapon: Weapon, pos: V2, size: f64, clock: f64, alpha: f
                 let at2 = add(pos, V2 { x: -cos(a) * size * 0.75, y: -sin(a) * size * 0.75 })
                 circle(at2, size * 0.2, color)
         }
+        .Cone => {
+            // A fan from a point.
+            for k in 0..5:
+                let a = -0.5 + k as f64 * 0.25
+                line(add(pos, V2 { x: -size * 0.8 }), add(pos, V2 { x: -size * 0.8 + cos(a) * size * 1.6, y: sin(a) * size * 1.6 }), 1.5, color)
+            if merged: circle(add(pos, V2 { x: -size * 0.8 }), size * 0.2, white(alpha))
+        }
+        .Turret => {
+            // A squat box with a barrel.
+            DrawPolyLinesEx(rv(pos), 4, (size * 0.6) as f32, 45.0, 2.0, color)
+            line(pos, add(pos, V2 { x: cos(clock * 1.5) * size, y: sin(clock * 1.5) * size }), 2.5, white(alpha))
+            if merged: DrawPolyLinesEx(rv(pos), 4, (size * 0.95) as f32, 45.0, 1.0, paint_alpha(color, 0.5))
+        }
+        .Sweep => {
+            // A beam from the center, turning.
+            let a = clock * 1.8
+            line(pos, add(pos, V2 { x: cos(a) * size, y: sin(a) * size }), 3.0, paint_alpha(color, 0.6))
+            line(pos, add(pos, V2 { x: cos(a) * size, y: sin(a) * size }), 1.2, white(alpha))
+            if merged: line(pos, sub(pos, V2 { x: cos(a) * size, y: sin(a) * size }), 2.0, paint_alpha(color, 0.6))
+            ring(pos, size * 0.9, paint_alpha(color, 0.25))
+        }
+        .Tesla => {
+            // A ring with sparks.
+            ring(pos, size * 0.85, paint_alpha(color, 0.6))
+            for k in 0..3:
+                let a = clock * 4.0 + k as f64 * 2.094
+                line(pos, add(pos, V2 { x: cos(a) * size * 0.85, y: sin(a) * size * 0.85 }), 1.5, white(alpha * 0.8))
+            if merged: ring(pos, size * 1.1, paint_alpha(color, 0.35))
+        }
+        .Return => {
+            // Out and back: a bent line with a dot at the turn.
+            let turn = add(pos, V2 { x: size * 0.9 })
+            line(add(pos, V2 { x: -size, y: size * 0.3 }), turn, 2.0, color)
+            line(turn, add(pos, V2 { x: -size, y: -size * 0.3 }), 2.0, color)
+            circle(turn, size * 0.2, white(alpha))
+            if merged: line(add(pos, V2 { x: -size, y: 0.0 }), add(pos, V2 { x: -size * 0.2, y: 0.0 }), 1.0, paint_alpha(color, 0.5))
+        }
+        .Shock => {
+            // A ring with ticks pushing out.
+            ring(pos, size * 0.6, color)
+            for k in 0..6:
+                let a = k as f64 * 1.0472 + clock * 0.5
+                line(add(pos, V2 { x: cos(a) * size * 0.6, y: sin(a) * size * 0.6 }), add(pos, V2 { x: cos(a) * size, y: sin(a) * size }), 1.5, paint_alpha(color, 0.7))
+            if merged: ring(pos, size * 1.05, paint_alpha(color, 0.35))
+        }
+        .Satellite => {
+            // One body on a ring, or three.
+            ring(pos, size * 0.8, paint_alpha(color, 0.35))
+            for k in 0..(if merged: 3 else: 1):
+                let a = clock * 1.2 + k as f64 * 2.094
+                circle(add(pos, V2 { x: cos(a) * size * 0.8, y: sin(a) * size * 0.8 }), size * 0.28, color)
+            circle(pos, size * 0.15, white(alpha * 0.6))
+        }
+        .Repulsor => {
+            // Rings pushing outward.
+            let t = (clock * 0.8) % 1.0
+            ring(pos, size * (0.3 + t * 0.7), paint_alpha(color, 1.0 - t))
+            ring(pos, size * (0.3 + ((t + 0.5) % 1.0) * 0.7), paint_alpha(color, 1.0 - ((t + 0.5) % 1.0)))
+            circle(pos, size * 0.15, white(alpha))
+            if merged: ring(pos, size * 1.05, paint_alpha(color, 0.4))
+        }
         .Lobbed => {
             // An arc out to a burst.
             var from = add(pos, V2 { x: -size, y: size * 0.5 })
@@ -450,6 +519,21 @@ pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
         .Overclock => {
             DrawPolyLinesEx(rv(pos), 3, size as f32, 90.0, 2.0, red(alpha))
             line(add(pos, V2 { y: -size * 0.4 }), add(pos, V2 { y: size * 0.3 }), 1.6, red(alpha))
+        }
+        .Pierce => {
+            // An arrow through a bar.
+            line(add(pos, V2 { x: -size, y: 0.0 }), add(pos, V2 { x: size, y: 0.0 }), 2.0, color)
+            line(add(pos, V2 { x: size * 0.5, y: -size * 0.4 }), add(pos, V2 { x: size, y: 0.0 }), 2.0, color)
+            line(add(pos, V2 { x: size * 0.5, y: size * 0.4 }), add(pos, V2 { x: size, y: 0.0 }), 2.0, color)
+            line(add(pos, V2 { x: 0.0, y: -size * 0.7 }), add(pos, V2 { x: 0.0, y: size * 0.7 }), 2.0, paint_alpha(color, 0.6))
+        }
+        .Failsafe => {
+            // A heart-ish diamond with a pulse line.
+            DrawPolyLinesEx(rv(pos), 4, (size * 0.9) as f32, 0.0, 2.0, color)
+            line(add(pos, V2 { x: -size * 0.5, y: 0.0 }), add(pos, V2 { x: -size * 0.15, y: 0.0 }), 1.5, white(alpha))
+            line(add(pos, V2 { x: -size * 0.15, y: 0.0 }), add(pos, V2 { x: 0.0, y: -size * 0.4 }), 1.5, white(alpha))
+            line(add(pos, V2 { x: 0.0, y: -size * 0.4 }), add(pos, V2 { x: size * 0.15, y: size * 0.3 }), 1.5, white(alpha))
+            line(add(pos, V2 { x: size * 0.15, y: size * 0.3 }), add(pos, V2 { x: size * 0.5, y: 0.0 }), 1.5, white(alpha))
         }
         .Duration => {
             // An hourglass.
@@ -755,6 +839,37 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         circle(pos, 14.0, ink(0.9))
         ring(pos, 14.0, violet(0.9))
         circle(pos, 3.0, white(0.9))
+    // Turrets: a box with a barrel toward the nearest enemy, fading as they go.
+    for i in 0..g.turret_count:
+        let t = g.turrets[i]
+        let pos = to_screen(cam, t.pos)
+        let remaining = limit(t.life / t.total, 0.0, 1.0)
+        let a = 0.4 + 0.6 * remaining
+        DrawPolyLinesEx(rv(pos), 4, 12.0, 45.0, 2.0, gold(a))
+        DrawPolyLinesEx(rv(pos), 4, 16.0, 45.0 + (clock * 20.0) as f32, 1.0, gold(0.3 * a))
+        let target = g.nearest_enemy(t.pos, t.reach, false)
+        let heading = if target >= 0: direction(sub(g.enemies[target].pos, t.pos)) else: V2 { x: 1.0 }
+        glow_line(pos, add(pos, scale(heading, 16.0)), gold(a))
+        circle(pos, 3.0, white(a))
+        ring(pos, t.reach, gold(0.04))
+    // Satellites: bodies on their orbit.
+    for slot in 0..SLOT_COUNT:
+        let s = g.build.weapons[slot]
+        if s.level == 0 or s.weapon.family() != .Satellite: continue
+        let stats = weapon_stats(s.weapon, s.level, g.mods)
+        ring(to_screen(cam, g.player), stats.radius, blue(0.08))
+        for k in 0..stats.count:
+            let body = to_screen(cam, g.satellite_position(slot, k, stats.count, stats.radius))
+            DrawPolyLinesEx(rv(body), 6, 11.0, (clock * 40.0) as f32, 2.0, blue(1.0))
+            ring(body, 14.0, blue(0.3))
+            circle(body, 3.0, white(1.0))
+    // The Repulsor's zone while it holds.
+    if g.repulse > 0.0:
+        let ship = to_screen(cam, g.player)
+        let t = (clock * 1.2) % 1.0
+        ring(ship, g.repulse_radius, cyan(0.3))
+        ring(ship, g.repulse_radius * (0.3 + t * 0.7), cyan(0.35 * (1.0 - t)))
+        ring(ship, g.repulse_radius * (0.3 + ((t + 0.5) % 1.0) * 0.7), cyan(0.35 * (1.0 - ((t + 0.5) % 1.0))))
     // Wingmen: small wings on a slow orbit of the ship.
     for slot in 0..SLOT_COUNT:
         let s = g.build.weapons[slot]
@@ -1344,11 +1459,13 @@ pub fn passive_total(p: Passive, level: i32) -> str:
         .Rebound => f"{level}"
         .Overclock => f"+{10 * level}%"
         .Duration => f"+{12 * level}%"
+        .Pierce => f"+{level}"
+        .Failsafe => (if level >= 4: "50% hull" else if level >= 2: "30% hull" else: "20% hull")
 
 // What a pick leads to: the merge this item is part of, and how close.
 // Only for recipes the player has completed before: finding a recipe is the
 // player's discovery, and the card never gives it away.
-pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 29]) -> str:
+pub fn merge_hint(b: &Build, pick: Pick, discovered: [bool; 46]) -> str:
     for r in recipes():
         if b.weapon_level(r.result) > 0: continue
         if not discovered[r.result.index()]: continue

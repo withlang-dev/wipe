@@ -74,7 +74,7 @@ fn main:
         early.tick(Controls { aim: V2 { x: cos(i as f64 * 0.2), y: sin(i as f64 * 0.2) } }, 1.0 / 120.0)
     shot(&renderer, &early, 20.0, "01-early-combat")
     // 2. Every weapon at its maximum level, and four merged weapons.
-    let showcase = [Weapon.Cannon, Weapon.Orbit, Weapon.Nova, Weapon.Seeker, Weapon.Lance, Weapon.Mines, Weapon.Arc, Weapon.Shard, Weapon.Railgun, Weapon.Corona, Weapon.Storm, Weapon.Shatter]
+    let showcase = [Weapon.Cannon, Weapon.Orbit, Weapon.Nova, Weapon.Seeker, Weapon.Lance, Weapon.Mines, Weapon.Arc, Weapon.Shard, Weapon.Tether, Weapon.GravityWell, Weapon.Drone, Weapon.Lob, Weapon.Flak, Weapon.Turret, Weapon.Sweep, Weapon.TeslaField, Weapon.Boomerang, Weapon.Shockwave, Weapon.Satellite, Weapon.Repulsor, Weapon.Railgun, Weapon.Corona, Weapon.Storm, Weapon.Shatter, Weapon.LongTether, Weapon.Singularity, Weapon.TwinDrones, Weapon.Net]
     var n = 2
     for w in showcase:
         var g = staged()

@@ -12,10 +12,10 @@ at every step. The item-by-item schedule is [progression-matrix.md](progression-
 | | Now | Target |
 |---|---|---|
 | Ships | 9 | 24–28, in three tiers (§6) |
-| Base weapons | 8 | 20 |
-| Evolutions | 8 | 20, one per base weapon |
-| Unions | 4 | 5–6 at first, room for 8 |
-| Passives | 14 | 18 |
+| Base weapons | 20 (was 8) | 20 |
+| Evolutions | 20 (was 8) | 20, one per base weapon |
+| Unions | 6 (was 4) | 5–6 at first, room for 8 |
+| Passives | 17 (was 14) | 18 |
 | Stages | 9 | 15, each changing one core variable |
 | Run | 20 min | 20 min; Hurry after the first clear |
 

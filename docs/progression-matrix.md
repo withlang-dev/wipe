@@ -31,8 +31,8 @@ position). Blank in all three means the weapon is questioned (plan §2).
 | 11 | Drone | Homing | 2 | 1.0 | Twin Drones | Count | Net (+Turret) | Carrier | flank DPS | aim cone defines flank | — | — |
 | 12 | Lob | Aimed | 2 | 1.2 | Barrage | Area | — | Mortar ship | far burst | aim past near | min range forces spacing | — |
 | 13 | Flak | Aimed | 3 | 1.5 | Shrapnel | Pierce | — | — | short cone | aim | closing in | — |
-| 14 | Turret | Dropped | 3 | 1.8 | Battery | Duration | Net | — | placed DPS | — | choosing a spot | corners, lanes |
-| 15 | Sweep | Beam | 3 | 2.0 | Lighthouse | Duration | — | — | rotating DoT | — | — | — |
+| 14 | Turret | Dropped | 3 | 1.8 | Battery | Duration | Net (key Salvage) | — | placed DPS | — | choosing a spot | corners, lanes |
+| 15 | Sweep | Beam | 3 | 2.0 | Lighthouse | Rebound | — | — | rotating DoT | — | — | — |
 | 16 | Tesla Field | Chain | 3 | 2.2 | Storm Cage | Cooldown | — | — | radius DoT | — | hugging crowds | — |
 | 17 | Boomerang | Bouncing | 3 | 2.5 | Twin Return | ProjSpeed | — (waits) | — | out-and-back | aim | — | — |
 | 18 | Shockwave | Ring | 4 | 3.0 | Tremor | Armor | — | — | push + mark | — | standing ground | — |
@@ -41,9 +41,15 @@ position). Blank in all three means the weapon is questioned (plan §2).
 
 Shelf: Decoy (attacks the AI, not HP; experimental).
 
-Unions (5 now, room for 8): Tracer, Pulsar, Grid, Refractor, **Net**
-(Drone + Turret), **Well Burst** (Gravity Well + Nova). Waiting for a
-concept neither part has alone: Tether + Boomerang, Lob + Shockwave.
+Unions (6, room for 8): Tracer, Pulsar, Grid, Refractor, **Well Burst**
+(Gravity Well + Nova, key Area), **Net** (Drone + Turret, key Salvage).
+Waiting for a concept neither part has alone: Tether + Boomerang, Lob +
+Shockwave.
+
+**Implemented 2026-10-14:** all twenty base weapons, their twenty
+evolutions and the six unions above, with Duration, Pierce and Failsafe.
+Weapon indices are base 0-19, evolutions 20-39, unions 40-45; save files
+are version 3 and older files' indices are remapped on load.
 
 Tier-1 pool is weapons 1–7 (seven; Lance and the Mine arrive within the
 first runs by survival). Tier 2 adds 8–12, tier 3 adds 13–17, tier 4 the
@@ -68,18 +74,17 @@ never-aim builds (2, 3, 4, 6, 15, 17) exist on purpose.
 | Cooldown | 2 | Proximity Mine → Minefield; Tesla Field → Storm Cage |
 | Armor | 2 | Shockwave → Tremor |
 | Luck | 2 | Satellite → Constellation |
-| Credit | 2 | — |
-| Rebound | 3 | — |
+| Credit | 2 | Drone + Turret → Net |
+| Rebound | 3 | Sweep → Lighthouse |
 | Overclock | 3 | — |
-| Duration | 2 | Tether → Long Tether; Turret → Battery; Sweep → Lighthouse |
+| Duration | 2 | Tether → Long Tether; Turret → Battery |
 | Pierce | 3 | Flak → Shrapnel |
 | Failsafe | 3 | — |
 
-Distribution: no passive keys more than three; Cooldown and Damage, the
-premium stats, key one and two mid-tier weapons, not the top ones; four
-passives key nothing and are pure stats or pure survival. Duration at three
-is the one to watch; Sweep's key can move to Rebound if Duration becomes a
-recipe tax.
+Distribution (as implemented 2026-10-14): no passive keys more than two;
+Cooldown and Damage, the premium stats, key one and two mid-tier weapons,
+not the top ones; Failsafe keys nothing and is pure survival. Sweep's key
+moved to Rebound so Duration keys two.
 
 ## 3. Passives
 

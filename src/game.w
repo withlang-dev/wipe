@@ -204,6 +204,8 @@ pub type Enemy {
     // Bosses: which boss (0 Warden, 1 Lancer, 2 Hive), where it faces, and
     // a turning angle for spirals. Hive drones orbit their core.
     boss: i32 = -1, facing: V2 = V2 { x: 1.0 }, angle: f64 = 0.0, drone: bool = false,
+    // Marked by a Shockwave: takes half again the damage while this lasts.
+    marked: f64 = 0.0,
 }
 
 // The three bosses, in the order they arrive.
@@ -216,7 +218,13 @@ pub type Bullet {
     hostile: bool = false,
     // A thrown shell: no contact, a burst of this radius where it lands.
     burst: f64 = 0.0,
+    // A boomerang: out for half its life, back along the same line.
+    boomerang: bool = false, total: f64 = 0.0,
 }
+// An emplacement: stands for a while where it was dropped, firing at the
+// nearest enemy in reach.
+pub type Turret { pos: V2 = V2 {}, life: f64 = 8.0, total: f64 = 8.0, timer: f64 = 0.0, damage: i32 = 3, pierce: i32 = 0, chain: i32 = 0, speed: f64 = 900.0, reach: f64 = 480.0, age: f64 = 0.0 }
+pub const TURRET_CAP: i32 = 4
 // A gravity well: pulls what is in reach toward its middle and crushes
 // what arrives; a Well Burst ends in a Nova ring.
 pub type Well { pos: V2 = V2 {}, radius: f64 = 150.0, pull: f64 = 240.0, damage: i32 = 2, life: f64 = 3.0, total: f64 = 3.0, burst: bool = false }
@@ -243,7 +251,7 @@ pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bo
 pub type Beam { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.32, total: f64 = 0.32, width: f64 = 14.0 }
 // A lightning stroke. The seed fixes its jagged shape for its lifetime.
 pub type ArcBolt { a: V2 = V2 {}, b: V2 = V2 {}, life: f64 = 0.3, total: f64 = 0.3, seed: u32 = 0 }
-pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.125, total: f64 = 0.125 }
+pub type Shockwave { pos: V2 = V2 {}, radius: f64 = 0.0, max_radius: f64 = 140.0, damage: i32 = 2, life: f64 = 0.125, total: f64 = 0.125, push: f64 = 0.0, mark: f64 = 0.0 }
 pub type Particle {
     pos: V2 = V2 {}, vel: V2 = V2 {},
     life: f64 = 0.0, total: f64 = 1.0,
@@ -290,14 +298,14 @@ pub type Launch {
     ship: Ship = .Claw,
     shop: Mods = Mods {},
     rerolls: i32 = 0, skips: i32 = 0, banishes: i32 = 0, reboots: i32 = 0,
-    unlocked_weapons: [bool; 29] = [false; 29],
-    unlocked_passives: [bool; 15] = [false; 15],
-    taken_weapons: [bool; 29] = [false; 29],
-    taken_passives: [bool; 15] = [false; 15],
+    unlocked_weapons: [bool; 46] = [false; 46],
+    unlocked_passives: [bool; 17] = [false; 17],
+    taken_weapons: [bool; 46] = [false; 46],
+    taken_passives: [bool; 17] = [false; 17],
     // Unlocked in the last two runs and never picked: the draft weights
     // these up so the player meets what they earned.
-    fresh_weapons: [bool; 29] = [false; 29],
-    fresh_passives: [bool; 15] = [false; 15],
+    fresh_weapons: [bool; 46] = [false; 46],
+    fresh_passives: [bool; 17] = [false; 17],
     best_time: f64 = 0.0,
     endless: bool = false,
     // Hurry: the timeline at twice the rate, the run in ten real minutes.
@@ -361,7 +369,11 @@ pub type Game {
     enemy_count: i32 = 0, bullet_count: i32 = 0, core_count: i32 = 0, particle_count: i32 = 0,
     pulse_count: i32 = 0, popup_count: i32 = 0, pickup_count: i32 = 0, beacon_count: i32 = 0,
     mine_count: i32 = 0, beam_count: i32 = 0, arc_count: i32 = 0, wave_count: i32 = 0,
-    well_count: i32 = 0,
+    well_count: i32 = 0, turret_count: i32 = 0,
+    // The Repulsor's zone: time left, and its reach, shove and bite.
+    repulse: f64 = 0.0, repulse_radius: f64 = 0.0, repulse_push: f64 = 0.0, repulse_damage: i32 = 0,
+    // Failsafe: the one revival, spent.
+    failsafe_used: bool = false,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -380,6 +392,7 @@ pub type Game {
     arcs: List[ArcBolt],
     waves: List[Shockwave],
     wells: List[Well],
+    turrets: List[Turret],
     rng: u32 = 1234567,
     // The stage's walls, and for maze stages a distance field on the enemy
     // grid toward the ship, rebuilt a few times a second.
@@ -413,6 +426,7 @@ pub fn Game.new(rules: Rules = Rules {}) -> Game:
         arcs: storage(ArcBolt {}, ARC_CAP),
         waves: storage(Shockwave {}, SHOCKWAVE_CAP),
         wells: storage(Well {}, WELL_CAP),
+        turrets: storage(Turret {}, TURRET_CAP),
         walls: List.new(),
         flow: storage(-1, CELL_COUNT),
     }
@@ -568,6 +582,9 @@ extend Game:
         self.arc_count = 0
         self.wave_count = 0
         self.well_count = 0
+        self.turret_count = 0
+        self.repulse = 0.0
+        self.failsafe_used = false
         self.tether_live = false
         let stage = stage_at(self.rules.layout)
         self.walls = stage.walls()
@@ -1131,7 +1148,9 @@ extend Game:
     // Apply damage to one enemy; returns true when it died.
     pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12) -> bool:
         let target = self.enemies[index]
-        let dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
+        var dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
+        // Marked by a Shockwave: half again.
+        if target.marked > 0.0: dealt = dealt * 3 / 2
         self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = cooldown
@@ -1243,7 +1262,7 @@ extend Game:
 
     fn spawn_wave(mut self: Self, pos: V2, stats: WeaponStats):
         if self.wave_count >= SHOCKWAVE_CAP: return
-        self.waves[self.wave_count] = Shockwave { pos, max_radius: stats.radius, damage: stats.damage }
+        self.waves[self.wave_count] = Shockwave { pos, max_radius: stats.radius, damage: stats.damage, push: stats.push, mark: stats.mark }
         self.wave_count += 1
         self.pulse(pos, stats.radius * 0.6, .Cyan)
 
@@ -1278,6 +1297,49 @@ extend Game:
                     if pulsed: self.build.weapons[slot].timer = 1.4
                 }
                 .Tether => { self.step_tether(slot, stats, dt) }
+                .Sweep => {
+                    // A beam turning around the ship, struck every tenth of a
+                    // second; a Lighthouse has one opposite too.
+                    self.build.weapons[slot].phase += dt * stats.speed
+                    if self.build.weapons[slot].timer <= 0.0:
+                        self.build.weapons[slot].timer = stats.cooldown
+                        for k in 0..stats.count:
+                            let a = self.build.weapons[slot].phase + (k as f64) * 3.14159265
+                            var beam = stats
+                            beam.damage = stats.damage
+                            self.fire_beam(self.player, V2 { x: cos(a), y: sin(a) }, beam)
+                }
+                .Tesla => {
+                    // Everything in the field is shocked twice a second; a
+                    // bolt is drawn to one of them each few frames.
+                    let hits = self.damage_area(self.player, stats.radius, stats.damage, false, stats.cooldown)
+                    if hits > 0 and stats.chain > 0 and self.build.weapons[slot].timer <= 0.0:
+                        self.build.weapons[slot].timer = 0.5
+                        let target = self.nearest_enemy(self.player, stats.radius, true)
+                        if target >= 0: self.arc_chain(self.enemies[target].pos, stats.chain, 150.0, stats.damage)
+                    if self.arc_count < ARC_CAP and (self.steps % 8) == 0:
+                        let target = self.nearest_enemy(add(self.player, V2 { x: (self.random() - 0.5) * stats.radius, y: (self.random() - 0.5) * stats.radius }), stats.radius, false)
+                        if target >= 0:
+                            self.arcs[self.arc_count] = ArcBolt { a: self.player, b: self.enemies[target].pos, life: 0.12, total: 0.12, seed: self.rng }
+                            self.arc_count += 1
+                }
+                .Satellite => {
+                    // Bodies on a slow orbit: they break what they touch and
+                    // catch hostile fire.
+                    self.build.weapons[slot].phase += dt * 1.6
+                    for k in 0..stats.count:
+                        let body = self.satellite_position(slot, k, stats.count, stats.radius)
+                        let _ = self.damage_area(body, 34.0, stats.damage, false, stats.cooldown)
+                        self.break_beacons_near(body, 14.0)
+                        var b = 0
+                        while b < self.bullet_count:
+                            if self.bullets[b].hostile and length2(sub(self.bullets[b].pos, body)) < 26.0 * 26.0:
+                                self.pulse(body, 20.0, .White)
+                                self.bullet_count -= 1
+                                self.bullets[b] = self.bullets[self.bullet_count]
+                                continue
+                            b += 1
+                }
                 _ => {
                     if self.build.weapons[slot].timer > 0.0: continue
                     match s.weapon.family():
@@ -1331,14 +1393,52 @@ extend Game:
                         .Aimed => {
                             if not self.launch.ship.can_aim(): continue
                             self.build.weapons[slot].timer = stats.cooldown
-                            let pos = add(self.player, scale(self.aim, 26.0))
+                            self.fire_fan(stats, s.weapon)
+                        }
+                        .Cone => {
+                            if not self.launch.ship.can_aim(): continue
+                            self.build.weapons[slot].timer = stats.cooldown
+                            self.fire_fan(stats, s.weapon)
+                        }
+                        .Turret => {
+                            // An emplacement where the ship is; at the cap the
+                            // oldest is struck.
+                            self.build.weapons[slot].timer = stats.cooldown
+                            if self.turret_count >= stats.max_active or self.turret_count >= TURRET_CAP:
+                                var oldest = 0
+                                for i in 1..self.turret_count:
+                                    if self.turrets[i].life < self.turrets[oldest].life: oldest = i
+                                self.turret_count -= 1
+                                self.turrets[oldest] = self.turrets[self.turret_count]
+                            let at = self.clamp_to_arena(self.player, 14.0)
+                            self.turrets[self.turret_count] = Turret { pos: at, life: stats.lifetime, total: stats.lifetime, damage: stats.damage, pierce: stats.pierce, chain: stats.chain, speed: stats.speed, reach: stats.radius }
+                            self.turret_count += 1
+                            self.pulse(at, 40.0, .Gold)
+                        }
+                        .Return => {
+                            // Out along the aim and back: one each side for a pair.
+                            if not self.launch.ship.can_aim(): continue
+                            self.build.weapons[slot].timer = stats.cooldown
                             let side = perpendicular(self.aim)
                             for k in 0..stats.count:
-                                let spread = (k as f64 - (stats.count as f64 - 1.0) / 2.0)
-                                let heading = direction(add(self.aim, scale(side, spread * 0.09)))
-                                self.fire_bullet(add(pos, scale(side, spread * 6.0)), scale(heading, stats.speed), stats, s.weapon)
-                            self.muzzle = 0.055
+                                let spread = if stats.count == 1: 0.0 else: (k as f64 - (stats.count as f64 - 1.0) / 2.0) * 0.5
+                                let heading = direction(add(self.aim, scale(side, spread)))
+                                self.fire_bullet(add(self.player, scale(heading, 20.0)), scale(heading, stats.speed), stats, s.weapon)
+                                self.bullets[self.bullet_count - 1].boomerang = true
+                                self.bullets[self.bullet_count - 1].total = stats.lifetime
                             self.shot_event = true
+                        }
+                        .Shock => {
+                            self.build.weapons[slot].timer = stats.cooldown
+                            self.spawn_wave(self.player, stats)
+                        }
+                        .Repulsor => {
+                            self.build.weapons[slot].timer = stats.cooldown
+                            self.repulse = stats.lifetime
+                            self.repulse_radius = stats.radius
+                            self.repulse_push = stats.push
+                            self.repulse_damage = stats.damage
+                            self.pulse(self.player, stats.radius, .Cyan)
                         }
                         .Ring => {
                             self.build.weapons[slot].timer = stats.cooldown
@@ -1629,6 +1729,23 @@ extend Game:
         self.hurt_event = true
         self.burst(self.player, V2 {}, 28, .White, 1.2)
         if self.health <= 0:
+            // Failsafe: the one revival a build buys, before the account's
+            // reboot. I 20% hull; II 30%; III a second more of grace; IV
+            // 50%; V two seconds and a shockwave.
+            if self.mods.failsafe > 0 and not self.failsafe_used and kind != .Null:
+                self.failsafe_used = true
+                let tier: i32 = self.mods.failsafe
+                let share = if tier >= 4: 0.5 else if tier >= 2: 0.3 else: 0.2
+                self.health = (self.max_health as f64 * share + 0.99) as i32
+                if self.health < 1: self.health = 1
+                self.invulnerable = 1.5 + (if tier >= 5: 2.0 else if tier >= 3: 1.0 else: 0.0)
+                self.flash = 0.8
+                self.freeze = 0.15
+                self.pulse(self.player, 220.0, .Lime)
+                self.burst(self.player, V2 {}, 60, .Lime, 1.8)
+                if tier >= 5: self.spawn_wave(self.player, WeaponStats { radius: 320.0, damage: 20, push: 120.0 })
+                self.show(.Reboot, 1.5)
+                return
             if self.reboots > 0 and kind != .Null:
                 // A reboot: full repair, a clearing pulse, three seconds of grace.
                 self.reboots -= 1
@@ -1876,6 +1993,65 @@ extend Game:
             self.wells[w] = well
             w += 1
 
+    // A fan of bolts along the aim: the Cannon's narrow one, the Flak's wide one.
+    fn fire_fan(mut self: Self, stats: WeaponStats, weapon: Weapon):
+        let pos = add(self.player, scale(self.aim, 26.0))
+        let side = perpendicular(self.aim)
+        for k in 0..stats.count:
+            let spread = (k as f64 - (stats.count as f64 - 1.0) / 2.0)
+            let heading = direction(add(self.aim, scale(side, spread * stats.spread)))
+            self.fire_bullet(add(pos, scale(side, spread * 6.0)), scale(heading, stats.speed), stats, weapon)
+        self.muzzle = 0.055
+        self.shot_event = true
+
+    // Where a satellite body is on its orbit.
+    pub fn satellite_position(self: &Self, slot: i32, k: i32, count: i32, radius: f64) -> V2:
+        let turn = self.build.weapons[slot].phase + (k as f64) * 6.283185307 / (count as f64)
+        add(self.player, V2 { x: cos(turn) * radius, y: sin(turn) * radius })
+
+    // Turrets fire at the nearest enemy in reach while they stand.
+    fn step_turrets(mut self: Self, dt: f64):
+        var t = 0
+        while t < self.turret_count:
+            var turret: Turret = self.turrets[t]
+            turret.life -= dt
+            turret.age += dt
+            turret.timer -= dt
+            if turret.life <= 0.0:
+                self.pulse(turret.pos, 30.0, .Gold)
+                self.turret_count -= 1
+                self.turrets[t] = self.turrets[self.turret_count]
+                continue
+            if turret.timer <= 0.0:
+                let target = self.nearest_enemy(turret.pos, turret.reach, false)
+                if target >= 0:
+                    turret.timer = 0.25
+                    let heading = direction(sub(self.enemies[target].pos, turret.pos))
+                    let side = perpendicular(heading)
+                    let shot = WeaponStats { damage: turret.damage, pierce: turret.pierce, lifetime: turret.reach / turret.speed + 0.05 }
+                    for k in 0..3:
+                        let spread = (k as f64 - 1.0) * 0.15
+                        let bolt = direction(add(heading, scale(side, spread)))
+                        self.fire_bullet(add(turret.pos, scale(bolt, 12.0)), scale(bolt, turret.speed), shot, .Turret)
+                    if turret.chain > 0: self.arc_chain(self.enemies[target].pos, turret.chain, 150.0, turret.damage / 2 + 1)
+            self.turrets[t] = turret
+            t += 1
+
+    // The Repulsor's zone: everything inside is shoved out, by kind, and bitten.
+    fn step_repulse(mut self: Self, dt: f64):
+        if self.repulse <= 0.0: return
+        self.repulse -= dt
+        for i in 0..self.enemy_count:
+            var e: Enemy = self.enemies[i]
+            let away = sub(e.pos, self.player)
+            let d2 = length2(away)
+            if d2 > self.repulse_radius * self.repulse_radius or d2 < 1.0: continue
+            let share = e.kind.displacement() * (if e.elite: 0.25 else: 1.0)
+            if share <= 0.0: continue
+            e.pos = self.clamp_to_arena(add(e.pos, scale(direction(away), self.repulse_push * share * dt)), 8.0)
+            self.enemies[i] = e
+        let _ = self.damage_area(self.player, self.repulse_radius, self.repulse_damage, false, 0.5)
+
     fn boss_position(self: &Self) -> Option[V2]:
         for i in 0..self.enemy_count:
             if self.enemies[i].kind == .Boss: return Some(self.enemies[i].pos)
@@ -1892,6 +2068,7 @@ extend Game:
         for e in 0..self.enemy_count:
             var enemy: Enemy = self.enemies[e]
             enemy.age += dt
+            if enemy.marked > 0.0: enemy.marked -= dt
             enemy.flash = limit(enemy.flash - dt, 0.0, 1.0)
             enemy.hit_cd = limit(enemy.hit_cd - dt, 0.0, 1.0)
             if frozen and enemy.kind != .Null:
@@ -2196,6 +2373,14 @@ extend Game:
                     life: 0.3, total: 0.3, size: 1.2, tint: .Gold,
                 })
             bullet.steps += 1
+            // A boomerang turns for home at half its life and is caught.
+            if bullet.boomerang and bullet.life < bullet.total * 0.5:
+                let speed = sqrt(length2(bullet.vel))
+                bullet.vel = scale(direction(sub(self.player, bullet.pos)), speed)
+                if length2(sub(self.player, bullet.pos)) < 24.0 * 24.0:
+                    self.bullet_count -= 1
+                    self.bullets[b] = self.bullets[self.bullet_count]
+                    continue
             if bullet.homing:
                 let target = self.nearest_enemy(bullet.pos, 700.0, false)
                 if target >= 0:
@@ -2207,7 +2392,10 @@ extend Game:
             // Walls: bounce while bounces remain, otherwise the bolt is spent.
             var spent = false
             let r: Rules = self.rules
-            if bullet.pos.x < 0.0 or bullet.pos.x > r.arena_width or bullet.pos.y < 0.0 or bullet.pos.y > r.arena_height:
+            if bullet.boomerang and (bullet.pos.x < 0.0 or bullet.pos.x > r.arena_width or bullet.pos.y < 0.0 or bullet.pos.y > r.arena_height):
+                bullet.pos = self.clamp_to_arena(bullet.pos, 1.0)
+                if bullet.life > bullet.total * 0.5: bullet.life = bullet.total * 0.5
+            else if bullet.pos.x < 0.0 or bullet.pos.x > r.arena_width or bullet.pos.y < 0.0 or bullet.pos.y > r.arena_height:
                 if bullet.bounces > 0:
                     bullet.bounces -= 1
                     bullet.bounced = true
@@ -2309,8 +2497,15 @@ extend Game:
                 let e: Enemy = self.enemies[i]
                 let d = sqrt(length2(sub(e.pos, wave.pos)))
                 let reach = e.kind.radius() * e.size
-                // Each ring strikes an enemy once, as its edge crosses it.
+                // Each ring strikes an enemy once, as its edge crosses it; a
+                // Shockwave's ring also shoves it out, by kind, and marks it.
                 if d - reach <= wave.radius and d + reach >= previous:
+                    if wave.push > 0.0 or wave.mark > 0.0:
+                        let share = e.kind.displacement() * (if e.elite: 0.25 else: 1.0)
+                        var moved: Enemy = self.enemies[i]
+                        if wave.push > 0.0 and share > 0.0: moved.pos = self.clamp_to_arena(add(moved.pos, scale(direction(sub(e.pos, wave.pos)), wave.push * share)), 8.0)
+                        if wave.mark > moved.marked: moved.marked = wave.mark
+                        self.enemies[i] = moved
                     if not self.damage_enemy(i, wave.damage, direction(sub(e.pos, wave.pos))): i += 1
                 else: i += 1
             // The ring's edge breaks any beacon it crosses.
@@ -2533,6 +2728,8 @@ extend Game:
         self.step_bullets(dt)
         self.step_fields(dt)
         self.step_wells(dt)
+        self.step_turrets(dt)
+        self.step_repulse(dt)
         // Contact.
         for e in 0..self.enemy_count:
             let enemy: Enemy = self.enemies[e]
@@ -2554,6 +2751,7 @@ impl Copy for Beam
 impl Copy for ArcBolt
 impl Copy for Shockwave
 impl Copy for Well
+impl Copy for Turret
 impl Copy for Particle
 impl Copy for Pulse
 impl Copy for Popup
