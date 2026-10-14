@@ -33,6 +33,9 @@ pub type Save {
     held: [f64; 8] = [0.0; 8],
     taken_weapons: [bool; 20] = [false; 20],
     taken_passives: [bool; 14] = [false; 14],
+    // The run that met each condition (0: not yet, or from the start).
+    weapon_unlocked_run: [i32; 8] = [0; 8],
+    passive_unlocked_run: [i32; 14] = [0; 14],
     registry_kills: [i32; 8] = [0; 8],
     registry_first: [f64; 8] = [-1.0; 8],
     // Each boss's first kill, the achievement.
@@ -106,6 +109,8 @@ extend Save:
         for i in 0..BASE_WEAPON_COUNT: out = out ++ f"held {i} {fmt_float(self.held[i])}\n"
         for i in 0..WEAPON_COUNT: out = out ++ f"taken_weapon {i} {fmt_bool(self.taken_weapons[i])}\n"
         for i in 0..PASSIVE_COUNT: out = out ++ f"taken_passive {i} {fmt_bool(self.taken_passives[i])}\n"
+        for i in 0..BASE_WEAPON_COUNT: out = out ++ f"weapon_unlocked_run {i} {self.weapon_unlocked_run[i]}\n"
+        for i in 0..PASSIVE_COUNT: out = out ++ f"passive_unlocked_run {i} {self.passive_unlocked_run[i]}\n"
         for i in 0..KIND_COUNT: out = out ++ f"registry {i} {self.registry_kills[i]} {fmt_float(self.registry_first[i])}\n"
         for i in 0..3: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
         // volume and deadzone moved to settings.txt; they are still read, once, to migrate.
@@ -164,6 +169,10 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
             if index >= 0 and index < SHIP_COUNT: s.ship_runs[index] = parse(third)
         else if key == "held":
             if index >= 0 and index < BASE_WEAPON_COUNT: s.held[index] = parse_float(third)
+        else if key == "weapon_unlocked_run":
+            if index >= 0 and index < BASE_WEAPON_COUNT: s.weapon_unlocked_run[index] = parse(third)
+        else if key == "passive_unlocked_run":
+            if index >= 0 and index < PASSIVE_COUNT: s.passive_unlocked_run[index] = parse(third)
         else if key == "taken_weapon":
             if index >= 0 and index < WEAPON_COUNT: s.taken_weapons[index] = parse_bool(third)
         else if key == "taken_passive":

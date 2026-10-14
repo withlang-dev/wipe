@@ -61,6 +61,8 @@ pub type Rules {
     // Chance a kill drops a Repair pickup.
     repair_drop_chance: f64 = 0.0025,
     new_passive_weight: f64 = 0.6,
+    // A freshly unlocked card's weight, times the above, for its first runs.
+    fresh_weight: f64 = 4.0,
     // The floor of enemies alive at the start of a run (see minimum_alive).
     minimum_start: f64 = 22.0,
     passive_upgrade_weight: f64 = 0.8,
@@ -265,6 +267,7 @@ pub fn rules_dump(r: Rules) -> str:
     out = out ++ f"layout {r.layout}\n"
     out = out ++ "run_cap " ++ num(r.run_cap) ++ "\n"
     out = out ++ "timeline_rate " ++ num(r.timeline_rate) ++ "\n"
+    out = out ++ "fresh_weight " ++ num(r.fresh_weight) ++ "\n"
     out = out ++ "cannon_interval " ++ num(r.cannon_interval) ++ "\n"
     out = out ++ "bullet_speed " ++ num(r.bullet_speed) ++ "\n"
     out = out ++ "bullet_lifetime " ++ num(r.bullet_lifetime) ++ "\n"
@@ -316,6 +319,7 @@ pub fn rules_set(r: Rules, key: &str, value: f64) -> (Rules, bool):
     else if key == "max_health": out.max_health = (value as i32)
     else if key == "run_cap": out.run_cap = value
     else if key == "timeline_rate": out.timeline_rate = value
+    else if key == "fresh_weight": out.fresh_weight = value
     else if key == "cannon_interval": out.cannon_interval = value
     else if key == "bullet_speed": out.bullet_speed = value
     else if key == "bullet_lifetime": out.bullet_lifetime = value

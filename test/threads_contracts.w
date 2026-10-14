@@ -18,8 +18,8 @@ fn main:
     s.best_time[0] = 270.0
     let near = next_unlocks(&s)
     assert(name(&near.near) == "Dart ship")
-    // New is a goal just begun, under a third of the way: 20 of Armor's 100 hits.
-    s.hits = 20
+    // New is a goal just begun, under a third of the way: 10 of Armor's 40 hits.
+    s.hits = 10
     let begun = next_unlocks(&s)
     assert(name(&begun.new) == "Armor")
     // Stretch is a stage far off, never the near or new goal.

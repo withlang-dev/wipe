@@ -272,6 +272,10 @@ pub type Launch {
     unlocked_passives: [bool; 14] = [false; 14],
     taken_weapons: [bool; 20] = [false; 20],
     taken_passives: [bool; 14] = [false; 14],
+    // Unlocked in the last two runs and never picked: the draft weights
+    // these up so the player meets what they earned.
+    fresh_weapons: [bool; 20] = [false; 20],
+    fresh_passives: [bool; 14] = [false; 14],
     best_time: f64 = 0.0,
     endless: bool = false,
     // Hurry: the timeline at twice the rate, the run in ten real minutes.
@@ -1380,8 +1384,8 @@ extend Game:
         match pick:
             .UpgradeWeapon(_) => self.rules.upgrade_weight
             .UpgradePassive(_) => self.rules.passive_upgrade_weight
-            .NewWeapon(_) => self.rules.new_weapon_weight
-            .NewPassive(_) => self.rules.new_passive_weight
+            .NewWeapon(w) => self.rules.new_weapon_weight * (if self.launch.fresh_weapons[w.index()]: self.rules.fresh_weight else: 1.0)
+            .NewPassive(p) => self.rules.new_passive_weight * (if self.launch.fresh_passives[p.index()]: self.rules.fresh_weight else: 1.0)
             .Merge(_) => 0.0
 
     // Draw the cards: a ready merge first, then weighted draws without

@@ -246,7 +246,8 @@ extend App:
     pub fn finish_run(mut self: Self):
         let before: Save = self.save
         let previous = if self.game.launch.endless: before.best_endless[self.ship.index()] else: before.best_time[self.ship.index()]
-        let (after, new_best) = record_run(before, &self.game)
+        let (recorded, new_best) = record_run(before, &self.game)
+        let after = stamp_unlocks(&before, recorded)
         self.save = after
         self.persist()
         // The score's window runs from the last row to this one, so the

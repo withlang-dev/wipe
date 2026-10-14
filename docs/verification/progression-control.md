@@ -78,3 +78,36 @@ first Hurry clear     never
   Eric's test log shows what a human's looks like when it isn't (19).
 - Scoring is cheap enough to run on every account: 62 recordings in 2.4 s.
 
+
+## After phases 2 and 3 (level gates, Hurry, staged content), the bot, 6 runs
+
+The first new stage moves from run 5 to run 1 (Corridor at level 12), the
+first weapon from run 3 to run 1 (the Lance at 3:00 survived, the Mines at
+5:00), and every weapon is picked within two runs of its unlock: the
+exposure the fresh-card weight is for. The Cannon never shows as picked
+because the starting weapon is never a card. The bot's own runs are
+shorter under the new pool (Shard now waits for 100 wall kills, and the
+Lance comes early), which phase 4 tunes.
+
+```text
+run 1  8:14   score 18  ship:Dart, weapon:Lance, weapon:Mines, stage:Corridor, ...
+...
+runs 6, account hours 1
+zero-progress runs 0, longest zero-progress streak 0
+progression events 61, per hour 56
+first weapon unlock   run 1, minute 8
+first ship unlock     run 1, minute 8
+first merge           run 4, minute 42
+first new stage       run 1, minute 8
+first clear           never
+first Hurry clear     never
+weapon     unlocked  first pick  gap
+Cannon    start    never    never
+Orbit    start    run 1    1
+Nova    start    run 1    1
+Seeker    start    run 1    1
+Lance    run 1    run 2    1
+Mines    run 1    run 2    1
+Arc    start    run 2    2
+Shard    never    never    -
+```

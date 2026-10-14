@@ -189,20 +189,20 @@ pub fn weapon_condition(w: Weapon) -> Condition:
         .Orbit => .Start
         .Nova => .Start
         .Seeker => .Start
-        .Lance => .SurviveWith(weapon: .Cannon, seconds: 900)
-        .Mines => .Elites(count: 40)
+        .Lance => .Survive(seconds: 180)
+        .Mines => .Survive(seconds: 300)
         .Arc => .Start
-        .Shard => .LifetimeKills(count: 30000)
+        .Shard => .BouncedKills(count: 100)
         _ => .Start
 
 pub fn passive_condition(p: Passive) -> Condition:
     match p:
-        .Cooldown => .Bosses(count: 5)
-        .Armor => .HitsTaken(count: 100)
-        .Luck => .Caches(count: 10)
-        .Credit => .Banked(credits: 5000)
+        .Cooldown => .Bosses(count: 3)
+        .Armor => .HitsTaken(count: 40)
+        .Luck => .Caches(count: 5)
+        .Credit => .Banked(credits: 2000)
         .Rebound => .BouncedKills(count: 50)
-        .Overclock => .Bosses(count: 8)
+        .Overclock => .Bosses(count: 6)
         _ => .Start
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)
@@ -242,9 +242,40 @@ pub fn launch_for(ship: Ship, s: &Save, endless: bool, hurry: bool = false) -> L
         best_time: if endless: s.best_endless[ship.index()] else: s.best_time[ship.index()],
         endless, hurry, bosses_known: s.boss_slain,
     }
-    for i in 0..BASE_WEAPON_COUNT: l.unlocked_weapons[i] = met(weapon_condition(weapon_at(i)), s)
-    for i in 0..PASSIVE_COUNT: l.unlocked_passives[i] = met(passive_condition(passive_at(i)), s)
+    for i in 0..BASE_WEAPON_COUNT:
+        l.unlocked_weapons[i] = met(weapon_condition(weapon_at(i)), s)
+        l.fresh_weapons[i] = l.unlocked_weapons[i] and is_fresh(s.weapon_unlocked_run[i], s.runs, s.taken_weapons[i])
+    for i in 0..PASSIVE_COUNT:
+        l.unlocked_passives[i] = met(passive_condition(passive_at(i)), s)
+        l.fresh_passives[i] = l.unlocked_passives[i] and is_fresh(s.passive_unlocked_run[i], s.runs, s.taken_passives[i])
     l
+
+// Fresh: unlocked within the last two runs and never picked, so the draft
+// weights it up until the player has met it (progression-plan §3).
+pub const FRESH_RUNS: i32 = 2
+fn is_fresh(unlocked_run: i32, runs: i32, taken: bool) -> bool:
+    unlocked_run > 0 and runs - unlocked_run < FRESH_RUNS and not taken
+
+// Stamp the run that met each weapon's and passive's condition, for the
+// fresh window. Called with the save before and after record_run.
+pub fn stamp_unlocks(before: &Save, after: Save) -> Save:
+    var s = after
+    for i in 0..BASE_WEAPON_COUNT:
+        let c = weapon_condition(weapon_at(i))
+        if s.weapon_unlocked_run[i] == 0 and not met(c, before) and met(c, &s): s.weapon_unlocked_run[i] = s.runs
+    for i in 0..PASSIVE_COUNT:
+        let c = passive_condition(passive_at(i))
+        if s.passive_unlocked_run[i] == 0 and not met(c, before) and met(c, &s): s.passive_unlocked_run[i] = s.runs
+    s
+
+// The pool's tier, for the Collection and the run log: 1 the starter pool,
+// 2 after a first boss or 5:00, 3 after a first merge or a second stage,
+// 4 after the first clear (progression-plan §4).
+pub fn pool_tier(s: &Save) -> i32:
+    if s.clears > 0: 4
+    else if s.merges > 0 or met(stage_condition(.Corridor), s): 3
+    else if s.bosses > 0 or best_any(s) >= 300.0: 2
+    else: 1
 
 // ----- open loops for the results screen ------------------------------------------
 

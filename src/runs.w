@@ -133,7 +133,8 @@ fn score_recordings(paths: &List[str]) -> List[Scored]:
             Ok(t) => t
             Err(_) => continue
         let Ok(r) = replay(text) else continue
-        let (after, _) = record_run(r.header.save, &r.game)
+        let (recorded, _) = record_run(r.header.save, &r.game)
+        let after = stamp_unlocks(&r.header.save, recorded)
         let report = progress_score(&logged, &after)
         let number = out.len() as i32 + 1
         out.push(Scored { row: RunRow { number, seconds: r.stats.seconds, cleared: r.game.cleared and not r.header.endless, hurry: r.header.hurry, score: report.score, events: report.events.clone() }, before: logged, after })
@@ -159,11 +160,7 @@ fn cmd_account(paths: List[str]) -> i32:
 
 // Runs from a weapon's unlock to its first pick: a long gap means the
 // player never meets the thing they earned.
-fn cmd_exposure(paths: List[str]) -> i32:
-    let scored = score_recordings(&paths)
-    if scored.len() == 0:
-        print("no recordings found")
-        return 1
+fn print_exposure(scored: &List[Scored]):
     print("weapon     unlocked  first pick  gap")
     for i in 0..BASE_WEAPON_COUNT:
         let w = weapon_at(i)
@@ -173,9 +170,16 @@ fn cmd_exposure(paths: List[str]) -> i32:
             if unlocked < 0 and met(weapon_condition(w), &s.after): unlocked = s.row.number
             if picked < 0 and s.after.taken_weapons[i]: picked = s.row.number
         let gap = if unlocked < 0: "-" else if picked < 0: "never" else: f"{picked - unlocked}"
-        let unlock_text = if unlocked < 0: "never" else: f"run {unlocked}"
+        let unlock_text = if unlocked < 0: "never" else if unlocked == 0: "start" else: f"run {unlocked}"
         let pick_text = if picked < 0: "never" else: f"run {picked}"
         print(f"{w.name()}    {unlock_text}    {pick_text}    {gap}")
+
+fn cmd_exposure(paths: List[str]) -> i32:
+    let scored = score_recordings(&paths)
+    if scored.len() == 0:
+        print("no recordings found")
+        return 1
+    print_exposure(&scored)
     0
 
 // A fresh account played by the careful bot: every run on the Claw in the
@@ -190,7 +194,8 @@ fn cmd_account_sim(count: i32) -> i32:
         g.rng = 777 +% (n as u32) *% 2654435761
         g.start(launch_for(.Claw, &save, false))
         let (flown, stats) = fly(g, .Careful, 1200.0)
-        let (after, _) = record_run(save, &flown)
+        let (recorded, _) = record_run(save, &flown)
+        let after = stamp_unlocks(&save, recorded)
         let report = progress_score(&logged, &after)
         scored.push(Scored { row: RunRow { number: n, seconds: stats.seconds, cleared: flown.cleared, score: report.score, events: report.events.clone() }, before: logged, after })
         logged = after
@@ -201,6 +206,7 @@ fn cmd_account_sim(count: i32) -> i32:
             save.spent += next.price
             save.ranks[next.item.index()] += 1
     print_cadence(&scored)
+    print_exposure(&scored)
     0
 
 // Every ship across a run: when the careful bot survives to each mark,
