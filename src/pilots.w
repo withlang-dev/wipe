@@ -44,7 +44,7 @@ pub fn careful(g: &Game) -> Controls:
     // Step out of a telegraphed charge line.
     for i in 0..g.enemy_count:
         let e = g.enemies[i]
-        if e.kind == .Boss and e.boss == 1 and (e.state == 1 or e.state == 2):
+        if e.kind == .Boss and (e.boss == 1 or e.boss == 5) and (e.state == 1 or e.state == 2):
             let d = sub(g.player, e.pos)
             let along = d.x * e.facing.x + d.y * e.facing.y
             let side = perpendicular(e.facing)

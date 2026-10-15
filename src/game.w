@@ -256,6 +256,13 @@ pub const KEEPER_JUMP: f64 = 20.0
 pub const KEEPER_TELL: f64 = 2.0
 pub const KEEPER_BITE: f64 = 0.5
 pub const KEEPER_OUTSIDE_SCALE: f64 = 0.25
+// The Bulwark: its walk as a share of enemy speed, its ram's tell and
+// charge, and how many plates it sheds (each a Tank) across its hull —
+// one a quarter, twice that at desperation.
+pub const BULWARK_WALK: f64 = 0.35
+pub const BULWARK_TELL: f64 = 0.8
+pub const BULWARK_CHARGE: f64 = 0.7
+pub const BULWARK_PLATES: i32 = 4
 pub type Bullet {
     pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0, steps: i32 = 0,
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
@@ -684,6 +691,51 @@ extend Game:
             if self.keeper_bite >= KEEPER_BITE:
                 self.keeper_bite -= KEEPER_BITE
                 self.hurt(.Weaver, false, 2)
+        velocity
+
+    // The Bulwark: the wall. A large slow hull that walks at the ship, no
+    // weak point and no immunity; it sheds a plate — a Tank — at each
+    // quarter of its hull. At desperation it walks twice as fast and rams
+    // in straight lines after a tell, and sheds a plate at each eighth.
+    // Enemy fields: eaten counts plates shed; state 0 walk, 1 tell, 2 ram.
+    fn step_bulwark(mut self: Self, index: i32, dt: f64) -> V2:
+        var enemy: Enemy = self.enemies[index]
+        let desperate = enemy.age > DESPERATION
+        let toward = direction(sub(self.player, enemy.pos))
+        let pace = enemy.speed * BULWARK_WALK * (if desperate: 2.0 else: 1.0)
+        var velocity = scale(toward, pace)
+        if enemy.state == 0:
+            enemy.facing = toward
+            if desperate and enemy.timer <= 0.0:
+                enemy.state = 1
+                enemy.timer = BULWARK_TELL
+        else if enemy.state == 1:
+            velocity = V2 {}
+            enemy.facing = toward
+            enemy.flash = 0.02
+            if enemy.timer <= 0.0:
+                enemy.state = 2
+                enemy.timer = BULWARK_CHARGE
+                enemy.vel = scale(enemy.facing, 760.0)
+        else:
+            velocity = enemy.vel
+            let ahead = add(enemy.pos, scale(enemy.vel, dt))
+            if enemy.timer <= 0.0 or not self.in_arena(ahead, -60.0):
+                enemy.state = 0
+                enemy.timer = 2.5
+                self.trauma = limit(self.trauma + 0.3, 0.0, 1.0)
+        // Plates: one per quarter of hull lost, per eighth at desperation.
+        let plates = BULWARK_PLATES * (if desperate: 2 else: 1)
+        let lost = (enemy.max_hp - enemy.hp) * plates / enemy.max_hp
+        if lost > enemy.eaten and enemy.eaten < plates - 1:
+            enemy.eaten += 1
+            let a = self.random() * 6.2832
+            let at = add(enemy.pos, V2 { x: cos(a) * 90.0, y: sin(a) * 90.0 })
+            self.enemies[index] = enemy
+            let _ = self.place_enemy(self.clamp_to_arena(at, 8.0), .Tank)
+            self.pulse(at, 60.0, .Red)
+            return velocity
+        self.enemies[index] = enemy
         velocity
 
     // The Keeper's sector, if one is up: its middle, its angle, its half-width.
@@ -2761,6 +2813,11 @@ extend Game:
                         enemy.timer -= dt
                         let shot_damage = (if enemy.boss == 0 or enemy.boss == 3: 2 else: 3) + self.endless_loop
                         match enemy.boss:
+                            5 => {
+                                self.enemies[e] = enemy
+                                velocity = self.step_bulwark(e, dt)
+                                enemy = self.enemies[e]
+                            }
                             4 => {
                                 self.enemies[e] = enemy
                                 velocity = self.step_keeper(e, dt)

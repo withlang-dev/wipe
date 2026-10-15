@@ -1464,6 +1464,7 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
                     1 => "STRIKE WHILE IT IS STUNNED"
                     3 => "THREAD THE GAPS"
                     4 => "STAY IN THE LIGHT"
+                    5 => "NO TRICK. OUTLAST IT."
                     _ => "BREAK THE DRONES TO OPEN THE CORE"
                 hud_centered(g, hint, 360, 14, white(alpha * 0.8))
             }
@@ -1505,6 +1506,21 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
     let face = e.facing
     let side = perpendicular(face)
     match e.boss:
+        5 => {
+            // Bulwark: a wall of plates, an octagon layered thick; a layer
+            // goes with each plate shed. The ram's tell is the Lancer's line.
+            let desperate = e.age > DESPERATION
+            let layers = 4 - e.eaten % 4
+            for k in 0..layers:
+                let r = radius * (1.3 - k as f64 * 0.18)
+                DrawPolyLinesEx(rv(pos), 8, r as f32, (clock * 4.0 + k as f64 * 11.0) as f32, if k == 0: 4.0 else: 2.2, paint_alpha(color, 1.0 - k as f64 * 0.15))
+            circle(pos, radius * 0.22, white(0.7))
+            if e.state == 1:
+                let reach = 900.0
+                line(pos, add(pos, scale(face, reach)), 22.0, paint_alpha(color, 0.08 + 0.08 * sin(clock * 30.0)))
+                line(pos, add(pos, scale(face, reach)), 1.5, paint_alpha(color, 0.5 + 0.3 * sin(clock * 30.0)))
+            if desperate: ring(pos, radius * 1.5 + 4.0 * sin(clock * 20.0), red(0.5))
+        }
         4 => {
             // Keeper: a heavy hub of rings, a keyhole at its sector's middle;
             // the tell: the next sector's edges flicker a quarter turn on.
@@ -1611,6 +1627,10 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
 pub fn draw_boss_icon(index: i32, center: V2, radius: f64, clock: f64):
     let color = paint(Kind.Boss.tint(), 1.0)
     match index:
+        5 => {
+            for k in 0..3:
+                DrawPolyLinesEx(rv(center), 8, (radius * (1.0 - k as f64 * 0.22)) as f32, (clock * 4.0 + k as f64 * 11.0) as f32, if k == 0: 3.0 else: 1.8, paint_alpha(color, 1.0 - k as f64 * 0.2))
+        }
         4 => {
             DrawPolyLinesEx(rv(center), 12, radius as f32, (clock * 8.0) as f32, 2.4, color)
             ring(center, radius * 0.35, white(0.8))

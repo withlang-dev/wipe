@@ -63,7 +63,7 @@ extend Tab:
             .Passives => PASSIVE_COUNT
             .Merges => RECIPE_COUNT
             .Registry => KIND_COUNT
-            .Bosses => 5
+            .Bosses => 6
             .Stages => STAGE_COUNT
             .Achievements => ACHIEVEMENT_COUNT
 
