@@ -47,8 +47,8 @@ pub type Save {
     registry_kills: [i32; 9] = [0; 9],
     registry_first: [f64; 9] = [-1.0; 9],
     // Each boss's first kill, the achievement.
-    boss_slain: [bool; 3] = [false; 3],
-    boss_kills: [i32; 3] = [0; 3],
+    boss_slain: [bool; 6] = [false; 6],
+    boss_kills: [i32; 6] = [0; 6],
     last_ship: i32 = 0,
     volume: f64 = 1.0,
     deadzone: f64 = 0.2,
@@ -131,7 +131,7 @@ extend Save:
         for i in 0..BASE_WEAPON_COUNT: out = out ++ f"weapon_unlocked_run {i} {self.weapon_unlocked_run[i]}\n"
         for i in 0..PASSIVE_COUNT: out = out ++ f"passive_unlocked_run {i} {self.passive_unlocked_run[i]}\n"
         for i in 0..KIND_COUNT: out = out ++ f"registry {i} {self.registry_kills[i]} {fmt_float(self.registry_first[i])}\n"
-        for i in 0..3: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
+        for i in 0..BOSS_COUNT: out = out ++ f"boss_slain {i} {fmt_bool(self.boss_slain[i])} {self.boss_kills[i]}\n"
         // volume and deadzone moved to settings.txt; they are still read, once, to migrate.
         out = out ++ f"last_ship {self.last_ship}\n"
         out
@@ -207,7 +207,7 @@ pub fn Save.parse_text(text: &str) -> Result[Save, LoadNotice]:
                 s.registry_kills[index] = parse(third)
                 s.registry_first[index] = parse_float(fourth)
         else if key == "boss_slain":
-            if index >= 0 and index < 3:
+            if index >= 0 and index < BOSS_COUNT:
                 s.boss_slain[index] = parse_bool(third)
                 s.boss_kills[index] = parse(fourth)
         else if key == "last_ship": s.last_ship = index
@@ -361,7 +361,7 @@ pub fn record_run(save: Save, g: &Game) -> (Save, bool):
     for i in 0..PASSIVE_COUNT:
         let taken = g.launch.taken_passives[i]
         if taken: s.taken_passives[i] = true
-    for i in 0..3:
+    for i in 0..BOSS_COUNT:
         s.boss_kills[i] += g.boss_kills[i]
         if g.boss_kills[i] > 0: s.boss_slain[i] = true
     for i in 0..KIND_COUNT:

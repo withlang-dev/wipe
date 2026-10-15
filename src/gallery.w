@@ -229,12 +229,13 @@ fn main:
     zap = step(zap, 0.04, V2 { x: 1.0 })
     shot(&renderer, &zap, 90.0, "61-lightning")
     // Each boss mid-fight, one on one.
-    for index in 1..4:
+    // The three slot bosses, then the pool bosses at the mid slot's minute.
+    for index in 1..5:
         var fight = staged()
         fight.build.weapons[0] = WeaponSlot { weapon: .Cannon, level: 4 }
-        fight.boss_index = index
-        fight.jump_to(300.0 * index as f64)
-        fight.spawn_boss()
+        fight.boss_index = if index <= 3: index else: 2
+        fight.jump_to(300.0 * fight.boss_index as f64)
+        fight.spawn_boss_of(index - 1)
         fight = step(fight, 7.0, V2 { x: 0.8, y: -0.6 })
         let bname = f"63-boss-{index}"
         shot(&renderer, &fight, 100.0 + index as f64, bname)

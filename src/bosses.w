@@ -4,7 +4,7 @@
 // spent unable to damage the boss outside an explicit mechanic — the
 // metric that catches a boss you are alive against and merely waiting on.
 //
-//   bosses [SEEDS] [SHIP]
+//   bosses [SEEDS] [SHIP] [BOSS]    a boss index forces every slot to that boss
 use game
 use tuning
 use loadout
@@ -19,18 +19,19 @@ fn main:
     let argv = args()
     let seeds = if argv.len() > 1: parse(argv[1]) else: 4
     let only = if argv.len() > 2: argv[2].clone() else: ""
+    let force = if argv.len() > 3: parse(argv[3]) else: -1
     print("ship     boss     reached  killed  died   ttk   hull lost  no-damage streak  share   (means over seeds that reached)")
     for i in 0..SHIP_COUNT:
         let ship = ship_at(i)
         if only.len() > 0 and ship.name() != only: continue
-        var reached = [0, 0, 0]
-        var killed = [0, 0, 0]
-        var died = [0, 0, 0]
-        var ttk = [0.0, 0.0, 0.0]
-        var lost = [0, 0, 0]
-        var streak = [0.0, 0.0, 0.0]
-        var share = [0.0, 0.0, 0.0]
-        var hp = [0, 0, 0]
+        var reached = [0; 6]
+        var killed = [0; 6]
+        var died = [0; 6]
+        var ttk = [0.0; 6]
+        var lost = [0; 6]
+        var streak = [0.0; 6]
+        var share = [0.0; 6]
+        var hp = [0; 6]
         for seed in 0..seeds:
             var g = Game.new()
             g.rng = 55555 +% (seed as u32) *% 2654435761
@@ -40,19 +41,23 @@ fn main:
             for w in 0..BASE_WEAPON_COUNT: launch.unlocked_weapons[w] = true
             for p in 0..8: launch.unlocked_passives[p] = true
             g.start(launch)
+            g.boss_override = force
             for e in boss_run(g, 1080.0):
                 eprint(f"  {ship.name()} seed {seed}: boss {e.boss} reached {e.reached} killed {e.killed} died {e.died} ttk {e.ttk as i32} hp {e.max_hp}")
-                if e.boss < 0 or e.boss > 2: continue
-                reached[e.boss] += 1
-                if e.killed: killed[e.boss] += 1
-                if e.died: died[e.boss] += 1
-                ttk[e.boss] += e.ttk
-                lost[e.boss] += e.hull_lost
-                if e.streak > streak[e.boss]: streak[e.boss] = e.streak
-                share[e.boss] += e.share
-                hp[e.boss] += e.max_hp
-        for b in 0..3:
+                if e.boss < 0 or e.boss >= BOSS_COUNT: continue
+                // Forced, every slot is the same boss; it files under its own name.
+                let slot = if force >= 0: force else: e.boss
+                reached[slot] += 1
+                if e.killed: killed[slot] += 1
+                if e.died: died[slot] += 1
+                ttk[slot] += e.ttk
+                lost[slot] += e.hull_lost
+                if e.streak > streak[slot]: streak[slot] = e.streak
+                share[slot] += e.share
+                hp[slot] += e.max_hp
+        for b in 0..BOSS_COUNT:
             let n = reached[b]
+            if n == 0 and b >= 3: continue
             if n == 0:
                 print(f"{ship.name()}  {BOSS_NAMES[b]}  0/{seeds}")
                 continue

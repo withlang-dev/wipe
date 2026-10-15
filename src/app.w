@@ -63,7 +63,7 @@ extend Tab:
             .Passives => PASSIVE_COUNT
             .Merges => RECIPE_COUNT
             .Registry => KIND_COUNT
-            .Bosses => 3
+            .Bosses => 4
             .Stages => STAGE_COUNT
             .Achievements => ACHIEVEMENT_COUNT
 
@@ -1274,13 +1274,15 @@ extend App:
                 let _ = k
             }
             .Bosses => {
-                let minute = 5 * (i + 1)
+                // The three slot bosses arrive at their minutes; the rest
+                // are drawn into the later slots.
+                let arrives = if i < 3: f"Arrives at {5 * (i + 1)}:00" else: "Drawn at 10:00 or 15:00"
                 if open:
                     out.push("Achievement: first kill")
-                    out.push(f"Arrives at {minute}:00")
+                    out.push(arrives)
                     out.push(f"Lifetime kills: {self.save.boss_kills[i]}")
                 else:
-                    out.push(f"Arrives at {minute}:00")
+                    out.push(arrives)
                     out.push("Not yet defeated.")
             }
             .Achievements => {

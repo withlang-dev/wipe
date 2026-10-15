@@ -222,14 +222,30 @@ pub type Enemy {
     slowed: f64 = 0.0,
     // A derelict's escort, or the elite carrying its core.
     escort: bool = false, carries: bool = false,
+    // A pattern boss: how long the current pattern runs, and the strafe
+    // clock (the side flips when it runs out).
+    pattern_total: f64 = 0.0, strafe: f64 = 0.0, flank: bool = false,
 }
 
-// The three bosses, in the order they arrive.
-pub const BOSS_NAMES: [str; 3] = ["WARDEN", "LANCER", "HIVE"]
+// The bosses. Six are planned (docs/boss-plan.md); the first four exist.
+// 0 Warden (position), 1 Lancer (time), 2 Hive (prioritize), 3 Lattice
+// (dodge), 4 Keeper (hold), 5 Bulwark (sustain).
+pub const BOSS_COUNT: i32 = 6
+pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER", "BULWARK"]
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 3] = [1800.0, 7000.0, 4500.0]
+pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 5000.0, 9000.0]
+// The Lattice: how long it is held at desperation, the arc of its gaps
+// before and after, and the ring it keeps from the ship.
+pub const DESPERATION: f64 = 75.0
+pub const LATTICE_GAP: f64 = 0.5
+pub const LATTICE_GAP_DESPERATE: f64 = 0.33
+pub const LATTICE_NEAR: f64 = 220.0
+pub const LATTICE_FAR: f64 = 340.0
+// How fast the spiral's gap walks, radians a second: a ship keeps up.
+pub const LATTICE_GAP_TURN: f64 = 0.6
+pub const LATTICE_DESPERATE_RING: f64 = 0.6
 pub type Bullet {
     pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0, steps: i32 = 0,
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
@@ -357,7 +373,7 @@ pub type Launch {
     // Hurry: the timeline at twice the rate, the run in ten real minutes.
     hurry: bool = false,
     // Bosses this account has ever killed; a first kill is an achievement.
-    bosses_known: [bool; 3] = [false; 3],
+    bosses_known: [bool; 6] = [false; 6],
 }
 impl Copy for Launch
 
@@ -411,7 +427,9 @@ pub type Game {
     // Boss entry pulls the camera back for a moment.
     zoom_timer: f64 = 0.0,
     // Boss kills this run by boss.
-    boss_kills: [i32; 3] = [0; 3],
+    boss_kills: [i32; 6] = [0; 6],
+    // Which boss the next spawn is, when a stage or a test says; else the slot's.
+    boss_override: i32 = -1,
     // The Phase slips out of the world on a rhythm.
     phase_timer: f64 = 0.0,
     banner: Banner = Banner {},
@@ -528,6 +546,103 @@ extend Game:
         for _ in 0..self.endless_loop: scale_by *= per_loop
         scale_by
 
+    // The Lattice: a pattern boss. It keeps a ring of distance from the
+    // ship and strafes; its patterns are telegraphed a second ahead, each
+    // with a gap to thread: a spiral whose gap turns, a wall with one
+    // opening that drifts, rings with three gaps. Always soft. At
+    // desperation the gaps narrow, the shots quicken, and the spiral runs
+    // under the other two.
+    // Enemy fields: state 0 telegraph, 1 firing; eaten counts patterns;
+    // angle is the spiral's or the gap's; flank is the strafe side.
+    fn step_lattice(mut self: Self, index: i32, dt: f64, shot_damage: i32) -> V2:
+        var enemy: Enemy = self.enemies[index]
+        let toward = direction(sub(self.player, enemy.pos))
+        let distance = sqrt(length2(sub(self.player, enemy.pos)))
+        let desperate = enemy.age > DESPERATION
+        let gap = if desperate: LATTICE_GAP_DESPERATE else: LATTICE_GAP
+        let quick = if desperate: 1.33 else: 1.0
+        // Desperate, it closes its ring: a fight that drags comes to you.
+        let ring = if desperate: LATTICE_DESPERATE_RING else: 1.0
+        // Hold the ring, strafing; the side flips every few seconds.
+        enemy.facing = toward
+        if enemy.strafe <= 0.0:
+            enemy.strafe = 3.0 + self.random() * 2.0
+            enemy.flank = not enemy.flank
+        enemy.strafe -= dt
+        let side = scale(perpendicular(toward), if enemy.flank: 1.0 else: -1.0)
+        var velocity = scale(side, enemy.speed * 0.35)
+        if distance < LATTICE_NEAR * ring: velocity = add(velocity, scale(toward, -enemy.speed * 0.9))
+        else if distance > LATTICE_FAR * ring: velocity = add(velocity, scale(toward, enemy.speed * 0.9))
+        // The pattern cycle: a second's telegraph, then the pattern.
+        let pattern = enemy.eaten % 3
+        if enemy.state == 0:
+            if enemy.timer <= 0.0:
+                enemy.state = 1
+                enemy.timer = match pattern:
+                    0 => 3.0
+                    1 => 2.4
+                    _ => 1.4
+                if pattern == 0: enemy.angle = self.random() * 6.2832
+                enemy.pattern_total = enemy.timer
+        else:
+            let into = enemy.pattern_total - enemy.timer
+            match pattern:
+                0 => {
+                    // Spiral: a shot every tenth of a second, the gap turning with it.
+                    let beat = (into * 10.0 * quick) as i32
+                    let prev = ((into - dt) * 10.0 * quick) as i32
+                    if beat > prev:
+                        let a = enemy.angle + beat as f64 * 0.35
+                        // The gap leads by the shot's flight to the ship, so
+                        // a ship walking with the gap meets nothing.
+                        let travel = distance / (190.0 * quick)
+                        if not within_arc(a, self.lattice_gap_at(enemy, into + travel), gap): self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 190.0 * quick, shot_damage)
+                }
+                1 => {
+                    // Wall: four volleys, a line across the ship's bearing with
+                    // one opening that drifts a slot a volley.
+                    let volley = (into / 0.6) as i32
+                    let prev = ((into - dt) / 0.6) as i32
+                    if volley > prev and volley < 4:
+                        let opening = (enemy.eaten / 3 + volley) % 9 + 1
+                        for k in 0..11:
+                            if k == opening or (desperate and false): continue
+                            if desperate and k == opening + 1: continue
+                            let at = add(enemy.pos, scale(side, (k as f64 - 5.0) * 70.0))
+                            self.hostile_shot(at, toward, 220.0 * quick, shot_damage)
+                }
+                _ => {
+                    // Rings: eighteen shots with every sixth missing, then a
+                    // second ring half a slot on.
+                    for r in 0..2:
+                        let at = r as f64 * 0.7
+                        if into >= at and into - dt < at:
+                            for k in 0..18:
+                                if k % 6 == 0: continue
+                                let a = enemy.angle + (k as f64 + r as f64 * 0.5) * 0.349
+                                self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 160.0 * quick, shot_damage)
+                }
+            // Desperation: the spiral runs under the wall and the rings.
+            if desperate and pattern != 0:
+                let beat = (into * 8.0) as i32
+                let prev = ((into - dt) * 8.0) as i32
+                if beat > prev:
+                    let a = enemy.angle + beat as f64 * 0.5
+                    let travel = distance / 170.0
+                    if not within_arc(a, self.lattice_gap_at(enemy, into + travel), gap): self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 170.0, shot_damage)
+            if enemy.timer <= 0.0:
+                enemy.state = 0
+                enemy.timer = 1.0
+                enemy.eaten += 1
+                enemy.angle = self.random() * 6.2832
+        self.enemies[index] = enemy
+        velocity
+
+    // Where the spiral's gap points, `into` seconds into the pattern: it
+    // walks slowly, so a ship walks with it.
+    pub fn lattice_gap_at(self: &Self, enemy: Enemy, into: f64) -> f64:
+        enemy.angle + 1.2 + into * LATTICE_GAP_TURN
+
     // How a boss's hull grows with the minute: a third of the swarm's curve.
     pub fn boss_hull(self: &Self) -> f64:
         let m = self.table_minute()
@@ -642,7 +757,7 @@ extend Game:
         self.best_flare = 0.0
         self.zoom_timer = 0.0
         self.phase_timer = PHASE_PERIOD
-        self.boss_kills = [0, 0, 0]
+        self.boss_kills = [0; 6]
         self.banner = Banner {}
         self.enemy_count = 0
         self.bullet_count = 0
@@ -1002,7 +1117,12 @@ extend Game:
     // A boss fight is one on one: the swarm dissolves, and nothing spawns
     // until the boss is down.
     pub fn spawn_boss(mut self: Self):
-        let which = if self.rules.boss_every > 0.0: (self.boss_index - 1) % 3 else: limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
+        let slot = if self.rules.boss_every > 0.0: (self.boss_index - 1) % 3 else: limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
+        let which = if self.boss_override >= 0: self.boss_override else: slot
+        self.spawn_boss_of(which)
+
+    // The named boss, now.
+    pub fn spawn_boss_of(mut self: Self, which: i32):
         var i = 0
         while i < self.enemy_count:
             let e: Enemy = self.enemies[i]
@@ -2573,8 +2693,15 @@ extend Game:
                     }
                     .Boss => {
                         enemy.timer -= dt
-                        let shot_damage = (if enemy.boss == 0: 2 else: 3) + self.endless_loop
+                        let shot_damage = (if enemy.boss == 0 or enemy.boss == 3: 2 else: 3) + self.endless_loop
                         match enemy.boss:
+                            3 => {
+                                // The Lattice steps itself in place: write the
+                                // copy through, then read it back.
+                                self.enemies[e] = enemy
+                                velocity = self.step_lattice(e, dt, shot_damage)
+                                enemy = self.enemies[e]
+                            }
                             0 => {
                                 // Warden: turns slowly to face the ship, drifts in,
                                 // and sprays a turning spiral. Its back is the target.
@@ -3111,3 +3238,10 @@ impl Copy for Pulse
 impl Copy for Popup
 impl Copy for Banner
 impl Copy for Controls
+
+// Whether angle a lies within half-width `half` of angle `center`.
+pub fn within_arc(a: f64, center: f64, half: f64) -> bool:
+    var d = a - center
+    while d > 3.14159265: d -= 6.2831853
+    while d < -3.14159265: d += 6.2831853
+    d.abs() < half

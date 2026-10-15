@@ -1453,6 +1453,7 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
                 let hint = match b:
                     0 => "ITS BACK IS ITS WEAKNESS"
                     1 => "STRIKE WHILE IT IS STUNNED"
+                    3 => "THREAD THE GAPS"
                     _ => "BREAK THE DRONES TO OPEN THE CORE"
                 hud_centered(g, hint, 360, 14, white(alpha * 0.8))
             }
@@ -1494,6 +1495,39 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
     let face = e.facing
     let side = perpendicular(face)
     match e.boss:
+        3 => {
+            // Lattice: a turning frame of struts, a bright node at each
+            // corner; the frame turns faster at desperation. Telegraphs: the
+            // next pattern traced thin a second ahead.
+            let desperate = e.age > DESPERATION
+            let spin = clock * (if desperate: 60.0 else: 25.0)
+            DrawPolyLinesEx(rv(pos), 6, (radius * 1.1) as f32, spin as f32, 2.4, color)
+            DrawPolyLinesEx(rv(pos), 6, (radius * 0.6) as f32, (-spin * 1.5) as f32, 1.6, paint_alpha(color, 0.7))
+            for k in 0..6:
+                let a = (spin + k as f64 * 60.0) * 0.0174533
+                let node = add(pos, V2 { x: cos(a) * radius * 1.1, y: sin(a) * radius * 1.1 })
+                circle(node, 4.0, white(0.9))
+                line(pos, node, 1.0, paint_alpha(color, 0.35))
+            if e.state == 0:
+                // The telegraph, brighter as the pattern nears.
+                let near = 1.0 - limit(e.timer, 0.0, 1.0)
+                let tint = paint_alpha(color, 0.15 + 0.35 * near)
+                let pattern = e.eaten % 3
+                if pattern == 0:
+                    for k in 0..12:
+                        let a = e.angle + k as f64 * 0.5236
+                        line(add(pos, V2 { x: cos(a) * radius, y: sin(a) * radius }), add(pos, V2 { x: cos(a) * 300.0, y: sin(a) * 300.0 }), 1.0, tint)
+                else if pattern == 1:
+                    let l = add(pos, scale(side, -380.0))
+                    let r = add(pos, scale(side, 380.0))
+                    line(l, r, 2.0, tint)
+                    line(l, add(l, scale(face, 200.0)), 1.0, tint)
+                    line(r, add(r, scale(face, 200.0)), 1.0, tint)
+                else:
+                    ring(pos, 90.0 + near * 60.0, tint)
+                    ring(pos, 150.0 + near * 60.0, tint)
+            if desperate: ring(pos, radius * 1.4 + 4.0 * sin(clock * 20.0), red(0.5))
+        }
         0 => {
             // Warden: a heavy shield arc in front, an exposed pulsing core behind.
             let front = add(pos, scale(face, radius * 0.9))
@@ -1548,6 +1582,10 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
 pub fn draw_boss_icon(index: i32, center: V2, radius: f64, clock: f64):
     let color = paint(Kind.Boss.tint(), 1.0)
     match index:
+        3 => {
+            DrawPolyLinesEx(rv(center), 6, radius as f32, (clock * 25.0) as f32, 2.0, color)
+            DrawPolyLinesEx(rv(center), 6, (radius * 0.55) as f32, (-clock * 37.0) as f32, 1.4, paint_alpha(color, 0.7))
+        }
         0 => {
             for k in 0..7:
                 let t0 = (k as f64 - 3.5) * 0.25 - 1.5708
