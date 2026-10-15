@@ -105,4 +105,46 @@ fn main:
     if let Some((h, _)) = ringed.boss_health(): left = h
     let ring_damage = weapon_stats(.Nova, 5, Mods {}).damage
     assert(hp - left >= ring_damage * 4)
+    // A bullet's hit leaves a boss its whole hit cooldown; an overlapping
+    // strike leaves a quarter. A piercing bolt crossing a big hull lands once.
+    var bolt = armed(.Cannon, 5, 7)
+    bolt.build.passives[0] = PassiveSlot { passive: .Pierce, level: 5 }
+    bolt.refresh_mods()
+    bolt.jump_to(300.0)
+    bolt.boss_index = 1
+    bolt.spawn_boss_of(0)
+    bolt.freeze = 0.0
+    var bi = -1
+    for i in 0..bolt.enemy_count:
+        if bolt.enemies[i].kind == .Boss: bi = i
+    bolt.player = add(bolt.enemies[bi].pos, V2 { x: -200.0 })
+    var full = 0
+    if let Some((h, _)) = bolt.boss_health(): full = h
+    var seen = false
+    for _ in 0..240:
+        bolt.clear_events()
+        bolt.tick(Controls { aim: V2 { x: 1.0 } }, 1.0 / 120.0)
+        for i in 0..bolt.enemy_count:
+            if bolt.enemies[i].kind == .Boss and bolt.enemies[i].hp < full and not seen:
+                seen = true
+                assert(bolt.enemies[i].hit_cd > 0.1)
+    assert(seen)
+    var tesla = armed(.TeslaField, 5, 8)
+    tesla.jump_to(300.0)
+    tesla.boss_index = 1
+    tesla.spawn_boss_of(0)
+    tesla.freeze = 0.0
+    for i in 0..tesla.enemy_count:
+        if tesla.enemies[i].kind == .Boss: tesla.player = add(tesla.enemies[i].pos, V2 { x: -80.0 })
+    var fh = 0
+    if let Some((h, _)) = tesla.boss_health(): fh = h
+    var ticked = false
+    for _ in 0..240:
+        tesla.clear_events()
+        tesla.tick(Controls { aim: V2 { x: 1.0 } }, 1.0 / 120.0)
+        for i in 0..tesla.enemy_count:
+            if tesla.enemies[i].kind == .Boss and tesla.enemies[i].hp < fh and not ticked:
+                ticked = true
+                assert(tesla.enemies[i].hit_cd < 0.2)
+    assert(ticked)
     print("UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows and herds what it crosses")

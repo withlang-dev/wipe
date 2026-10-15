@@ -1592,7 +1592,11 @@ extend Game:
             _ => ()
 
     // Apply damage to one enemy; returns true when it died.
-    pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12) -> bool:
+    // `overlap`: the hit comes from something that stays on or sweeps
+    // through the enemy (a field, a blade, a ring, a beam, lightning, a
+    // blast), which a big hull meets more often; a bullet is not that, and
+    // a piercing one would otherwise strike a boss again every few ticks.
+    pub fn damage_enemy(mut self: Self, index: i32, damage: i32, impact: V2, bounced: bool = false, cooldown: f64 = 0.12, overlap: bool = false) -> bool:
         let target = self.enemies[index]
         var dealt = if target.kind == .Boss and target.boss >= 0: ((damage as f64) * self.boss_damage_scale(target, impact) + 0.5) as i32 else: damage
         // Marked by a Shockwave: half again.
@@ -1603,7 +1607,7 @@ extend Game:
             if dealt < 1: dealt = 1
         // A boss is a big hull: a ring, a field or a fan that overlaps it
         // strikes it four times as often as it would a Block.
-        let big: bool = target.kind == .Boss
+        let big: bool = overlap and target.kind == .Boss
         self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
         self.enemies[index].hit_cd = cooldown * (if big: BOSS_HIT_SHARE else: 1.0)
@@ -1629,7 +1633,7 @@ extend Game:
                 // A blast crosses a big hull once and whole; a field or a
                 // blade overlaps it and gets the quicker cooldown instead.
                 let dealt = if blast: ((damage as f64) * self.cross_share(e.kind) + 0.5) as i32 else: damage
-                if not self.damage_enemy(i, dealt, direction(sub(e.pos, pos)), bounced, cooldown): i += 1
+                if not self.damage_enemy(i, dealt, direction(sub(e.pos, pos)), bounced, cooldown, true): i += 1
             else: i += 1
         hits
 
@@ -1675,7 +1679,7 @@ extend Game:
             let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(a, b, e.pos, 10.0 + e.kind.radius() * e.size):
                 let crossed = ((damage as f64) * self.cross_share(e.kind) + 0.5) as i32
-                if not self.damage_enemy(i, crossed, direction(sub(b, a))): i += 1
+                if not self.damage_enemy(i, crossed, direction(sub(b, a)), false, 0.12, true): i += 1
             else: i += 1
 
     // A random enemy in view, not struck in the last moment; -1 when none.
@@ -1710,7 +1714,8 @@ extend Game:
             if self.arc_count < ARC_CAP:
                 self.arcs[self.arc_count] = ArcBolt { a: origin, b: pos, seed: self.rng }
                 self.arc_count += 1
-            let _ = self.damage_enemy(target, damage, direction(sub(pos, origin)))
+            let crossed = ((damage as f64) * self.cross_share(self.enemies[target].kind) + 0.5) as i32
+            let _ = self.damage_enemy(target, crossed, direction(sub(pos, origin)), false, 0.12, true)
             self.break_beacons_on_segment(origin, pos, 8.0)
             origin = pos
 
@@ -1744,7 +1749,7 @@ extend Game:
                 if stats.herd and kind != .Boss and kind != .Null:
                     self.enemies[i].pos = add(at, scale(V2 { x: -heading.y, y: heading.x }, HERD_PUSH * kind.displacement()))
                 let crossed = ((stats.damage as f64) * self.cross_share(kind) + 0.5) as i32
-                if not self.damage_enemy(i, crossed, heading): i += 1
+                if not self.damage_enemy(i, crossed, heading, false, 0.12, true): i += 1
             else: i += 1
         if stats.shatters:
             // The beam shatters into bouncing shards where it ends.
@@ -2021,7 +2026,7 @@ extend Game:
                                     self.arc_count += 1
                                 self.pulse(pos, 44.0, .Violet)
                                 let zapped = ((zap_damage as f64) * self.cross_share(self.enemies[target].kind) + 0.5) as i32
-                                let _ = self.damage_enemy(target, zapped, direction(sub(pos, from)))
+                                let _ = self.damage_enemy(target, zapped, direction(sub(pos, from)), false, 0.12, true)
                                 // Anyone unlucky enough to be in the way is struck too.
                                 self.strike_line(from, pos, zap_damage)
                                 if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, zap_damage * 2 / 3 + 1)
@@ -3249,7 +3254,7 @@ extend Game:
                         if wave.mark > moved.marked: moved.marked = wave.mark
                         self.enemies[i] = moved
                     let crossed = ((wave.damage as f64) * self.cross_share(e.kind) + 0.5) as i32
-                    if not self.damage_enemy(i, crossed, direction(sub(e.pos, wave.pos))): i += 1
+                    if not self.damage_enemy(i, crossed, direction(sub(e.pos, wave.pos)), false, 0.12, true): i += 1
                 else: i += 1
             // The ring's edge breaks any beacon it crosses.
             for k in 0..self.beacon_count:
