@@ -235,7 +235,11 @@ pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
+pub const BOSS_HEALTH: [f64; 6] = [1200.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
+// Under desperation's behavior, a floor no stalemate survives: a boss's
+// touch and shots grow by half a minute past desperation, to three times.
+pub const DESPERATION_RAMP: f64 = 0.5
+pub const DESPERATION_RAMP_CAP: f64 = 3.0
 // The Lattice: how long it is held at desperation, the arc of its gaps
 // before and after, and the ring it keeps from the ship.
 pub const DESPERATION: f64 = 75.0
@@ -580,7 +584,7 @@ extend Game:
         var enemy: Enemy = self.enemies[index]
         let toward = direction(sub(self.player, enemy.pos))
         let distance = sqrt(length2(sub(self.player, enemy.pos)))
-        let desperate = enemy.age > self.rules.desperation
+        let desperate = enemy.age > self.desperation_of(enemy.boss)
         let gap = if desperate: LATTICE_GAP_DESPERATE else: LATTICE_GAP
         let quick = if desperate: 1.33 else: 1.0
         // Desperate, it closes its ring: a fight that drags comes to you.
@@ -669,7 +673,7 @@ extend Game:
     // 1 is the tell; flank is the turn's direction.
     fn step_keeper(mut self: Self, index: i32, dt: f64) -> V2:
         var enemy: Enemy = self.enemies[index]
-        let desperate = enemy.age > self.rules.desperation
+        let desperate = enemy.age > self.desperation_of(enemy.boss)
         let to_center = sub(self.center(), enemy.pos)
         var velocity = V2 {}
         if length2(to_center) > 12.0 * 12.0: velocity = scale(direction(to_center), enemy.speed * 0.8)
@@ -703,7 +707,7 @@ extend Game:
     // Enemy fields: eaten counts plates shed; state 0 walk, 1 tell, 2 ram.
     fn step_bulwark(mut self: Self, index: i32, dt: f64) -> V2:
         var enemy: Enemy = self.enemies[index]
-        let desperate = enemy.age > self.rules.desperation
+        let desperate = enemy.age > self.desperation_of(enemy.boss)
         let toward = direction(sub(self.player, enemy.pos))
         let pace = enemy.speed * BULWARK_WALK * (if desperate: 2.0 else: 1.0)
         var velocity = scale(toward, pace)
@@ -746,7 +750,7 @@ extend Game:
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             if e.kind == .Boss and e.boss == 4:
-                let half = if e.age > self.rules.desperation: KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
+                let half = if e.age > self.desperation_of(e.boss): KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
                 return Some((e.pos, e.angle, half))
         None
 
@@ -1259,6 +1263,24 @@ extend Game:
         let pick = (self.random() * (open.len() as f64 - 0.001)) as i32
         open[pick]
 
+    // When a boss turns desperate: the rule's seconds, half again for the
+    // Warden, the tutorial boss, so a weak build has time to learn it.
+    pub fn desperation_of(self: &Self, boss: i32) -> f64:
+        self.rules.desperation * (if boss == 0: 1.5 else: 1.0)
+
+    // Whether a boss up has passed desperation.
+    pub fn boss_desperate(self: &Self) -> bool:
+        for i in 0..self.enemy_count:
+            let e = self.enemies[i]
+            if e.kind == .Boss and e.boss >= 0 and e.age > self.desperation_of(e.boss): return true
+        false
+
+    // How much harder a boss hits past desperation: the stalemate floor.
+    pub fn desperation_scale(self: &Self, e: Enemy) -> f64:
+        if e.kind != .Boss or e.boss < 0 or e.age <= self.desperation_of(e.boss): return 1.0
+        let past = (e.age - self.desperation_of(e.boss)) / 60.0
+        limit(1.0 + DESPERATION_RAMP * past, 1.0, DESPERATION_RAMP_CAP)
+
     // Any boss still up.
     fn any_boss_alive(self: &Self) -> bool:
         for i in 0..self.enemy_count:
@@ -1317,9 +1339,9 @@ extend Game:
     fn boss_damage_scale(self: &Self, e: Enemy, impact: V2) -> f64:
         match e.boss:
             0 => {
-                // The Warden's back is its weak point.
+                // The Warden's back is its weak point; the front is half.
                 let along = impact.x * e.facing.x + impact.y * e.facing.y
-                if along > 0.3: 3.5 else: 0.35
+                if along > 0.3: 3.5 else: 0.6
             }
             1 => if e.state == 3: 2.5 else: 0.5
             2 => if self.drones_alive() > 0: 0.08 else: 1.5
@@ -2371,8 +2393,10 @@ extend Game:
             if pair:
                 let second = self.draw_boss(first != 1 and first != 3 and first != 5)
                 self.spawn_boss_of(second)
-        // During a boss fight nothing else arrives, and the elite clock waits.
-        if self.boss_alive:
+        // During a boss fight nothing else arrives, and the elite clock
+        // waits — until desperation, when the swarm comes back: no fight
+        // stalls for lack of pressure.
+        if self.boss_alive and not self.boss_desperate():
             self.next_elite += dt
             return
         // Elites every minute from three.
@@ -2854,7 +2878,8 @@ extend Game:
                     }
                     .Boss => {
                         enemy.timer -= dt
-                        let shot_damage = (if enemy.boss == 0 or enemy.boss == 3: 2 else: 3) + self.endless_loop
+                        let base_shot = (if enemy.boss == 0 or enemy.boss == 3: 2 else: 3) + self.endless_loop
+                        let shot_damage = ((base_shot as f64) * self.desperation_scale(enemy) + 0.5) as i32
                         match enemy.boss:
                             5 => {
                                 self.enemies[e] = enemy
@@ -2878,7 +2903,7 @@ extend Game:
                                 // and sprays a turning spiral. Its back is the target.
                                 // Desperate, it stops turning and charges in straight
                                 // lines: its back is open only on the turnaround.
-                                let desperate = enemy.age > self.rules.desperation
+                                let desperate = enemy.age > self.desperation_of(enemy.boss)
                                 let want = direction(sub(self.player, enemy.pos))
                                 let turn = limit(dt * (if desperate: 0.25 else: 0.9), 0.0, 1.0)
                                 enemy.facing = direction(add(scale(enemy.facing, 1.0 - turn), scale(want, turn)))
@@ -2906,7 +2931,7 @@ extend Game:
                                 // stunned where it lands. Stunned is when it breaks.
                                 // Desperate, it lunges twice as often and the open
                                 // window is half as long.
-                                let desperate = enemy.age > self.rules.desperation
+                                let desperate = enemy.age > self.desperation_of(enemy.boss)
                                 if enemy.state == 0:
                                     velocity = scale(toward, enemy.speed * 0.8)
                                     enemy.facing = toward
@@ -2943,7 +2968,7 @@ extend Game:
                                 // Hive: drifts; its drones shield it. With every drone
                                 // down it is open for eight seconds, then rebuilds them.
                                 // Desperate, the core moves and the open window is short.
-                                let desperate = enemy.age > self.rules.desperation
+                                let desperate = enemy.age > self.desperation_of(enemy.boss)
                                 velocity = scale(toward, enemy.speed * (if desperate: 0.9 else: 0.3))
                                 if self.drones_alive() == 0:
                                     if enemy.state == 0:
@@ -3396,7 +3421,8 @@ extend Game:
             if enemy.age < self.rules.spawn_grace: continue
             let reach = self.rules.contact_radius + (enemy.kind.radius() - 14.0) * enemy.size
             if length2(sub(enemy.pos, self.player)) < reach * reach:
-                self.hurt(enemy.kind, enemy.elite, self.contact(enemy.kind))
+                let touch = ((self.contact(enemy.kind) as f64) * self.desperation_scale(enemy) + 0.5) as i32
+                self.hurt(enemy.kind, enemy.elite, touch)
                 break
         if self.phase == .Running and self.health > 0 and (self.pending_levels > 0 or self.pending_cache_items > 0): self.resume()
 

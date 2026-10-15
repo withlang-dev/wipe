@@ -1509,7 +1509,7 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
         5 => {
             // Bulwark: a wall of plates, an octagon layered thick; a layer
             // goes with each plate shed. The ram's tell is the Lancer's line.
-            let desperate = e.age > g.rules.desperation
+            let desperate = e.age > g.desperation_of(e.boss)
             let layers = 4 - e.eaten % 4
             for k in 0..layers:
                 let r = radius * (1.3 - k as f64 * 0.18)
@@ -1524,7 +1524,7 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
         4 => {
             // Keeper: a heavy hub of rings, a keyhole at its sector's middle;
             // the tell: the next sector's edges flicker a quarter turn on.
-            let desperate = e.age > g.rules.desperation
+            let desperate = e.age > g.desperation_of(e.boss)
             DrawPolyLinesEx(rv(pos), 12, (radius * 1.15) as f32, (clock * 8.0) as f32, 3.0, color)
             DrawPolyLinesEx(rv(pos), 12, (radius * 0.75) as f32, (-clock * 12.0) as f32, 2.0, paint_alpha(color, 0.7))
             ring(pos, radius * 0.35, white(0.8))
@@ -1544,7 +1544,7 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
             // Lattice: a turning frame of struts, a bright node at each
             // corner; the frame turns faster at desperation. Telegraphs: the
             // next pattern traced thin a second ahead.
-            let desperate = e.age > g.rules.desperation
+            let desperate = e.age > g.desperation_of(e.boss)
             let spin = clock * (if desperate: 60.0 else: 25.0)
             DrawPolyLinesEx(rv(pos), 6, (radius * 1.1) as f32, spin as f32, 2.4, color)
             DrawPolyLinesEx(rv(pos), 6, (radius * 0.6) as f32, (-spin * 1.5) as f32, 1.6, paint_alpha(color, 0.7))

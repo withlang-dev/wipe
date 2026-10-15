@@ -27,6 +27,10 @@ pub fn nearest_aim(g: &Game) -> V2:
 // walls, aim at the nearest enemy.
 pub fn careful(g: &Game) -> Controls:
     var push = V2 {}
+    // A short-range build has to hug a boss to hurt it: less fear, more
+    // of the Warden's back.
+    let lead = g.build.weapons[0].weapon.family()
+    let hugger = lead == .Tesla or lead == .Orbiting or lead == .Tether or lead == .Dropped or lead == .Repulsor or lead == .Shock or lead == .Field or lead == .Satellite
     var nearest = 1.0e12
     for i in 0..g.enemy_count:
         let e = g.enemies[i]
@@ -34,13 +38,28 @@ pub fn careful(g: &Game) -> Controls:
         let d2 = length2(d)
         if d2 < nearest: nearest = d2
         let fear = if e.kind == .Boss or e.kind == .Null: 380.0 else: 230.0
-        if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: 400.0 else: 90.0)))
-    // Circle toward the Warden's back, its weak point.
+        if d2 < fear * fear and d2 > 1.0: push = add(push, scale(d, 1.0 / d2 * (if e.kind == .Boss: (if hugger: 90.0 else: 400.0) else: 90.0)))
+        // Never inside a boss's reach, hugger or not: a hard wall at 100 px.
+        if e.kind == .Boss and d2 < 100.0 * 100.0 and d2 > 1.0: push = add(push, scale(direction(d), 25.0))
+    // Circle the Warden toward its back, its weak point: it turns to face,
+    // so a point behind it is never reached; an orbit at speed is. Hold
+    // the ring a hugger's weapon reaches from, or a shooter's distance.
     for i in 0..g.enemy_count:
         let e = g.enemies[i]
         if e.kind == .Boss and e.boss == 0:
-            let behind = sub(e.pos, scale(e.facing, 300.0))
-            push = add(push, scale(direction(sub(behind, g.player)), 1.6))
+            let radial = direction(sub(g.player, e.pos))
+            let dist = sqrt(length2(sub(g.player, e.pos)))
+            let along = radial.x * e.facing.x + radial.y * e.facing.y
+            let ring = if hugger: 115.0 else: 260.0
+            if along > -0.6:
+                // Around, the shorter way to the back.
+                let back = scale(e.facing, -1.0)
+                let cross = radial.x * back.y - radial.y * back.x
+                let tangent = scale(perpendicular(radial), if cross >= 0.0: 1.0 else: -1.0)
+                push = add(push, scale(tangent, if hugger: 5.0 else: 3.0))
+            // The hold grows with the gap, so the orbit tightens to the ring.
+            if dist > ring + 20.0: push = add(push, scale(radial, -limit((dist - ring) / 60.0, 1.0, 6.0)))
+            else if dist < ring - 20.0: push = add(push, scale(radial, 2.0))
     // Step out of a telegraphed charge line.
     for i in 0..g.enemy_count:
         let e = g.enemies[i]

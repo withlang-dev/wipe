@@ -321,3 +321,67 @@ Mirror    WARDEN        2/2       2     0    33s          0              1.1s   
 Mirror    LANCER    0/2
 Mirror    HIVE      0/2
 ```
+
+## After the boss balance pass, the bot, 2 seeds a ship (encounters reached)
+
+What the pass changed: the Warden's front is 0.6 and its hull a notch
+lower; past desperation a boss's touch and shots grow by half a minute
+(to three times) and the swarm comes back, so no fight stalls; the
+Warden, the tutorial boss, turns desperate half again as late; the
+careful bot orbits the Warden to its back, hugs a boss with a
+short-range build, and never enters a boss's reach. Every fight the bot
+reaches now ends, and `boss_bands_a.w` and `_b.w` hold the whole roster
+at the floor the pass found (ends within eight minutes, no thirty-second
+wait, no six-tenths idle), to tighten as the pilot improves.
+
+What is left: the Warden kills the weakest early builds (Volt, Coil, the
+Warden ship, in both seeds) — it was harmless before the hull curve and
+is the first real test now; the Hull waits twenty seconds on it and
+stands against the Bulwark for eight minutes before dying. Those are the
+pilot's and the Hull's, not the bosses'.
+
+```text
+ship      boss      reached  killed  died   ttk   hull lost  no-damage streak  share
+Claw      WARDEN        2/2       2     0    16s          1              0.8s     0%
+Claw      LANCER        1/2       0     1    87s         15              1.5s     1%
+Claw      KEEPER        1/2       0     1    86s         10              2.8s     3%
+Claw      BULWARK       1/2       1     0    55s          0              0.4s     0%
+Dart      WARDEN        2/2       2     0    18s          1              0.7s     0%
+Dart      HIVE          1/2       1     0    42s          0                0s     0%
+Dart      LATTICE       1/2       1     0    30s          0              0.5s     0%
+Dart      BULWARK       2/2       2     0    60s          0              0.3s     0%
+Hull      WARDEN        2/2       1     1   104s         21             22.6s    15%
+Hull      BULWARK       1/2       0     1   465s         65              2.1s     2%
+Prism     WARDEN        2/2       2     0    47s          0              1.2s     0%
+Prism     BULWARK       1/2       0     1   101s          9              4.7s     4%
+Halo      WARDEN        2/2       2     0    15s          0              2.4s     9%
+Halo      LATTICE       1/2       1     0   145s          8              1.1s     0%
+Halo      BULWARK       1/2       0     1    83s         21              3.2s     4%
+Needle    WARDEN        2/2       1     1    25s          2              5.2s    26%
+Sapper    WARDEN        2/2       2     0    36s          5              2.2s     5%
+Sapper    LANCER        1/2       0     1    80s         15              3.6s     7%
+Phase     WARDEN        2/2       2     0    65s          0              1.7s     4%
+Phase     LANCER        1/2       0     1    82s          5              2.1s     2%
+Null      WARDEN        2/2       2     0    16s          0              1.3s     3%
+Null      LATTICE       1/2       0     1    84s         24              2.7s     1%
+Lasher    WARDEN        2/2       1     1    38s          5              3.8s    10%
+Carrier   WARDEN        2/2       1     1    83s          6              7.7s     3%
+Carrier   HIVE          1/2       1     0    61s          0              1.2s     0%
+Carrier   LATTICE       1/2       1     0    53s          0              0.9s     0%
+Warden    WARDEN        2/2       0     2   140s         10                6s    12%
+Hawk      WARDEN        2/2       2     0    27s          1              0.9s     0%
+Hawk      LATTICE       1/2       1     0    55s          2              0.3s     0%
+Volt      WARDEN        2/2       0     2    61s         10              2.7s     0%
+Brace     WARDEN        2/2       1     1    98s          7                4s     3%
+Sentry    WARDEN        2/2       2     0    20s          4              1.3s     2%
+Sentry    BULWARK       1/2       0     1   100s         14              1.4s     2%
+Lantern   WARDEN        2/2       2     0    45s          3              1.3s     0%
+Lantern   LATTICE       1/2       0     1   115s         16              1.2s     1%
+Coil      WARDEN        2/2       0     2   101s         10              2.8s    10%
+Kestrel   WARDEN        2/2       2     0    14s          0              0.9s     0%
+Kestrel   LANCER        1/2       0     1    80s         12              1.1s     0%
+Rampart   WARDEN        1/2       1     0    32s          0              2.3s     6%
+Orbital   WARDEN        2/2       2     0    42s          2              0.9s     0%
+Mirror    WARDEN        2/2       2     0    15s          0              1.5s     3%
+Mirror    LATTICE       1/2       1     0   146s          0              1.3s     0%
+```
