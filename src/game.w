@@ -235,7 +235,7 @@ pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
+pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 4000.0, 9000.0]
 // Under desperation's behavior, a floor no stalemate survives: a boss's
 // touch and shots grow by half a minute past desperation, to three times.
 // How much of a hit's cooldown a boss keeps: its hull is in the way more.
@@ -304,6 +304,7 @@ pub const ANCHOR_HOLD: f64 = 0.5
 pub const TANK_FIRST: f64 = 150.0
 pub const TANK_INTERVAL: f64 = 25.0
 pub const TANK_LURE: f64 = 0.16
+pub const BOSS_LURE: f64 = 0.3
 // A marked enemy's lure, a held one's, and how a beam-slowed enemy crawls.
 pub const MARK_LURE: f64 = 0.35
 pub const HELD_LURE: f64 = 0.5
@@ -704,13 +705,14 @@ extend Game:
             if desperate: enemy.flank = not enemy.flank
             self.pulse(enemy.pos, 260.0, .Red)
         self.enemies[index] = enemy
-        // The bite.
+        // The bite, harder past desperation like a touch or a shot.
         if self.in_keeper_sector(self.player): self.keeper_bite = 0.0
         else:
             self.keeper_bite += dt
             if self.keeper_bite >= KEEPER_BITE:
                 self.keeper_bite -= KEEPER_BITE
-                self.hurt(.Weaver, false, 2)
+                let bite = (2.0 * self.desperation_scale(self.enemies[index]) + 0.5) as i32
+                self.hurt(.Weaver, false, bite)
         velocity
 
     // The Bulwark: the wall. A large slow hull that walks at the ship, no
@@ -1636,6 +1638,9 @@ extend Game:
     fn lure_of(self: &Self, e: Enemy) -> f64:
         var f = 1.0
         if e.kind == .Tank: f *= TANK_LURE
+        // A boss draws fire too: when the swarm is back at desperation, a
+        // homing or emplaced weapon still finds the boss.
+        if e.kind == .Boss and e.boss >= 0: f *= BOSS_LURE
         if e.marked > 0.0: f *= MARK_LURE
         if self.held(e.pos): f *= HELD_LURE
         f

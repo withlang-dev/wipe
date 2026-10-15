@@ -9,7 +9,7 @@
 //   bosses matrix [SEEDS]           every ship forced into every boss at the
 //                                   boss's own slot: reached, killed, died,
 //                                   time to kill, hull lost, per pair
-//   bosses probe SHIP [BOSS]        one run, seed 0, a line a second through
+//   bosses probe SHIP [BOSS [SEED]]  one run, a line a second through
 //                                   each boss fight: where the ship is, what
 //                                   it deals, what it carries
 use game
@@ -23,9 +23,9 @@ use std.process.{args}
 use std.string.parse
 
 // The instrument: a line a second through every boss fight of one run.
-fn probe(ship: Ship, force: i32) -> i32:
+fn probe(ship: Ship, force: i32, seed: i32) -> i32:
     var g = Game.new()
-    g.rng = 55555
+    g.rng = 55555 +% (seed as u32) *% 2654435761
     var save = Save {}
     for w in 0..BASE_WEAPON_COUNT: save.weapon_unlocked_run[w] = 0
     var launch = launch_for(ship, &save, false)
@@ -109,7 +109,7 @@ fn main:
     if argv.len() > 1 and argv[1] == "matrix": return matrix(if argv.len() > 2: parse(argv[2]) else: 2)
     if argv.len() > 2 and argv[1] == "probe":
         for i in 0..SHIP_COUNT:
-            if ship_at(i).name() == argv[2]: return probe(ship_at(i), if argv.len() > 3: parse(argv[3]) else: -1)
+            if ship_at(i).name() == argv[2]: return probe(ship_at(i), if argv.len() > 3: parse(argv[3]) else: -1, if argv.len() > 4: parse(argv[4]) else: 0)
         print(f"unknown ship {argv[2]}")
         return 1
     let seeds = if argv.len() > 1: parse(argv[1]) else: 4

@@ -538,3 +538,54 @@ damage to it (half again to a Tank), while the overlapping weapons keep
 the quicker cooldown and never both. Held 120 px from a late boss: Nova
 16 to 66 a second, Lance 40 to 160, Arc 11 to 46, Shockwave 8 to 37 —
 about a seventh of a bolt weapon, from a thirtieth.
+
+## The matrix after the crossing rule, the Shield and the boss lure
+
+`bosses matrix 2` again, with the pulse weapons able to hurt a boss, the
+Shield in the draw, and three more rules the re-run found: a boss draws
+homing and emplaced fire like a Tank does (BOSS_LURE), so the swarm's
+return at desperation does not starve an area build of its target; the
+Keeper's bite grows past desperation like a touch or a shot; and the
+Keeper's hull is 4000 base, so the slowest build kills it inside the
+five minutes before the Null. The pilot holds the ship near the Keeper
+inside its light, not only pulls it back from outside.
+
+Kills rose on every boss and deaths fell on all but the Hive: the Keeper
+from 6/1 to 9/0, the Bulwark from 6/4 to 7/3, the Warden to 37/1. The
+Hull, the slowest killer, takes 299 s on the Keeper and 188 on the
+Lancer — the Hull's character, inside the window. The Needle at fifteen
+minutes kills a boss in four to ten seconds: the late killer's identity,
+and the one row to watch if that reads as falling at once.
+
+```text
+ship            WARDEN       LANCER         HIVE      LATTICE       KEEPER      BULWARK
+            k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk
+Claw         2/0/2 16s    0/1/1 78s    0/1/1 82s    1/0/1 46s    1/0/1 66s   0/1/1 103s
+Dart         2/0/2 13s    2/0/2 46s    2/0/2 54s    2/0/2 33s    2/0/2 50s    2/0/2 70s
+Hull         2/0/2 35s   1/0/1 188s   0/1/1 132s    1/0/1 92s   1/0/1 299s   0/1/1 105s
+Prism        2/0/2 19s    2/0/2 37s    2/0/2 33s    2/0/2 24s    2/0/2 25s    2/0/2 58s
+Halo         1/0/1 36s            -            -            -            -            -
+Needle       2/0/2 21s     1/0/1 8s     1/0/1 5s     1/0/1 4s     1/0/1 9s    1/0/1 10s
+Sapper       2/0/2 79s            -            -            -            -            -
+Phase       1/0/1 142s            -            -            -            -            -
+Null          2/0/2 9s            -            -            -            -            -
+Lasher       1/1/2 85s            -            -            -            -            -
+Anchor       1/0/1 17s    0/1/1 79s            -    1/0/1 64s            -    0/1/1 79s
+Carrier      2/0/2 42s            -            -            -            -            -
+Warden       2/0/2 61s            -            -            -            -            -
+Hawk         2/0/2 16s    1/0/1 37s    1/0/1 55s    1/0/1 24s    1/0/1 41s    1/0/1 53s
+Volt        1/0/1 155s            -            -            -            -            -
+Mortar       1/0/1 13s            -            -            -            -            -
+Brace        2/0/2 78s            -            -            -            -            -
+Sentry       2/0/2 23s            -            -            -            -            -
+Lantern      2/0/2 25s            -            -            -            -            -
+Coil         1/0/1 50s            -            -            -            -            -
+Kestrel      1/0/1 11s            -            -            -            -            -
+Rampart              -            -            -            -            -            -
+Orbital      1/0/1 98s            -            -            -            -            -
+Ghost                -            -            -            -            -            -
+Glass                -            -            -            -            -            -
+Mirror       2/0/2 19s    1/0/1 46s    1/0/1 55s    1/0/1 33s    1/0/1 33s    1/0/1 73s
+now            37/1/38       8/2/10        7/2/9      10/0/10        9/0/9       7/3/10
+before         33/4/37       7/3/10        7/0/7       9/1/10        6/1/7       6/4/10
+```

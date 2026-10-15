@@ -100,7 +100,9 @@ pub fn careful(g: &Game) -> Controls:
     // sector's middle line overrides most else; inside, a gentle hold.
     if let Some((middle, angle, _)) = g.keeper_sector():
         let goal = add(middle, V2 { x: cos(angle) * 220.0, y: sin(angle) * 220.0 })
-        let weight = if g.in_keeper_sector(g.player): 0.8 else: 5.0
+        // Outside the light nothing else matters: the pull outweighs the
+        // swarm; inside, it still holds the ship near the boss, in reach.
+        let weight = if g.in_keeper_sector(g.player): 3.5 else: 14.0
         push = add(push, scale(direction(sub(goal, g.player)), weight))
     let margin = 320.0
     let w = g.rules.arena_width
