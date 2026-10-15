@@ -487,3 +487,54 @@ Shockwave           22        6        0        8        8        8
 Satellite           26       92       14      207      206      207
 Repulsor            44       12        0       13       13       13
 ```
+
+## The run under the human-paced pilot: measured before any knob moved
+
+The question after the Warden playtest was whether the whole run had
+been tuned against the bot's instant reflexes. The roster profile, four
+seeds a ship, instant (the balancing campaign's table) against human
+(a decision every tenth of a second):
+
+```text
+ship      instant   >2  >5  >10 >15 >20   k/m      human   >2  >5  >10 >15 >20   k/m
+Claw      4/4 4/4 4/4 3/4 2/4 1237                 4/4 4/4 4/4 1/4 1/4 998
+Dart      4/4 4/4 3/4 1/4 1/4 1138                 4/4 4/4 2/4 0/4 0/4 959
+Hull      4/4 4/4 3/4 1/4 1/4 539                  4/4 4/4 3/4 3/4 0/4 627
+Prism     4/4 4/4 1/4 0/4 0/4 912                  4/4 4/4 1/4 0/4 0/4 913
+Halo      4/4 4/4 2/4 2/4 1/4 851                  4/4 4/4 1/4 0/4 0/4 737
+Needle    4/4 4/4 0/4 0/4 0/4 515                  4/4 4/4 0/4 0/4 0/4 485
+Sapper    4/4 4/4 3/4 0/4 0/4 994                  4/4 4/4 4/4 0/4 0/4 913
+Phase     3/4 3/4 0/4 0/4 0/4 605                  3/4 3/4 0/4 0/4 0/4 586
+Null      4/4 4/4 1/4 0/4 0/4 886                  4/4 4/4 1/4 0/4 0/4 915
+Lasher    4/4 2/4 1/4 1/4 0/4 532                  4/4 3/4 1/4 0/4 0/4 509
+Anchor    1/4 1/4 1/4 0/4 0/4 380                  1/4 1/4 1/4 0/4 0/4 325
+Carrier   4/4 4/4 2/4 2/4 1/4 884                  4/4 4/4 2/4 1/4 1/4 804
+Warden    4/4 4/4 0/4 0/4 0/4 474                  4/4 4/4 2/4 0/4 0/4 527
+Hawk      4/4 4/4 2/4 2/4 1/4 1129                 4/4 4/4 4/4 2/4 1/4 999
+Volt      2/4 2/4 0/4 0/4 0/4 460                  2/4 2/4 0/4 0/4 0/4 435
+Mortar    2/4 0/4 0/4 0/4 0/4 219                  2/4 1/4 0/4 0/4 0/4 236
+Brace     4/4 4/4 1/4 0/4 0/4 590                  4/4 4/4 1/4 0/4 0/4 529
+Sentry    4/4 4/4 1/4 1/4 0/4 1033                 4/4 4/4 1/4 1/4 0/4 1035
+Lantern   4/4 4/4 2/4 1/4 0/4 876                  4/4 4/4 0/4 0/4 0/4 699
+Coil      4/4 4/4 2/4 2/4 1/4 381                  4/4 4/4 0/4 0/4 0/4 510
+Kestrel   4/4 4/4 1/4 1/4 0/4 887                  4/4 4/4 1/4 0/4 0/4 715
+Rampart   3/4 2/4 1/4 1/4 0/4 590                  3/4 3/4 1/4 0/4 0/4 504
+Orbital   3/4 2/4 1/4 0/4 0/4 174                  3/4 3/4 0/4 0/4 0/4 360
+Ghost     2/4 1/4 1/4 1/4 1/4 51                   2/4 0/4 0/4 0/4 0/4 68
+Glass     1/4 1/4 0/4 0/4 0/4 276                  1/4 1/4 0/4 0/4 0/4 301
+Mirror    4/4 4/4 1/4 1/4 0/4 811                  4/4 4/4 1/4 0/4 0/4 775
+```
+
+Past five minutes the two are the same. Past ten, six ships fell and
+four rose. The drop is past fifteen — the Claw from 3/4 to 1/4 — where
+the pool bosses, the Tanks and the Bulwark now live, not where the
+pressure knobs act. So the knobs stay: the run's middle is right, and
+the late game's new difficulty is the bosses', to read in their own
+bench. The ship-profile bands in `targets.w` hold as they are.
+
+A second geometry rule for bosses lands with this entry: a ring, beam,
+bolt of lightning or blast crossing a big hull does four times a Block's
+damage to it (half again to a Tank), while the overlapping weapons keep
+the quicker cooldown and never both. Held 120 px from a late boss: Nova
+16 to 66 a second, Lance 40 to 160, Arc 11 to 46, Shockwave 8 to 37 —
+about a seventh of a bolt weapon, from a thirtieth.

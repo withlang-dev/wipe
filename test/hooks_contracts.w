@@ -88,4 +88,21 @@ fn main:
     let crawled = 400.0 - (slow.enemies[0].pos.x - slow.player.x)
     let ran = 400.0 - (fast.enemies[0].pos.x - fast.player.x)
     assert(ran > 20.0 and crawled > 5.0 and crawled < ran * 0.6)
+    // A crossing strike does more to a big hull: a ring crossing a boss
+    // does four times a Block's damage, a Tank half again.
+    assert(sweep.cross_share(.Boss) == 4.0 and sweep.cross_share(.Tank) == 1.5 and sweep.cross_share(.Block) == 1.0)
+    var ringed = armed(.Nova, 5, 6)
+    ringed.jump_to(300.0)
+    ringed.boss_index = 1
+    ringed.spawn_boss_of(0)
+    ringed.freeze = 0.0
+    var hp = 0
+    if let Some((h, _)) = ringed.boss_health(): hp = h
+    for i in 0..ringed.enemy_count:
+        if ringed.enemies[i].kind == .Boss: ringed.player = add(ringed.enemies[i].pos, V2 { x: 60.0 })
+    ringed = still(ringed, 3.0)
+    var left = 0
+    if let Some((h, _)) = ringed.boss_health(): left = h
+    let ring_damage = weapon_stats(.Nova, 5, Mods {}).damage
+    assert(hp - left >= ring_damage * 4)
     print("UAT passed: a mark draws fire, lightning runs on through held enemies, a beam slows and herds what it crosses")

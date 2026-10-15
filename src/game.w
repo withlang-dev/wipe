@@ -240,6 +240,10 @@ pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.
 // touch and shots grow by half a minute past desperation, to three times.
 // How much of a hit's cooldown a boss keeps: its hull is in the way more.
 pub const BOSS_HIT_SHARE: f64 = 0.25
+// What a ring, beam, bolt of lightning or blast crossing a big hull does
+// to it, over a Block: a boss is four times the hull, a Tank half again.
+pub const BOSS_CROSS: f64 = 4.0
+pub const TANK_CROSS: f64 = 1.5
 pub const DESPERATION_RAMP: f64 = 0.5
 pub const DESPERATION_RAMP_CAP: f64 = 3.0
 // The Lattice: how long it is held at desperation, the arc of its gaps
@@ -1277,6 +1281,15 @@ extend Game:
             if e.kind == .Boss and e.boss >= 0 and e.age > self.desperation_of(e.boss): return true
         false
 
+    // What a crossing strike does to this kind, over a Block: a bigger hull
+    // is crossed longer. Overlapping weapons get this through the hit
+    // cooldown instead (BOSS_HIT_SHARE), never both.
+    pub fn cross_share(self: &Self, kind: Kind) -> f64:
+        match kind:
+            .Boss => BOSS_CROSS
+            .Tank => TANK_CROSS
+            _ => 1.0
+
     // How much harder a boss hits past desperation: the stalemate floor.
     pub fn desperation_scale(self: &Self, e: Enemy) -> f64:
         if e.kind != .Boss or e.boss < 0 or e.age <= self.desperation_of(e.boss): return 1.0
@@ -1595,7 +1608,7 @@ extend Game:
         false
 
     // Enemies within a radius, each hit once per cooldown. Returns hits.
-    fn damage_area(mut self: Self, pos: V2, radius: f64, damage: i32, bounced: bool = false, cooldown: f64 = 0.12) -> i32:
+    fn damage_area(mut self: Self, pos: V2, radius: f64, damage: i32, bounced: bool = false, cooldown: f64 = 0.12, blast: bool = false) -> i32:
         var hits = 0
         var i = 0
         while i < self.enemy_count:
@@ -1603,7 +1616,10 @@ extend Game:
             let reach = radius + e.kind.radius() * e.size
             if e.hit_cd <= 0.0 and length2(sub(e.pos, pos)) <= reach * reach:
                 hits += 1
-                if not self.damage_enemy(i, damage, direction(sub(e.pos, pos)), bounced, cooldown): i += 1
+                // A blast crosses a big hull once and whole; a field or a
+                // blade overlaps it and gets the quicker cooldown instead.
+                let dealt = if blast: ((damage as f64) * self.cross_share(e.kind) + 0.5) as i32 else: damage
+                if not self.damage_enemy(i, dealt, direction(sub(e.pos, pos)), bounced, cooldown): i += 1
             else: i += 1
         hits
 
@@ -1645,7 +1661,8 @@ extend Game:
         while i < self.enemy_count:
             let e = self.enemies[i]
             if e.hit_cd <= 0.0 and segment_hit(a, b, e.pos, 10.0 + e.kind.radius() * e.size):
-                if not self.damage_enemy(i, damage, direction(sub(b, a))): i += 1
+                let crossed = ((damage as f64) * self.cross_share(e.kind) + 0.5) as i32
+                if not self.damage_enemy(i, crossed, direction(sub(b, a))): i += 1
             else: i += 1
 
     // A random enemy in view, not struck in the last moment; -1 when none.
@@ -1691,7 +1708,7 @@ extend Game:
         self.pulse(m.pos, m.radius, .Gold)
         self.burst(m.pos, V2 {}, 18, .Gold, 1.6)
         self.trauma = limit(self.trauma + 0.08, 0.0, 0.4)
-        let _ = self.damage_area(m.pos, m.radius, m.damage)
+        let _ = self.damage_area(m.pos, m.radius, m.damage, false, 0.12, true)
         self.break_beacons_near(m.pos, m.radius)
         if m.chains: self.arc_chain(m.pos, 3, 200.0, m.damage / 2 + 1)
 
@@ -1713,7 +1730,8 @@ extend Game:
                 // A herding beam carries what it crosses along with its turn.
                 if stats.herd and kind != .Boss and kind != .Null:
                     self.enemies[i].pos = add(at, scale(V2 { x: -heading.y, y: heading.x }, HERD_PUSH * kind.displacement()))
-                if not self.damage_enemy(i, stats.damage, heading): i += 1
+                let crossed = ((stats.damage as f64) * self.cross_share(kind) + 0.5) as i32
+                if not self.damage_enemy(i, crossed, heading): i += 1
             else: i += 1
         if stats.shatters:
             // The beam shatters into bouncing shards where it ends.
@@ -1989,7 +2007,8 @@ extend Game:
                                     self.arcs[self.arc_count] = ArcBolt { a: from, b: pos, seed: self.rng }
                                     self.arc_count += 1
                                 self.pulse(pos, 44.0, .Violet)
-                                let _ = self.damage_enemy(target, zap_damage, direction(sub(pos, from)))
+                                let zapped = ((zap_damage as f64) * self.cross_share(self.enemies[target].kind) + 0.5) as i32
+                                let _ = self.damage_enemy(target, zapped, direction(sub(pos, from)))
                                 // Anyone unlucky enough to be in the way is struck too.
                                 self.strike_line(from, pos, zap_damage)
                                 if stats.chain > 0: self.arc_chain(pos, stats.chain, stats.radius, zap_damage * 2 / 3 + 1)
@@ -3132,7 +3151,7 @@ extend Game:
                 if bullet.life <= 0.0 or spent:
                     self.pulse(bullet.pos, bullet.burst, .Gold)
                     self.burst(bullet.pos, V2 {}, 14, .Gold, 1.4)
-                    let _ = self.damage_area(bullet.pos, bullet.burst, bullet.damage)
+                    let _ = self.damage_area(bullet.pos, bullet.burst, bullet.damage, false, 0.12, true)
                     self.break_beacons_near(bullet.pos, bullet.burst)
                     spent = true
             else if not spent:
@@ -3202,7 +3221,8 @@ extend Game:
                         if wave.push > 0.0 and share > 0.0: moved.pos = self.clamp_to_arena(add(moved.pos, scale(direction(sub(e.pos, wave.pos)), wave.push * share)), 8.0)
                         if wave.mark > moved.marked: moved.marked = wave.mark
                         self.enemies[i] = moved
-                    if not self.damage_enemy(i, wave.damage, direction(sub(e.pos, wave.pos))): i += 1
+                    let crossed = ((wave.damage as f64) * self.cross_share(e.kind) + 0.5) as i32
+                    if not self.damage_enemy(i, crossed, direction(sub(e.pos, wave.pos))): i += 1
                 else: i += 1
             // The ring's edge breaks any beacon it crosses.
             for k in 0..self.beacon_count:
