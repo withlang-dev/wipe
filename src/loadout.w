@@ -289,12 +289,12 @@ extend Weapon:
 // Fourteen passives: eight at launch, six unlockable.
 pub enum Passive {
     | Damage | FireRate | Count | Area | ProjSpeed | Magnet | Speed | Health
-    | Cooldown | Armor | Luck | Credit | Rebound | Overclock | Duration | Pierce | Failsafe
+    | Cooldown | Armor | Luck | Credit | Rebound | Overclock | Duration | Pierce | Failsafe | Shield
 }
 impl Copy for Passive
 impl Eq for Passive
 
-pub const PASSIVE_COUNT: i32 = 17
+pub const PASSIVE_COUNT: i32 = 18
 pub const MAX_PASSIVE_LEVEL: i32 = 5
 
 pub fn passive_at(index: i32) -> Passive:
@@ -315,7 +315,8 @@ pub fn passive_at(index: i32) -> Passive:
         13 => .Overclock
         14 => .Duration
         15 => .Pierce
-        _ => .Failsafe
+        16 => .Failsafe
+        _ => .Shield
 
 extend Passive:
     pub fn index(self: &Self) -> i32:
@@ -337,6 +338,7 @@ extend Passive:
             .Duration => 14
             .Pierce => 15
             .Failsafe => 16
+            .Shield => 17
 
     pub fn name(self: &Self) -> str:
         match self:
@@ -357,6 +359,7 @@ extend Passive:
             .Duration => "Duration"
             .Pierce => "Pierce"
             .Failsafe => "Failsafe"
+            .Shield => "Shield"
 
     // The delta of one more level, in plain numbers.
     pub fn describe(self: &Self) -> str:
@@ -378,6 +381,7 @@ extend Passive:
             .Duration => "+12% to how long wells and shells last, and how far a shell flies"
             .Pierce => "every bolt passes through 1 more enemy, every other rank"
             .Failsafe => "one revival a run: at I with 20% hull, more hull and grace with each level"
+            .Shield => "a ring that takes one hit for you, back every 12 s; 1.5 s sooner a rank"
 
 // A merge recipe: weapons at max, key passive held at any level.
 pub type Recipe { result: Weapon = .Railgun, first: Weapon = .Cannon, second: Option[Weapon] = None, key: Passive = .FireRate }
@@ -435,8 +439,9 @@ pub type Mods {
     rebound: i32 = 0, overclock: f64 = 0.0, xp: f64 = 1.0,
     regen: f64 = 0.0, invuln_bonus: f64 = 0.0,
     duration: f64 = 1.0,
-    // Pierce adds to every bolt; Failsafe is the level of the one revival (0: none).
-    pierce: i32 = 0, failsafe: i32 = 0,
+    // Pierce adds to every bolt; Failsafe is the level of the one revival
+    // (0: none); Shield is the ring's rank (0: none).
+    pierce: i32 = 0, failsafe: i32 = 0, shield: i32 = 0,
 }
 impl Copy for Mods
 
@@ -774,10 +779,10 @@ pub type Build {
     // No new weapons below this level (the Ghost).
     weapon_lock: i32 = 0,
     banished_weapons: [bool; 46] = [false; 46],
-    banished_passives: [bool; 17] = [false; 17],
+    banished_passives: [bool; 18] = [false; 18],
     // Weapons and passives this account may be offered.
     unlocked_weapons: [bool; 46] = [false; 46],
-    unlocked_passives: [bool; 17] = [false; 17],
+    unlocked_passives: [bool; 18] = [false; 18],
     forbidden_weapon: Option[Weapon] = None,
     merges_this_run: i32 = 0,
 }
@@ -974,6 +979,7 @@ extend Build:
                 .Duration => { m.duration *= 1.0 + 0.12 * l }
                 .Pierce => { m.pierce += (s.level + 1) / 2 }
                 .Failsafe => { m.failsafe = s.level }
+                .Shield => { m.shield = s.level }
         m.xp *= 1.0 + m.overclock
         m.credit *= 1.0 + m.overclock
         m

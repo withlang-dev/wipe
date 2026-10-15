@@ -40,10 +40,10 @@ pub type Save {
     // Longest a run held each base weapon, in seconds.
     held: [f64; 20] = [0.0; 20],
     taken_weapons: [bool; 46] = [false; 46],
-    taken_passives: [bool; 17] = [false; 17],
+    taken_passives: [bool; 18] = [false; 18],
     // The run that met each condition (0: not yet, or from the start).
     weapon_unlocked_run: [i32; 20] = [0; 20],
-    passive_unlocked_run: [i32; 17] = [0; 17],
+    passive_unlocked_run: [i32; 18] = [0; 18],
     registry_kills: [i32; 9] = [0; 9],
     registry_first: [f64; 9] = [-1.0; 9],
     // Each boss's first kill, the achievement.

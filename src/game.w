@@ -244,6 +244,10 @@ pub const BOSS_HIT_SHARE: f64 = 0.25
 // to it, over a Block: a boss is four times the hull, a Tank half again.
 pub const BOSS_CROSS: f64 = 4.0
 pub const TANK_CROSS: f64 = 1.5
+// The Shield passive: the ring's recharge at rank I, and the seconds each
+// rank takes off it.
+pub const SHIELD_RECHARGE: f64 = 12.0
+pub const SHIELD_RECHARGE_STEP: f64 = 1.5
 pub const DESPERATION_RAMP: f64 = 0.5
 pub const DESPERATION_RAMP_CAP: f64 = 3.0
 // The Lattice: how long it is held at desperation, the arc of its gaps
@@ -388,13 +392,13 @@ pub type Launch {
     shop: Mods = Mods {},
     rerolls: i32 = 0, skips: i32 = 0, banishes: i32 = 0, reboots: i32 = 0,
     unlocked_weapons: [bool; 46] = [false; 46],
-    unlocked_passives: [bool; 17] = [false; 17],
+    unlocked_passives: [bool; 18] = [false; 18],
     taken_weapons: [bool; 46] = [false; 46],
-    taken_passives: [bool; 17] = [false; 17],
+    taken_passives: [bool; 18] = [false; 18],
     // Unlocked in the last two runs and never picked: the draft weights
     // these up so the player meets what they earned.
     fresh_weapons: [bool; 46] = [false; 46],
-    fresh_passives: [bool; 17] = [false; 17],
+    fresh_passives: [bool; 18] = [false; 18],
     best_time: f64 = 0.0,
     endless: bool = false,
     // Hurry: the timeline at twice the rate, the run in ten real minutes.
@@ -471,12 +475,15 @@ pub type Game {
     repulse: f64 = 0.0, repulse_radius: f64 = 0.0, repulse_push: f64 = 0.0, repulse_damage: i32 = 0,
     // Failsafe: the one revival, spent.
     failsafe_used: bool = false,
+    // Shield: seconds until the ring is back (zero: up), and the flash of
+    // its shattering.
+    shield_cd: f64 = 0.0, shield_flash: f64 = 0.0,
     // The stage's derelict: the wreck, its verb's progress, and the record.
     wreck_live: bool = false, wreck: V2 = V2 {}, wreck_vel: V2 = V2 {}, wreck_verb: Verb = .BlackBox,
     wreck_progress: f64 = 0.0, wreck_done: bool = false, wreck_escort: bool = false,
     wreck_touches: i32 = 0, wreck_touch_cd: f64 = 0.0, carrier_spawned: bool = false,
     relays: [V2; 3] = [V2 {}; 3], relays_lit: [bool; 3] = [false; 3],
-    derelict_event: bool = false,
+    derelict_event: bool = false, shield_event: bool = false,
     // The Rotor's bite, accumulating outside the safe sector.
     rotor_bite: f64 = 0.0,
     // A satellite just caught a shot: its shield flares for a moment.
@@ -951,6 +958,7 @@ extend Game:
         self.zap_event = false
         self.first_kill_event = false
         self.derelict_event = false
+        self.shield_event = false
 
     // Recompute every multiplier: shop ranks, then passives, then the ship.
     pub fn refresh_mods(mut self: Self):
@@ -2261,8 +2269,22 @@ extend Game:
 
     // ----- health ----------------------------------------------------------
 
+    // The Shield's recharge at a rank: twelve seconds, a second and a half
+    // sooner a rank.
+    pub fn shield_recharge(self: &Self) -> f64:
+        SHIELD_RECHARGE - SHIELD_RECHARGE_STEP * (self.mods.shield as f64 - 1.0)
+
     pub fn hurt(mut self: Self, kind: Kind, elite: bool, raw: i32):
         if self.health <= 0 or self.invulnerable > 0.0 or self.phase != .Running: return
+        // A Shield up takes the hit whole, except the Null's; it shatters
+        // and comes back on its clock. The combo stands.
+        if self.mods.shield > 0 and self.shield_cd <= 0.0 and kind != .Null:
+            self.shield_cd = self.shield_recharge()
+            self.shield_flash = 0.5
+            self.invulnerable = self.rules.invulnerability * 0.5
+            self.pulse(self.player, 70.0, .White)
+            self.shield_event = true
+            return
         var damage = raw - self.mods.armor
         if kind == .Null: damage = 1000
         if damage < 1: damage = 1
@@ -3417,6 +3439,8 @@ extend Game:
                 if self.invulnerable < PHASE_LENGTH: self.invulnerable = PHASE_LENGTH
         self.enemies_frozen = limit(self.enemies_frozen - dt, 0.0, 5.0)
         self.satellite_flare = limit(self.satellite_flare - dt, 0.0, 1.0)
+        self.shield_cd = limit(self.shield_cd - dt, 0.0, 60.0)
+        self.shield_flash = limit(self.shield_flash - dt, 0.0, 1.0)
         self.breather = limit(self.breather - dt, 0.0, 10.0)
         self.combo_timer -= dt
         if self.combo_timer <= 0.0 and self.combo > 0:

@@ -621,6 +621,12 @@ pub fn draw_passive_icon(passive: Passive, pos: V2, size: f64, alpha: f64):
             line(add(pos, V2 { x: size * 0.5, y: size * 0.4 }), add(pos, V2 { x: size, y: 0.0 }), 2.0, color)
             line(add(pos, V2 { x: 0.0, y: -size * 0.7 }), add(pos, V2 { x: 0.0, y: size * 0.7 }), 2.0, paint_alpha(color, 0.6))
         }
+        .Shield => {
+            // A ring with a notch: the shield, and where it broke.
+            ring(pos, size * 0.85, color)
+            DrawRing(rv(pos), (size * 0.55) as f32, (size * 0.7) as f32, -60.0, 60.0, 16, paint_alpha(color, 0.5))
+            circle(pos, size * 0.2, white(alpha))
+        }
         .Failsafe => {
             // A heart-ish diamond with a pulse line.
             DrawPolyLinesEx(rv(pos), 4, (size * 0.9) as f32, 0.0, 2.0, color)
@@ -1213,6 +1219,17 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         // A faint ring keeps the ship findable in the swarm; the ship itself
         // stays see-through.
         ring(pos, 23.0, white(0.14))
+        // The Shield: a ring while it is up, dim while it recharges, and a
+        // flash as it shatters.
+        if g.mods.shield > 0:
+            if g.shield_cd <= 0.0:
+                ring(pos, 34.0 + 1.5 * sin(clock * 6.0), white(0.55))
+                ring(pos, 36.0, cyan(0.25))
+            else:
+                let back = 1.0 - limit(g.shield_cd / g.shield_recharge(), 0.0, 1.0)
+                DrawRing(rv(pos), 33.0, 35.0, -90.0, (-90.0 + 360.0 * back) as f32, 32, white(0.3))
+            if g.shield_flash > 0.0:
+                ring(pos, 34.0 + (0.5 - g.shield_flash) * 90.0, white(g.shield_flash * 1.4))
         draw_ship(g.launch.ship, pos, g.aim, flicker, 1.0)
         if g.muzzle > 0.0:
             let front = add(pos, scale(g.aim, 30.0))
@@ -1811,6 +1828,7 @@ pub fn passive_total(p: Passive, level: i32) -> str:
         .Duration => f"+{12 * level}%"
         .Pierce => f"+{(level + 1) / 2}"
         .Failsafe => (if level >= 4: "50% hull" else if level >= 2: "30% hull" else: "20% hull")
+        .Shield => f"{12.0 - 1.5 * (level as f64 - 1.0)} s"
 
 // What a pick leads to: the merge this item is part of, and how close.
 // Only for recipes the player has completed before: finding a recipe is the

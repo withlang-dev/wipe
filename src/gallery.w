@@ -127,6 +127,16 @@ fn main:
     drops = step(drops, 0.3, right)
     shot(&renderer, &drops, 42.0, "22-drops")
     // 5. Moments.
+    // The Shield up, and shattering on a hit.
+    var shield = staged()
+    shield = surround(shield, 10, 180.0, Kind.Spinner)
+    shield.build.passives[0] = PassiveSlot { passive: .Shield, level: 3 }
+    shield.refresh_mods()
+    shield = step(shield, 0.3, right)
+    shot(&renderer, &shield, 30.0, "31-shield-up")
+    shield.hurt(.Block, false, 3)
+    shield = step(shield, 0.1, right)
+    shot(&renderer, &shield, 30.4, "31-shield-shatter")
     var level = staged()
     level = surround(level, 12, 240.0, Kind.Dart)
     level.gain_xp(level.xp_next)

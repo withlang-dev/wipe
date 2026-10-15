@@ -246,6 +246,7 @@ pub fn passive_condition(p: Passive) -> Condition:
         .Duration => .Survive(seconds: 480)
         .Pierce => .Merges(count: 1)
         .Failsafe => .Deaths(count: 10)
+        .Shield => .HitsSurvived(count: 20)
         _ => .Start
 
 pub fn ship_unlocked(ship: Ship, s: &Save) -> bool: met(ship.condition(), s)

@@ -80,11 +80,14 @@ never-aim builds (2, 3, 4, 6, 15, 17) exist on purpose.
 | Duration | 2 | Tether → Long Tether; Turret → Battery |
 | Pierce | 3 | Flak → Shrapnel |
 | Failsafe | 3 | — |
+| Shield | 3 | — |
 
 Distribution (as implemented 2026-10-14): no passive keys more than two;
 Cooldown and Damage, the premium stats, key one and two mid-tier weapons,
-not the top ones; Failsafe keys nothing and is pure survival. Sweep's key
-moved to Rebound so Duration keys two.
+not the top ones; Failsafe and Shield key nothing and are pure survival
+(the Shield, added 2026-10-15 after the Warden playtest: a ring that takes
+one hit, back every twelve seconds, sooner a rank). Sweep's key moved to
+Rebound so Duration keys two.
 
 ## 3. Passives
 
