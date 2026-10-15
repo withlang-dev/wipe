@@ -226,7 +226,10 @@ pub type Enemy {
 
 // The three bosses, in the order they arrive.
 pub const BOSS_NAMES: [str; 3] = ["WARDEN", "LANCER", "HIVE"]
-pub const BOSS_HEALTH: [f64; 3] = [1800.0, 5000.0, 7000.0]
+// Base hull per boss, before the run's difficulty and the hull curve the
+// swarm follows (boss_hull): a boss should stand a minute against the
+// build its minute has made, never fall at once, never outlast desperation.
+pub const BOSS_HEALTH: [f64; 3] = [1800.0, 7000.0, 4500.0]
 pub type Bullet {
     pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0, steps: i32 = 0,
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
@@ -524,6 +527,11 @@ extend Game:
         var scale_by = 1.0
         for _ in 0..self.endless_loop: scale_by *= per_loop
         scale_by
+
+    // How a boss's hull grows with the minute: a third of the swarm's curve.
+    pub fn boss_hull(self: &Self) -> f64:
+        let m = self.table_minute()
+        1.0 + (m * 0.4 + m * m * 0.23) / 3.0
 
     fn difficulty(self: &Self) -> f64:
         (1.0 + self.mods.overclock) * self.loop_scale(1.9) * (1.0 + self.rules.hp_per_minute * self.minute())
@@ -1007,7 +1015,7 @@ extend Game:
         let Some(pos) = self.spawn_point() else return
         if self.place_enemy(pos, Kind.Boss):
             let at = self.enemy_count - 1
-            let boss_health = (BOSS_HEALTH[which] * self.difficulty()) as i32
+            let boss_health = (BOSS_HEALTH[which] * self.difficulty() * self.boss_hull()) as i32
             self.enemies[at].boss = which
             self.enemies[at].hp = boss_health
             self.enemies[at].max_hp = boss_health
@@ -1033,7 +1041,7 @@ extend Game:
                 self.enemies[d].max_hp = hp
                 self.enemies[d].timer = 1.0 + k as f64 * 0.5
 
-    fn drones_alive(self: &Self) -> i32:
+    pub fn drones_alive(self: &Self) -> i32:
         var n = 0
         for i in 0..self.enemy_count:
             if self.enemies[i].drone: n += 1

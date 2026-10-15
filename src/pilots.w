@@ -145,6 +145,94 @@ pub fn fly(start: Game, style: Style, seconds: f64) -> (Game, Stats):
             g.choose(pick_card(&g))
     (g, stats)
 
+// One boss met in a run: whether the run reached it, how the fight went,
+// and how much of it the pilot spent unable to hurt the boss, outside an
+// explicit mechanic (the Hive's drones).
+pub type Encounter {
+    boss: i32 = -1, reached: bool = false, killed: bool = false, died: bool = false,
+    ttk: f64 = 0.0, hull_lost: i32 = 0, max_hp: i32 = 0,
+    // The longest stretch with no damage dealt, and the share of the
+    // fight's whole seconds in which none was.
+    streak: f64 = 0.0, share: f64 = 0.0,
+}
+impl Copy for Encounter
+
+// Fly the careful bot through a run, measuring every boss it meets.
+pub fn boss_run(start: Game, seconds: f64) -> List[Encounter]:
+    var g = start
+    var out = List.new()
+    var current = Encounter {}
+    var fighting = false
+    var hp_before = 0
+    var health_at_spawn = 0
+    var idle = 0.0
+    var idle_seconds = 0
+    var counted_seconds = 0
+    var second_dealt = false
+    var second_mechanic = false
+    var second_clock = 0.0
+    var fight_start = 0.0
+    while g.phase != .Over and g.elapsed < seconds:
+        g.clear_events()
+        g.tick(careful(&g), 1.0 / 120.0)
+        var guard = 0
+        while g.phase == .Boost and guard < 20:
+            guard += 1
+            g.cache_reveal = 0.0
+            g.choose(pick_card(&g))
+        if g.boss_alive and not fighting:
+            fighting = true
+            current = Encounter { boss: g.boss_index - 1, reached: true }
+            if let Some((hp, max_hp)) = g.boss_health():
+                hp_before = hp
+                current.max_hp = max_hp
+            health_at_spawn = g.health
+            fight_start = g.elapsed
+            idle = 0.0
+            idle_seconds = 0
+            counted_seconds = 0
+            second_dealt = false
+            second_mechanic = false
+            second_clock = 0.0
+        else if fighting:
+            let dt = 1.0 / 120.0
+            // Nothing dealt this tick: idle, unless a mechanic explains it.
+            let mechanic = current.boss == 2 and g.drones_alive() > 0
+            var hp_now = 0
+            if let Some((hp, _)) = g.boss_health(): hp_now = hp
+            let dealt = hp_now < hp_before
+            if mechanic:
+                second_mechanic = true
+                idle = 0.0
+            else if dealt: idle = 0.0
+            else if g.boss_alive:
+                idle += dt
+                if idle > current.streak: current.streak = idle
+            if dealt: second_dealt = true
+            // Whole seconds: one with no damage and no mechanic counts idle.
+            second_clock += dt
+            if second_clock >= 1.0:
+                second_clock -= 1.0
+                if not second_mechanic:
+                    counted_seconds += 1
+                    if not second_dealt: idle_seconds += 1
+                second_dealt = false
+                second_mechanic = false
+            hp_before = hp_now
+            let lost: i32 = health_at_spawn - g.health
+            if lost > current.hull_lost: current.hull_lost = lost
+            if not g.boss_alive or g.phase == .Over:
+                fighting = false
+                current.killed = not g.boss_alive and g.phase != .Over
+                current.died = g.phase == .Over
+                current.ttk = g.elapsed - fight_start
+                current.share = if counted_seconds > 0: idle_seconds as f64 / counted_seconds as f64 else: 0.0
+                out.push(current)
+    if fighting:
+        current.ttk = g.elapsed - fight_start
+        out.push(current)
+    out
+
 // Kills per minute for one weapon alone against a steady swarm: the
 // balance bench. The ship circles the center with an unkillable hull.
 pub fn weapon_kills(weapon: Weapon, level: i32, minute: f64, seconds: f64, density: i32, seeds: i32 = 3) -> i32:
