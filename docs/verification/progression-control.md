@@ -589,3 +589,47 @@ Mirror       2/0/2 19s    1/0/1 46s    1/0/1 55s    1/0/1 33s    1/0/1 33s    1/
 now            37/1/38       8/2/10        7/2/9      10/0/10        9/0/9       7/3/10
 before         33/4/37       7/3/10        7/0/7       9/1/10        6/1/7       6/4/10
 ```
+
+## After the pierce fix: the Lancer and the Bulwark resized for the human-paced pilot
+
+The matrix with bullets striking a boss once (the previous grid was
+inflated by a piercing bolt landing every few ticks) showed the Lancer
+and the Bulwark at 5 kills to 6 deaths each: their hulls had been sized
+against a pilot with instant reflexes and a bug. Measured with the Claw
+as the yardstick at 10:00 — Lancer 7000 base: dies at 132 s; 5000: dies
+at 132 s; 3500: kills in 91 s with three hull lost. Bulwark 7000: dies at
+132 s; 5000: dies at 105 s; 3500: one kill, one death at 94 s. The
+Lancer is 3500 and the Bulwark 3500. The Needle, the late killer, takes
+24 to 50 seconds on a boss, not four.
+
+```text
+ship            WARDEN       LANCER         HIVE      LATTICE       KEEPER      BULWARK
+            k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk   k/d/r  ttk
+Claw         2/0/2 28s    1/0/1 91s    0/1/1 88s   1/0/1 145s    0/1/1 79s   1/0/1 106s
+Dart         2/0/2 20s    2/0/2 30s    2/0/2 46s    2/0/2 42s    2/0/2 43s    2/0/2 33s
+Hull         2/0/2 36s    1/0/1 64s    1/0/1 32s    1/0/1 85s    1/0/1 28s    1/0/1 63s
+Prism        2/0/2 37s    2/0/2 23s    2/0/2 63s    2/0/2 29s    2/0/2 46s    2/0/2 24s
+Halo         1/0/1 48s            -            -            -            -            -
+Needle       2/0/2 31s    1/0/1 19s    1/0/1 42s    1/0/1 24s    1/0/1 32s    1/0/1 19s
+Sapper       2/0/2 71s            -            -            -            -            -
+Phase       1/0/1 142s            -            -            -            -            -
+Null          2/0/2 9s            -            -            -            -            -
+Lasher       1/1/2 80s            -            -            -            -            -
+Anchor       1/0/1 18s    1/0/1 55s            -    1/0/1 69s            -    1/0/1 54s
+Carrier      2/0/2 52s            -            -            -            -            -
+Warden       2/0/2 87s            -            -            -            -            -
+Hawk         2/0/2 17s    0/1/1 17s    1/0/1 63s    1/0/1 30s    1/0/1 56s    1/0/1 23s
+Volt        1/0/1 128s            -            -            -            -            -
+Mortar       1/0/1 20s            -            -            -            -            -
+Brace       1/1/2 133s            -            -            -            -            -
+Sentry       2/0/2 34s    0/1/1 92s            -    0/1/1 88s            -    0/1/1 88s
+Lantern      2/0/2 83s            -            -            -            -            -
+Coil         0/1/1 17s            -            -            -            -            -
+Kestrel      1/0/1 22s            -            -            -            -            -
+Rampart              -            -            -            -            -            -
+Orbital     0/1/1 102s            -            -            -            -            -
+Ghost                -            -            -            -            -            -
+Glass                -            -            -            -            -            -
+Mirror       2/0/2 38s    1/0/1 20s    1/0/1 22s    1/0/1 27s    1/0/1 23s    1/0/1 17s
+total          34/4/38       9/2/11        8/1/9      10/1/11        8/1/9      10/1/11
+```

@@ -235,7 +235,7 @@ pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 4000.0, 9000.0]
+pub const BOSS_HEALTH: [f64; 6] = [1800.0, 3500.0, 4500.0, 4500.0, 4000.0, 3500.0]
 // Under desperation's behavior, a floor no stalemate survives: a boss's
 // touch and shots grow by half a minute past desperation, to three times.
 // How much of a hit's cooldown a boss keeps: its hull is in the way more.
