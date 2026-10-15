@@ -33,9 +33,11 @@ fn probe(ship: Ship, force: i32) -> i32:
     if force == 2 or force == 4 or force == 5: g.slot_boss[2] = force
     var last_hp = 0
     var second = 0.0
+    var held = Controls {}
     while g.phase != .Over and g.elapsed < 1200.0:
         g.clear_events()
-        g.tick(careful(&g), 1.0 / 120.0)
+        held = human(&g, held)
+        g.tick(held, 1.0 / 120.0)
         var guard = 0
         while g.phase == .Boost and guard < 20:
             guard += 1

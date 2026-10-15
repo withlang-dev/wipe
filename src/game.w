@@ -1263,10 +1263,10 @@ extend Game:
         let pick = (self.random() * (open.len() as f64 - 0.001)) as i32
         open[pick]
 
-    // When a boss turns desperate: the rule's seconds, half again for the
-    // Warden, the tutorial boss, so a weak build has time to learn it.
+    // When a boss turns desperate: the rule's seconds, twice that for the
+    // Warden, the tutorial boss, so a slow build has time to wear it down.
     pub fn desperation_of(self: &Self, boss: i32) -> f64:
-        self.rules.desperation * (if boss == 0: 1.5 else: 1.0)
+        self.rules.desperation * (if boss == 0: 2.0 else: 1.0)
 
     // Whether a boss up has passed desperation.
     pub fn boss_desperate(self: &Self) -> bool:
@@ -1299,7 +1299,17 @@ extend Game:
             if self.particle_count < PARTICLE_CAP - 300: self.burst(e.pos, V2 {}, 5, e.kind.tint(), 0.9)
             self.enemy_count -= 1
             self.enemies[i] = self.enemies[self.enemy_count]
-        let Some(pos) = self.spawn_point() else return
+        // A boss arrives at a distance: the farthest of a few spawn points,
+        // never on top of the ship.
+        var pos = V2 {}
+        var best = -1.0
+        for _ in 0..6:
+            let Some(p) = self.spawn_point() else continue
+            let d = length2(sub(p, self.player))
+            if d > best:
+                best = d
+                pos = p
+        if best < 0.0: return
         if self.place_enemy(pos, Kind.Boss):
             let at = self.enemy_count - 1
             let boss_health = (BOSS_HEALTH[which] * self.difficulty() * self.boss_hull()) as i32
@@ -2909,22 +2919,25 @@ extend Game:
                                 enemy.facing = direction(add(scale(enemy.facing, 1.0 - turn), scale(want, turn)))
                                 velocity = scale(if desperate: enemy.facing else: toward, enemy.speed * (if desperate: 1.3 else: 0.45))
                                 if enemy.timer <= 0.0:
-                                    enemy.timer = 0.12
+                                    // The tutorial boss's spiral is sparse enough to read:
+                                    // a beat every sixth of a second, slow shots.
+                                    enemy.timer = 0.17
                                     enemy.state += 1
                                     let beat = enemy.state % 30
                                     if beat < 20:
                                         // A three-armed spiral, turning.
-                                        enemy.angle += 0.26
+                                        enemy.angle += 0.3
                                         for k in 0..3:
                                             let a = enemy.angle + k as f64 * 2.0944
-                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 175.0, shot_damage)
+                                            // The spiral stings; the aimed fan is what hurts.
+                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 160.0, (shot_damage + 1) / 2)
                                     else if beat == 24:
                                         // Then an aimed fan at the ship.
                                         let facing = direction(sub(self.player, enemy.pos))
                                         let base = atan2(facing.y, facing.x)
                                         for k in 0..5:
-                                            let a = base + (k as f64 - 2.0) * 0.14
-                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 260.0, shot_damage)
+                                            let a = base + (k as f64 - 2.0) * 0.16
+                                            self.hostile_shot(enemy.pos, V2 { x: cos(a), y: sin(a) }, 220.0, shot_damage)
                             }
                             1 => {
                                 // Lancer: closes in, locks a line, charges, and is

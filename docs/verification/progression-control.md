@@ -385,3 +385,32 @@ Orbital   WARDEN        2/2       2     0    42s          2              0.9s   
 Mirror    WARDEN        2/2       2     0    15s          0              1.5s     3%
 Mirror    LATTICE       1/2       1     0   146s          0              1.3s     0%
 ```
+
+## After the Warden playtest: a human reaction for the bot, a tutorial boss that stings
+
+Watched fights (`playtest Coil`, `playtest Volt`) showed the Warden too
+hard: its spiral painted the screen, the Coil died at half the boss's
+hull with four repairs lying unused, and the Volt died in six seconds
+because the boss spawned beside it. Underneath: the careful bot decided
+every eight milliseconds, so every number flown by it was tuned against
+reflexes no player has.
+
+The bot now decides every tenth of a second and holds its input between
+decisions (`human` in pilots.w), picks up a repair when below half hull,
+orbits the Warden to its back, and hugs a boss with a short-range build.
+The Warden's spiral beats every sixth of a second at 160 px/s and stings
+for one, the aimed fan for two; a boss arrives at the farthest of six
+spawn points; the Warden turns desperate at twice the rule.
+
+```text
+ship    Warden, 2 seeds: reached killed died  ttk   hull lost
+Claw                     2/2     2      0     20s   0
+Hawk                     2/2     2      0     12s   1
+Coil                     1/2     1      0    133s   4
+Brace                    2/2     2      0    135s   2
+Volt                     1/2     0      1    151s   6
+```
+
+With the human reaction the Claw reaches ten minutes in 4/4 and fifteen
+in 1/4 at rank zero (it was 4/4 and 2/4 with instant reflexes). The
+weapon and merge bands are unchanged: that bench flies a fixed circle.

@@ -103,6 +103,8 @@ pub fn build(ctx: BuildCtx) -> Build:
     ).add_target(
         game_target("bosses", "src/bosses.w")
     ).add_target(
+        game_target("playtest", "src/playtest.w")
+    ).add_target(
         game_target("runs", "src/runs.w")
     ).add_target(
         game_target("audio-uat", "src/audio_uat.w")

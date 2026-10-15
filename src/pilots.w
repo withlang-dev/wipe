@@ -85,6 +85,17 @@ pub fn careful(g: &Game) -> Controls:
             core_target = i
     if core_target >= 0: push = add(push, scale(direction(sub(g.cores[core_target].pos, g.player)), if nearest < 40000.0: 0.3 else: 1.2))
     push = add(push, scale(sub(g.center(), g.player), 0.0007))
+    // Hurt, go for a repair in reach.
+    if g.health * 2 <= g.max_health:
+        var repair = -1
+        var repair_d = 700.0 * 700.0
+        for i in 0..g.pickup_count:
+            if g.pickups[i].kind == .Repair:
+                let d2 = length2(sub(g.pickups[i].pos, g.player))
+                if d2 < repair_d:
+                    repair_d = d2
+                    repair = i
+        if repair >= 0: push = add(push, scale(direction(sub(g.pickups[repair].pos, g.player)), 3.0))
     // The Keeper: stay in the light. Outside its sector the pull to the
     // sector's middle line overrides most else; inside, a gentle hold.
     if let Some((middle, angle, _)) = g.keeper_sector():
@@ -99,6 +110,14 @@ pub fn careful(g: &Game) -> Controls:
     if g.player.y < margin: push.y += (margin - g.player.y) / margin * 1.5
     if g.player.y > h - margin: push.y -= (g.player.y - (h - margin)) / margin * 1.5
     Controls { motion: movement(scale(push, 3.0)), aim: nearest_aim(g) }
+
+// A human's reflexes: the bot decides every fifth of a second and holds
+// its input between decisions. Every measure flown by the bot goes
+// through this, so nothing is tuned against reflexes no player has.
+pub const REACTION_STEPS: i32 = 12
+
+pub fn human(g: &Game, held: Controls) -> Controls:
+    if g.steps % REACTION_STEPS == 0: careful(g) else: held
 
 pub fn controls(g: &Game, style: Style) -> Controls:
     match style:
@@ -159,9 +178,11 @@ pub fn test_game(ship: Ship, seed: i32, rules: Rules = Rules {}) -> Game:
 pub fn fly(start: Game, style: Style, seconds: f64) -> (Game, Stats):
     var g = start
     var stats = Stats {}
+    var held = Controls {}
     while g.phase != .Over and g.elapsed < seconds:
         g.clear_events()
-        g.tick(controls(&g, style), 1.0 / 120.0)
+        held = if style == .Careful: human(&g, held) else: controls(&g, style)
+        g.tick(held, 1.0 / 120.0)
         stats.observe(&g)
         var guard = 0
         while g.phase == .Boost and guard < 20:
@@ -197,9 +218,11 @@ pub fn boss_run(start: Game, seconds: f64) -> List[Encounter]:
     var second_mechanic = false
     var second_clock = 0.0
     var fight_start = 0.0
+    var held = Controls {}
     while g.phase != .Over and g.elapsed < seconds:
         g.clear_events()
-        g.tick(careful(&g), 1.0 / 120.0)
+        held = human(&g, held)
+        g.tick(held, 1.0 / 120.0)
         var guard = 0
         while g.phase == .Boost and guard < 20:
             guard += 1
