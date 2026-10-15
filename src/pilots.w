@@ -30,7 +30,7 @@ pub fn careful(g: &Game) -> Controls:
     // A short-range build has to hug a boss to hurt it: less fear, more
     // of the Warden's back.
     let lead = g.build.weapons[0].weapon.family()
-    let hugger = lead == .Tesla or lead == .Orbiting or lead == .Tether or lead == .Dropped or lead == .Repulsor or lead == .Shock or lead == .Field or lead == .Satellite
+    let hugger = lead == .Tesla or lead == .Orbiting or lead == .Tether or lead == .Dropped or lead == .Repulsor or lead == .Shock or lead == .Field or lead == .Satellite or lead == .Ring
     var nearest = 1.0e12
     for i in 0..g.enemy_count:
         let e = g.enemies[i]

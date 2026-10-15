@@ -235,9 +235,11 @@ pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 6] = [1200.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
+pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
 // Under desperation's behavior, a floor no stalemate survives: a boss's
 // touch and shots grow by half a minute past desperation, to three times.
+// How much of a hit's cooldown a boss keeps: its hull is in the way more.
+pub const BOSS_HIT_SHARE: f64 = 0.25
 pub const DESPERATION_RAMP: f64 = 0.5
 pub const DESPERATION_RAMP_CAP: f64 = 3.0
 // The Lattice: how long it is held at desperation, the arc of its gaps
@@ -1576,9 +1578,12 @@ extend Game:
         if target.kind == .Tank:
             dealt -= self.tank_armor()
             if dealt < 1: dealt = 1
+        // A boss is a big hull: a ring, a field or a fan that overlaps it
+        // strikes it four times as often as it would a Block.
+        let big: bool = target.kind == .Boss
         self.enemies[index].hp -= dealt
         self.enemies[index].flash = 0.05
-        self.enemies[index].hit_cd = cooldown
+        self.enemies[index].hit_cd = cooldown * (if big: BOSS_HIT_SHARE else: 1.0)
         let pos = self.enemies[index].pos
         if self.enemies[index].kind != .Boss and self.enemies[index].kind != .Null:
             self.enemies[index].pos = add(pos, scale(impact, 4.0))

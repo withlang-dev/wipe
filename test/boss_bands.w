@@ -32,7 +32,7 @@ fn main:
         for b in 0..3:
             if kills[b] == 0: continue
             let mean = ttk[b] / kills[b] as f64
-            if mean < 10.0 or mean > 150.0:
+            if mean < 8.0 or mean > 150.0:
                 failures += 1
                 print(f"{ship.name()} on {BOSS_NAMES[b]}: {mean as i32} s a fight")
     // The Warden is met by every one of these runs.

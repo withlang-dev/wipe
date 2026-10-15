@@ -414,3 +414,76 @@ Volt                     1/2     0      1    151s   6
 With the human reaction the Claw reaches ten minutes in 4/4 and fifteen
 in 1/4 at rank zero (it was 4/4 and 2/4 with instant reflexes). The
 weapon and merge bands are unchanged: that bench flies a fixed circle.
+
+## The boss overview: every ship forced into every boss, every weapon held against every boss
+
+Two sweeps for the overview, after the human reaction. `bosses matrix 2`:
+each ship with the boss forced into its own slot, two seeds, as
+kills/deaths/reached and the mean time to kill. Most ships at rank zero
+do not reach 10:00 with a human-paced pilot, so the later columns are
+the ships that do. (The Warden's hull was raised a notch after this run:
+its column is at 4300, the game's is 6450.)
+
+```text
+ship           WARDEN      LANCER        HIVE     LATTICE      KEEPER     BULWARK
+           k/d/r  ttk  k/d/r  ttk  k/d/r  ttk  k/d/r  ttk  k/d/r  ttk  k/d/r  ttk
+Claw      2/0/2   11s 1/1/2   89s 1/0/1   58s 2/0/2   65s 0/1/1  102s 0/2/2   90s
+Dart      2/0/2    8s 2/0/2   50s 2/0/2   47s 2/0/2   34s 2/0/2   81s 2/0/2   80s
+Hull      2/0/2   61s 1/0/1   24s 1/0/1   27s 1/0/1   17s 1/0/1   56s 1/0/1   36s
+Prism     2/0/2   14s 1/0/1   57s 1/0/1   40s 1/0/1   36s 1/0/1   59s 1/0/1   64s
+Halo      1/0/1   25s           -           -           -           -           -
+Needle    1/1/2   89s 1/0/1   46s 1/0/1   31s 1/0/1   30s 1/0/1   50s 1/0/1   66s
+Sapper    2/0/2   58s           -           -           -           -           -
+Phase               -           -           -           -           -           -
+Null      2/0/2   13s           -           -           -           -           -
+Lasher    1/1/2   81s           -           -           -           -           -
+Anchor    1/0/1   11s           -           -           -           -           -
+Carrier   2/0/2   29s           -           -           -           -           -
+Warden    2/0/2   83s 0/1/1   98s           - 0/1/1  146s           - 0/1/1  126s
+Hawk      2/0/2   11s 1/0/1   38s 1/0/1   56s 1/0/1   25s 1/0/1  114s 1/0/1   53s
+Volt      0/1/1  152s           -           -           -           -           -
+Mortar    1/0/1   11s           -           -           -           -           -
+Brace     2/0/2   85s           -           -           -           -           -
+Sentry    2/0/2    9s           -           -           -           -           -
+Lantern   1/1/2   87s           -           -           -           -           -
+Coil      1/0/1   51s           -           -           -           -           -
+Kestrel   1/0/1    8s           -           -           -           -           -
+Rampart             -           -           -           -           -           -
+Orbital   1/0/1   70s           -           -           -           -           -
+Ghost               -           -           -           -           -           -
+Glass               -           -           -           -           -           -
+Mirror    2/0/2    9s 0/1/1   76s           - 1/0/1   52s           - 0/1/1  107s
+total         33/4/37      7/3/10       7/0/7      9/1/10       6/1/7      6/4/10
+```
+
+`balance bosses 2`: every base weapon at V held 120 px from each boss
+(behind the Warden, down the Keeper's sector), damage a second, an
+unkillable hull, nothing else in the arena. A boss is a big hull, so a
+ring, field or fan that overlaps it strikes four times as often as it
+would a Block (BOSS_HIT_SHARE); the pulse weapons (Nova, Mines,
+Shockwave, Arc, Lob, Sweep) stay swarm weapons and a build carries
+them, as the matrix's Hull and Sapper rows show.
+
+```text
+weapon          WARDEN   LANCER     HIVE  LATTICE   KEEPER  BULWARK
+Cannon             143      222      238      288      287      288
+Orbit               14       40       11       84       84       84
+Nova                36        7        0       16       16       16
+Seeker             143      326      391      463      463      465
+Lance              134       30       17       40       40       40
+Mines               19        3        0        5        5        5
+Arc                 14        8        4       11       11       11
+Shard              143      175       20      389      283      267
+Tether             143       78       24       63       63       67
+Gravity Well         0        9        0      142      111        4
+Drone              143      166       94      293      384      360
+Lob                  0        0        0       10        0        0
+Flak               143      179      121      268      332      320
+Turret             143      287      244      527      571      553
+Sweep               66       19        0       10        9       10
+Tesla Field         99       21        0       30       30       30
+Boomerang          143      259      183      547      430      445
+Shockwave           22        6        0        8        8        8
+Satellite           26       92       14      207      206      207
+Repulsor            44       12        0       13       13       13
+```

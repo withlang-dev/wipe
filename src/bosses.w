@@ -6,6 +6,9 @@
 //
 //   bosses [SEEDS] [SHIP] [BOSS]    a boss index forces it into its pool's slot
 //                                   (mid for 1, 3, 5; late for 2, 4, 5)
+//   bosses matrix [SEEDS]           every ship forced into every boss at the
+//                                   boss's own slot: reached, killed, died,
+//                                   time to kill, hull lost, per pair
 //   bosses probe SHIP [BOSS]        one run, seed 0, a line a second through
 //                                   each boss fight: where the ship is, what
 //                                   it deals, what it carries
@@ -63,8 +66,47 @@ fn probe(ship: Ship, force: i32) -> i32:
             last_hp = e.hp
     0
 
+// The grid: every ship against every boss, the boss forced into its slot.
+fn matrix(seeds: i32) -> i32:
+    print("ship,boss,reached,killed,died,ttk,hull_lost,streak,share")
+    for i in 0..SHIP_COUNT:
+        let ship = ship_at(i)
+        for b in 0..BOSS_COUNT:
+            var reached = 0
+            var killed = 0
+            var died = 0
+            var ttk = 0.0
+            var lost = 0
+            var streak = 0.0
+            var share = 0.0
+            for seed in 0..seeds:
+                var g = Game.new()
+                g.rng = 55555 +% (seed as u32) *% 2654435761
+                var save = Save {}
+                for w in 0..BASE_WEAPON_COUNT: save.weapon_unlocked_run[w] = 0
+                var launch = launch_for(ship, &save, false)
+                for w in 0..BASE_WEAPON_COUNT: launch.unlocked_weapons[w] = true
+                for p in 0..8: launch.unlocked_passives[p] = true
+                g.start(launch)
+                if b == 0: g.slot_boss[0] = 0
+                else if b == 1 or b == 3 or b == 5: g.slot_boss[1] = b
+                else: g.slot_boss[2] = b
+                for e in boss_run(g, 1200.0):
+                    if e.boss != b: continue
+                    reached += 1
+                    if e.killed: killed += 1
+                    if e.died: died += 1
+                    ttk += e.ttk
+                    lost += e.hull_lost
+                    if e.streak > streak: streak = e.streak
+                    share += e.share
+            let n = if reached > 0: reached else: 1
+            print(f"{ship.name()},{BOSS_NAMES[b]},{reached},{killed},{died},{(ttk / n as f64) as i32},{lost / n},{(streak * 10.0) as i32 as f64 / 10.0},{(share / n as f64 * 100.0) as i32}")
+    0
+
 fn main:
     let argv = args()
+    if argv.len() > 1 and argv[1] == "matrix": return matrix(if argv.len() > 2: parse(argv[2]) else: 2)
     if argv.len() > 2 and argv[1] == "probe":
         for i in 0..SHIP_COUNT:
             if ship_at(i).name() == argv[2]: return probe(ship_at(i), if argv.len() > 3: parse(argv[3]) else: -1)
