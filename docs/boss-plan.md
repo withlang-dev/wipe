@@ -164,7 +164,17 @@ The bench is a tool in the repository; its numbers are not.
    (a mid and a late). `boss_rush` and `stages` contracts updated; the
    control document records the bench per ship.
 
-## 6. Touches
+## 6. Status
+
+All six steps landed on 2026-10-14. Beyond the spec as written: the bosses'
+hulls follow a third of the swarm's curve (the bench's first finding, the
+Lancer and the Hive fell in four seconds); the Lattice's gap leads by the
+shot's flight to the ship; the Keeper teaches the careful bot to stay in
+the light; the Boss Rush runs to 19:00 so all six fit; the bounty's
+invulnerability is the game's five-second cap. The per-ship boss cadence
+is in the control document.
+
+## 7. Touches
 
 | Area | Files |
 |---|---|

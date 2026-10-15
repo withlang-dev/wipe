@@ -63,6 +63,8 @@ pub type Rules {
     blackout: bool = false,
     mirror: bool = false,
     boss_every: f64 = 0.0,
+    // Seconds into a boss fight before desperation.
+    desperation: f64 = 75.0,
     // A dead center: a circle at the arena's middle that nothing enters.
     void_radius: f64 = 0.0,
     // Which stage's walls this arena has (Stage.index).
@@ -285,7 +287,7 @@ extend Stage:
             .Cross => Rules { arena_width: 2600.0, arena_height: 2600.0, layout: 7 }
             .Gridlock => Rules { arena_width: 3200.0, arena_height: 2200.0, layout: 8 }
             .Blackout => Rules { arena_width: 2400.0, arena_height: 1600.0, run_cap: 600.0, blackout: true, layout: 9 }
-            .BossRush => Rules { arena_width: 2000.0, arena_height: 1400.0, run_cap: 900.0, spawn_scale: 0.0, first_elite: 1.0e9, boss_every: 3.0, layout: 10 }
+            .BossRush => Rules { arena_width: 2000.0, arena_height: 1400.0, run_cap: 1140.0, spawn_scale: 0.0, first_elite: 1.0e9, boss_every: 3.0, desperation: 50.0, layout: 10 }
             .BoneField => Rules { arena_width: 2200.0, arena_height: 1400.0, hp_per_minute: 0.3, flat_minute: 6.0, layout: 11 }
             .Collapse => Rules { arena_width: 2600.0, arena_height: 1800.0, collapse: 55.0, layout: 12 }
             .Rotor => Rules { arena_width: 2200.0, arena_height: 2200.0, rotor: true, layout: 13 }

@@ -447,6 +447,9 @@ pub type Game {
     boss_kills: [i32; 6] = [0; 6],
     // Which boss each slot spawns, when a stage or the bench says; else the slot's.
     slot_boss: [i32; 3] = [-1; 3],
+    // The bosses this run has met (a run never draws one twice), and in
+    // Endless, when the next arrives.
+    bosses_met: [bool; 6] = [false; 6], next_endless_boss: f64 = 25.0,
     // The Phase slips out of the world on a rhythm.
     phase_timer: f64 = 0.0,
     banner: Banner = Banner {},
@@ -577,7 +580,7 @@ extend Game:
         var enemy: Enemy = self.enemies[index]
         let toward = direction(sub(self.player, enemy.pos))
         let distance = sqrt(length2(sub(self.player, enemy.pos)))
-        let desperate = enemy.age > DESPERATION
+        let desperate = enemy.age > self.rules.desperation
         let gap = if desperate: LATTICE_GAP_DESPERATE else: LATTICE_GAP
         let quick = if desperate: 1.33 else: 1.0
         // Desperate, it closes its ring: a fight that drags comes to you.
@@ -666,7 +669,7 @@ extend Game:
     // 1 is the tell; flank is the turn's direction.
     fn step_keeper(mut self: Self, index: i32, dt: f64) -> V2:
         var enemy: Enemy = self.enemies[index]
-        let desperate = enemy.age > DESPERATION
+        let desperate = enemy.age > self.rules.desperation
         let to_center = sub(self.center(), enemy.pos)
         var velocity = V2 {}
         if length2(to_center) > 12.0 * 12.0: velocity = scale(direction(to_center), enemy.speed * 0.8)
@@ -700,7 +703,7 @@ extend Game:
     // Enemy fields: eaten counts plates shed; state 0 walk, 1 tell, 2 ram.
     fn step_bulwark(mut self: Self, index: i32, dt: f64) -> V2:
         var enemy: Enemy = self.enemies[index]
-        let desperate = enemy.age > DESPERATION
+        let desperate = enemy.age > self.rules.desperation
         let toward = direction(sub(self.player, enemy.pos))
         let pace = enemy.speed * BULWARK_WALK * (if desperate: 2.0 else: 1.0)
         var velocity = scale(toward, pace)
@@ -743,7 +746,7 @@ extend Game:
         for i in 0..self.enemy_count:
             let e = self.enemies[i]
             if e.kind == .Boss and e.boss == 4:
-                let half = if e.age > DESPERATION: KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
+                let half = if e.age > self.rules.desperation: KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
                 return Some((e.pos, e.angle, half))
         None
 
@@ -874,6 +877,8 @@ extend Game:
         self.zoom_timer = 0.0
         self.phase_timer = PHASE_PERIOD
         self.boss_kills = [0; 6]
+        self.bosses_met = [false; 6]
+        self.next_endless_boss = 25.0
         self.banner = Banner {}
         self.enemy_count = 0
         self.bullet_count = 0
@@ -1232,17 +1237,41 @@ extend Game:
 
     // A boss fight is one on one: the swarm dissolves, and nothing spawns
     // until the boss is down.
+    // The slots: the Warden at 5:00; at 10:00 a draw from the mid pool, at
+    // 15:00 from the late pool, never a boss this run has met. A Boss Rush
+    // runs all six in order. A stage or the bench may name a slot's boss.
     pub fn spawn_boss(mut self: Self):
         let slot = if self.rules.boss_every > 0.0: (self.boss_index - 1) % 3 else: limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
-        let which = if self.slot_boss[slot] >= 0: self.slot_boss[slot] else: slot
+        let which = if self.slot_boss[slot] >= 0: self.slot_boss[slot]
+            else if self.rules.boss_every > 0.0: (self.boss_index - 1) % BOSS_COUNT
+            else if slot == 0: 0
+            else: self.draw_boss(slot == 1)
         self.spawn_boss_of(which)
+
+    // A boss from the mid pool (Lancer, Lattice, Bulwark) or the late pool
+    // (Hive, Keeper, Bulwark), not yet met this run; the run's RNG draws.
+    fn draw_boss(mut self: Self, mid: bool) -> i32:
+        let pool: [i32; 3] = if mid: [1, 3, 5] else: [2, 4, 5]
+        var open: List[i32] = List.new()
+        for b in pool:
+            if not self.bosses_met[b]: open.push(b)
+        if open.len() == 0: return pool[0]
+        let pick = (self.random() * (open.len() as f64 - 0.001)) as i32
+        open[pick]
+
+    // Any boss still up.
+    fn any_boss_alive(self: &Self) -> bool:
+        for i in 0..self.enemy_count:
+            if self.enemies[i].kind == .Boss and self.enemies[i].boss >= 0: return true
+        false
 
     // The named boss, now.
     pub fn spawn_boss_of(mut self: Self, which: i32):
         var i = 0
         while i < self.enemy_count:
             let e: Enemy = self.enemies[i]
-            if e.kind == .Null:
+            // The Null stays, and so does a boss already up (Endless pairs).
+            if e.kind == .Null or e.kind == .Boss:
                 i += 1
                 continue
             if self.particle_count < PARTICLE_CAP - 300: self.burst(e.pos, V2 {}, 5, e.kind.tint(), 0.9)
@@ -1258,6 +1287,7 @@ extend Game:
             self.enemies[at].facing = direction(sub(self.player, pos))
             self.enemies[at].timer = 2.0
             if which == 2: self.spawn_drones(pos)
+            self.bosses_met[which] = true
             self.boss_alive = true
             self.boss_event = true
             self.freeze = self.rules.boss_stop
@@ -1451,7 +1481,7 @@ extend Game:
                         self.enemies[self.enemy_count - 1].formation = 1.2
             }
             .Boss => {
-                self.boss_alive = false
+                self.boss_alive = self.any_boss_alive()
                 self.bosses_killed += 1
                 self.boss_kill_event = true
                 // The reward: a full repair, credits, and for a first kill
@@ -2328,6 +2358,19 @@ extend Game:
                 if self.minute() >= minute and not self.boss_alive:
                     self.boss_index += 1
                     self.spawn_boss()
+        // Endless: a boss every five minutes from 25:00, drawn from all six;
+        // from the second cycle, two at once, a mid and a late.
+        if self.launch.endless and self.minute() >= self.next_endless_boss and not self.boss_alive:
+            self.next_endless_boss += 5.0
+            self.boss_index = 3
+            let pair = self.endless_loop >= 2
+            self.bosses_met = [false; 6]
+            let coin = self.random() < 0.5
+            let first = self.draw_boss(not pair or coin)
+            self.spawn_boss_of(first)
+            if pair:
+                let second = self.draw_boss(first != 1 and first != 3 and first != 5)
+                self.spawn_boss_of(second)
         // During a boss fight nothing else arrives, and the elite clock waits.
         if self.boss_alive:
             self.next_elite += dt
@@ -2833,10 +2876,13 @@ extend Game:
                             0 => {
                                 // Warden: turns slowly to face the ship, drifts in,
                                 // and sprays a turning spiral. Its back is the target.
+                                // Desperate, it stops turning and charges in straight
+                                // lines: its back is open only on the turnaround.
+                                let desperate = enemy.age > self.rules.desperation
                                 let want = direction(sub(self.player, enemy.pos))
-                                let turn = limit(dt * 0.9, 0.0, 1.0)
+                                let turn = limit(dt * (if desperate: 0.25 else: 0.9), 0.0, 1.0)
                                 enemy.facing = direction(add(scale(enemy.facing, 1.0 - turn), scale(want, turn)))
-                                velocity = scale(toward, enemy.speed * 0.45)
+                                velocity = scale(if desperate: enemy.facing else: toward, enemy.speed * (if desperate: 1.3 else: 0.45))
                                 if enemy.timer <= 0.0:
                                     enemy.timer = 0.12
                                     enemy.state += 1
@@ -2858,12 +2904,15 @@ extend Game:
                             1 => {
                                 // Lancer: closes in, locks a line, charges, and is
                                 // stunned where it lands. Stunned is when it breaks.
+                                // Desperate, it lunges twice as often and the open
+                                // window is half as long.
+                                let desperate = enemy.age > self.rules.desperation
                                 if enemy.state == 0:
                                     velocity = scale(toward, enemy.speed * 0.8)
                                     enemy.facing = toward
                                     if enemy.timer <= 0.0:
                                         enemy.state = 1
-                                        enemy.timer = 1.0
+                                        enemy.timer = if desperate: 0.5 else: 1.0
                                 else if enemy.state == 1:
                                     enemy.facing = direction(sub(self.player, enemy.pos))
                                     enemy.flash = 0.02
@@ -2876,9 +2925,9 @@ extend Game:
                                     let ahead = add(enemy.pos, scale(enemy.vel, dt))
                                     if enemy.timer <= 0.0 or not self.in_arena(ahead, -60.0):
                                         // Below half health it recovers faster.
-                                        let enraged = enemy.hp * 2 < enemy.max_hp
+                                        let enraged = enemy.hp * 2 < enemy.max_hp or desperate
                                         enemy.state = 3
-                                        enemy.timer = if enraged: 1.1 else: 1.8
+                                        enemy.timer = if desperate: 0.9 else if enraged: 1.1 else: 1.8
                                         self.trauma = limit(self.trauma + 0.4, 0.0, 1.0)
                                         let facing = direction(sub(self.player, enemy.pos))
                                         let base = atan2(facing.y, facing.x)
@@ -2888,16 +2937,18 @@ extend Game:
                                 else:
                                     if enemy.timer <= 0.0:
                                         enemy.state = 0
-                                        enemy.timer = if enemy.hp * 2 < enemy.max_hp: 0.9 else: 2.0
+                                        enemy.timer = if desperate: 0.5 else if enemy.hp * 2 < enemy.max_hp: 0.9 else: 2.0
                             }
                             _ => {
                                 // Hive: drifts; its drones shield it. With every drone
                                 // down it is open for eight seconds, then rebuilds them.
-                                velocity = scale(toward, enemy.speed * 0.3)
+                                // Desperate, the core moves and the open window is short.
+                                let desperate = enemy.age > self.rules.desperation
+                                velocity = scale(toward, enemy.speed * (if desperate: 0.9 else: 0.3))
                                 if self.drones_alive() == 0:
                                     if enemy.state == 0:
                                         enemy.state = 1
-                                        enemy.timer = 8.0
+                                        enemy.timer = if desperate: 5.0 else: 8.0
                                         enemy.angle = 0.0
                                     else if enemy.timer <= 0.0:
                                         enemy.state = 0

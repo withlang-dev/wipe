@@ -216,3 +216,108 @@ Ghost      2/4  1/4   1/4   1/4   1/4        51
 Glass      1/4  1/4   0/4   0/4   0/4       276
 Mirror     4/4  4/4   1/4   1/4   0/4       811
 ```
+
+## After the boss plan (six bosses, the jackpot, the bench), the bot, 2 seeds a ship
+
+The first per-ship boss cadence, from `bosses 2`: the careful bot flies
+the Field and every boss it meets is measured. Pool draws differ by seed,
+so a ship meets the Lattice, Keeper or Bulwark only when a draw lands
+them. The Warden column is the one to read: its hull now follows the
+swarm's curve, and a build that cannot reach its back stalemates it for
+minutes (Coil 900 s with a 239 s stretch of no damage; Orbital, Brace,
+Carrier, the Warden ship, Lasher and Volt past 300 s). The Bulwark walls
+the Hull and the Lasher for its whole horizon without killing them. These
+are the boss balance pass's input: the bands in `boss_bands.w` hold for
+the Claw, the Dart and the Hawk and no further yet.
+
+```text
+ship      boss      reached  killed  died   ttk   hull lost  no-damage streak  share
+Claw      WARDEN        2/2       2     0    38s          0              0.8s     0%
+Claw      LANCER        2/2       2     0    81s          1              0.7s     0%
+Claw      HIVE          1/2       1     0    35s          0              0.1s     0%
+Claw      BULWARK       1/2       1     0   259s          0                1s     0%
+Dart      WARDEN        2/2       2     0    46s          0              0.7s     0%
+Dart      LANCER        2/2       2     0    36s          0              0.4s     0%
+Dart      HIVE      0/2
+Dart      KEEPER        2/2       2     0    74s          3              0.3s     0%
+Hull      WARDEN        2/2       1     1    68s         18              9.3s    10%
+Hull      LANCER    0/2
+Hull      HIVE      0/2
+Hull      BULWARK       1/2       0     0   600s          0              4.5s     0%
+Prism     WARDEN        2/2       2     0   107s          2              1.3s     0%
+Prism     LANCER    0/2
+Prism     HIVE      0/2
+Halo      WARDEN        2/2       1     1    45s          6              3.3s    16%
+Halo      LANCER    0/2
+Halo      HIVE      0/2
+Needle    WARDEN        2/2       1     1    29s          2              2.5s    13%
+Needle    LANCER    0/2
+Needle    HIVE      0/2
+Sapper    WARDEN        2/2       2     0   112s          2             21.3s    10%
+Sapper    LANCER    0/2
+Sapper    HIVE      0/2
+Phase     WARDEN        2/2       1     1    26s          1              1.7s     1%
+Phase     LANCER    0/2
+Phase     HIVE      0/2
+Null      WARDEN        2/2       2     0    35s          0              1.3s     2%
+Null      LANCER    0/2
+Null      HIVE      0/2
+Null      LATTICE       1/2       1     0    64s          2                1s     1%
+Lasher    WARDEN        2/2       2     0   342s          0             10.2s    23%
+Lasher    LANCER    0/2
+Lasher    HIVE      0/2
+Lasher    BULWARK       1/2       0     0   269s          0              7.7s     0%
+Anchor    WARDEN    0/2
+Anchor    LANCER    0/2
+Anchor    HIVE      0/2
+Carrier   WARDEN        2/2       0     1   500s          8              7.3s     0%
+Carrier   LANCER    0/2
+Carrier   HIVE      0/2
+Warden    WARDEN        2/2       2     0   620s          1              7.1s     5%
+Warden    LANCER        1/2       0     0   422s          7              3.8s     0%
+Warden    HIVE      0/2
+Warden    BULWARK       1/2       0     0   136s          0              6.5s     0%
+Hawk      WARDEN        2/2       2     0    64s          1              0.9s     0%
+Hawk      LANCER    0/2
+Hawk      HIVE      0/2
+Hawk      LATTICE       1/2       1     0    66s          3              0.2s     0%
+Volt      WARDEN        2/2       1     1   333s          7             10.5s     8%
+Volt      LANCER    0/2
+Volt      HIVE      0/2
+Mortar    WARDEN    0/2
+Mortar    LANCER    0/2
+Mortar    HIVE      0/2
+Brace     WARDEN        2/2       1     0   548s          1             14.1s     6%
+Brace     LANCER    0/2
+Brace     HIVE      0/2
+Sentry    WARDEN        2/2       2     0    40s          0              1.4s     2%
+Sentry    LANCER        1/2       0     1   100s         14              0.3s     0%
+Sentry    HIVE      0/2
+Lantern   WARDEN        2/2       2     0   127s          2              1.4s     0%
+Lantern   LANCER    0/2
+Lantern   HIVE      0/2
+Lantern   BULWARK       1/2       1     0   244s          8              0.5s     0%
+Coil      WARDEN        2/2       0     0   900s          1            239.1s     0%
+Coil      LANCER    0/2
+Coil      HIVE      0/2
+Kestrel   WARDEN        2/2       2     0    49s          1              0.9s     0%
+Kestrel   LANCER    0/2
+Kestrel   HIVE      0/2
+Kestrel   LATTICE       1/2       1     0   241s          2              0.6s     0%
+Rampart   WARDEN        1/2       1     0   130s          2             10.4s     9%
+Rampart   LANCER    0/2
+Rampart   HIVE      0/2
+Orbital   WARDEN        2/2       1     0   700s          0             24.2s     7%
+Orbital   LANCER    0/2
+Orbital   HIVE      0/2
+Orbital   LATTICE       1/2       0     0   398s          2              0.7s     0%
+Ghost     WARDEN    0/2
+Ghost     LANCER    0/2
+Ghost     HIVE      0/2
+Glass     WARDEN    0/2
+Glass     LANCER    0/2
+Glass     HIVE      0/2
+Mirror    WARDEN        2/2       2     0    33s          0              1.1s     4%
+Mirror    LANCER    0/2
+Mirror    HIVE      0/2
+```
