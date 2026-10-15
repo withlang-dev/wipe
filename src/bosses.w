@@ -4,7 +4,8 @@
 // spent unable to damage the boss outside an explicit mechanic — the
 // metric that catches a boss you are alive against and merely waiting on.
 //
-//   bosses [SEEDS] [SHIP] [BOSS]    a boss index forces every slot to that boss
+//   bosses [SEEDS] [SHIP] [BOSS]    a boss index forces it into its pool's slot
+//                                   (mid for 1, 3, 5; late for 2, 4, 5)
 use game
 use tuning
 use loadout
@@ -41,12 +42,13 @@ fn main:
             for w in 0..BASE_WEAPON_COUNT: launch.unlocked_weapons[w] = true
             for p in 0..8: launch.unlocked_passives[p] = true
             g.start(launch)
-            g.boss_override = force
-            for e in boss_run(g, 1080.0):
+            if force == 1 or force == 3 or force == 5: g.slot_boss[1] = force
+            if force == 2 or force == 4 or force == 5: g.slot_boss[2] = force
+            if force == 0: g.slot_boss[0] = 0
+            for e in boss_run(g, 1200.0):
                 eprint(f"  {ship.name()} seed {seed}: boss {e.boss} reached {e.reached} killed {e.killed} died {e.died} ttk {e.ttk as i32} hp {e.max_hp}")
                 if e.boss < 0 or e.boss >= BOSS_COUNT: continue
-                // Forced, every slot is the same boss; it files under its own name.
-                let slot = if force >= 0: force else: e.boss
+                let slot = e.boss
                 reached[slot] += 1
                 if e.killed: killed[slot] += 1
                 if e.died: died[slot] += 1
@@ -58,6 +60,7 @@ fn main:
         for b in 0..BOSS_COUNT:
             let n = reached[b]
             if n == 0 and b >= 3: continue
+            if force >= 0 and b != force: continue
             if n == 0:
                 print(f"{ship.name()}  {BOSS_NAMES[b]}  0/{seeds}")
                 continue

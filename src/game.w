@@ -235,7 +235,7 @@ pub const BOSS_NAMES: [str; 6] = ["WARDEN", "LANCER", "HIVE", "LATTICE", "KEEPER
 // Base hull per boss, before the run's difficulty and the hull curve the
 // swarm follows (boss_hull): a boss should stand a minute against the
 // build its minute has made, never fall at once, never outlast desperation.
-pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 5000.0, 9000.0]
+pub const BOSS_HEALTH: [f64; 6] = [1800.0, 7000.0, 4500.0, 4500.0, 6500.0, 9000.0]
 // The Lattice: how long it is held at desperation, the arc of its gaps
 // before and after, and the ring it keeps from the ship.
 pub const DESPERATION: f64 = 75.0
@@ -246,6 +246,16 @@ pub const LATTICE_FAR: f64 = 340.0
 // How fast the spiral's gap walks, radians a second: a ship keeps up.
 pub const LATTICE_GAP_TURN: f64 = 0.6
 pub const LATTICE_DESPERATE_RING: f64 = 0.6
+// The Keeper: the half-angle of its safe sector (110 degrees, 70 at
+// desperation), how fast the sector turns (once a minute), the jump clock
+// and its tell, and the bite outside the sector (two hull a half second).
+pub const KEEPER_SECTOR: f64 = 0.96
+pub const KEEPER_SECTOR_DESPERATE: f64 = 0.61
+pub const KEEPER_TURN: f64 = 0.10472
+pub const KEEPER_JUMP: f64 = 20.0
+pub const KEEPER_TELL: f64 = 2.0
+pub const KEEPER_BITE: f64 = 0.5
+pub const KEEPER_OUTSIDE_SCALE: f64 = 0.25
 pub type Bullet {
     pos: V2 = V2 {}, vel: V2 = V2 {}, life: f64 = 0.0, steps: i32 = 0,
     damage: i32 = 1, pierce: i32 = 0, bounces: i32 = 0, bounced: bool = false,
@@ -428,8 +438,8 @@ pub type Game {
     zoom_timer: f64 = 0.0,
     // Boss kills this run by boss.
     boss_kills: [i32; 6] = [0; 6],
-    // Which boss the next spawn is, when a stage or a test says; else the slot's.
-    boss_override: i32 = -1,
+    // Which boss each slot spawns, when a stage or the bench says; else the slot's.
+    slot_boss: [i32; 3] = [-1; 3],
     // The Phase slips out of the world on a rhythm.
     phase_timer: f64 = 0.0,
     banner: Banner = Banner {},
@@ -455,6 +465,8 @@ pub type Game {
     tesla_reach: f64 = 0.0,
     // The Anchor: how long it is still held after laying a well.
     anchor_hold: f64 = 0.0,
+    // The Keeper's bite clock while the ship is outside its sector.
+    keeper_bite: f64 = 0.0,
     // The tether's chain, a Verlet rope anchored at the ship; live while a
     // Tether is held. The blade is the last link.
     tether: [V2; 7] = [V2 {}; 7], tether_prev: [V2; 7] = [V2 {}; 7], tether_live: bool = false,
@@ -637,6 +649,58 @@ extend Game:
                 enemy.angle = self.random() * 6.2832
         self.enemies[index] = enemy
         velocity
+
+    // The Keeper: a field boss. It walks to the arena's middle and sits;
+    // its safe sector turns once a minute and jumps a quarter turn every
+    // twenty seconds after a two-second tell; outside the sector the field
+    // bites, and the boss is a quarter as soft. At desperation the sector
+    // narrows and reverses its turn at each jump.
+    // Enemy fields: angle is the sector's; strafe is the jump clock; state
+    // 1 is the tell; flank is the turn's direction.
+    fn step_keeper(mut self: Self, index: i32, dt: f64) -> V2:
+        var enemy: Enemy = self.enemies[index]
+        let desperate = enemy.age > DESPERATION
+        let to_center = sub(self.center(), enemy.pos)
+        var velocity = V2 {}
+        if length2(to_center) > 12.0 * 12.0: velocity = scale(direction(to_center), enemy.speed * 0.8)
+        if enemy.strafe <= 0.0 and enemy.state == 0:
+            // Fresh from the spawn: the first jump is a clock away.
+            enemy.strafe = KEEPER_JUMP
+        let dir = if enemy.flank: -1.0 else: 1.0
+        enemy.angle += KEEPER_TURN * dir * dt
+        enemy.strafe -= dt
+        if enemy.state == 0 and enemy.strafe <= KEEPER_TELL: enemy.state = 1
+        if enemy.strafe <= 0.0:
+            enemy.angle += 1.5708
+            enemy.strafe = KEEPER_JUMP
+            enemy.state = 0
+            if desperate: enemy.flank = not enemy.flank
+            self.pulse(enemy.pos, 260.0, .Red)
+        self.enemies[index] = enemy
+        // The bite.
+        if self.in_keeper_sector(self.player): self.keeper_bite = 0.0
+        else:
+            self.keeper_bite += dt
+            if self.keeper_bite >= KEEPER_BITE:
+                self.keeper_bite -= KEEPER_BITE
+                self.hurt(.Weaver, false, 2)
+        velocity
+
+    // The Keeper's sector, if one is up: its middle, its angle, its half-width.
+    pub fn keeper_sector(self: &Self) -> Option[(V2, f64, f64)]:
+        for i in 0..self.enemy_count:
+            let e = self.enemies[i]
+            if e.kind == .Boss and e.boss == 4:
+                let half = if e.age > DESPERATION: KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
+                return Some((e.pos, e.angle, half))
+        None
+
+    // Inside the Keeper's safe sector, or no Keeper.
+    pub fn in_keeper_sector(self: &Self, pos: V2) -> bool:
+        let Some((middle, angle, half)) = self.keeper_sector() else return true
+        let d = sub(pos, middle)
+        if length2(d) < 1.0: return true
+        within_arc(atan2(d.y, d.x), angle, half)
 
     // Where the spiral's gap points, `into` seconds into the pattern: it
     // walks slowly, so a ship walks with it.
@@ -1118,7 +1182,7 @@ extend Game:
     // until the boss is down.
     pub fn spawn_boss(mut self: Self):
         let slot = if self.rules.boss_every > 0.0: (self.boss_index - 1) % 3 else: limit((self.boss_index - 1) as f64, 0.0, 2.0) as i32
-        let which = if self.boss_override >= 0: self.boss_override else: slot
+        let which = if self.slot_boss[slot] >= 0: self.slot_boss[slot] else: slot
         self.spawn_boss_of(which)
 
     // The named boss, now.
@@ -1177,6 +1241,8 @@ extend Game:
             }
             1 => if e.state == 3: 2.5 else: 0.5
             2 => if self.drones_alive() > 0: 0.08 else: 1.5
+            // The Keeper is soft from inside its sector only.
+            4 => if self.in_keeper_sector(self.player): 1.0 else: KEEPER_OUTSIDE_SCALE
             _ => 1.0
 
     pub fn spawn_null(mut self: Self):
@@ -2695,6 +2761,11 @@ extend Game:
                         enemy.timer -= dt
                         let shot_damage = (if enemy.boss == 0 or enemy.boss == 3: 2 else: 3) + self.endless_loop
                         match enemy.boss:
+                            4 => {
+                                self.enemies[e] = enemy
+                                velocity = self.step_keeper(e, dt)
+                                enemy = self.enemies[e]
+                            }
                             3 => {
                                 // The Lattice steps itself in place: write the
                                 // copy through, then read it back.

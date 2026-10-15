@@ -66,6 +66,12 @@ pub fn careful(g: &Game) -> Controls:
             core_target = i
     if core_target >= 0: push = add(push, scale(direction(sub(g.cores[core_target].pos, g.player)), if nearest < 40000.0: 0.3 else: 1.2))
     push = add(push, scale(sub(g.center(), g.player), 0.0007))
+    // The Keeper: stay in the light. Outside its sector the pull to the
+    // sector's middle line overrides most else; inside, a gentle hold.
+    if let Some((middle, angle, _)) = g.keeper_sector():
+        let goal = add(middle, V2 { x: cos(angle) * 220.0, y: sin(angle) * 220.0 })
+        let weight = if g.in_keeper_sector(g.player): 0.8 else: 5.0
+        push = add(push, scale(direction(sub(goal, g.player)), weight))
     let margin = 320.0
     let w = g.rules.arena_width
     let h = g.rules.arena_height
@@ -183,6 +189,9 @@ pub fn boss_run(start: Game, seconds: f64) -> List[Encounter]:
         if g.boss_alive and not fighting:
             fighting = true
             current = Encounter { boss: g.boss_index - 1, reached: true }
+            // The boss itself, not the slot: pools draw.
+            for i in 0..g.enemy_count:
+                if g.enemies[i].kind == .Boss and g.enemies[i].boss >= 0: current.boss = g.enemies[i].boss
             if let Some((hp, max_hp)) = g.boss_health():
                 hp_before = hp
                 current.max_hp = max_hp

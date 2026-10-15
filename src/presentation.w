@@ -1002,6 +1002,15 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         for k in [-60.0, 60.0]:
             let rad = (a + k) / 57.29578
             line(c, add(c, V2 { x: cos(rad) * 6000.0, y: sin(rad) * 6000.0 }), 2.0, red(0.5))
+    // The Keeper: everything outside its sector dims, the sector's edges glow.
+    if let Some((middle, angle, half)) = g.keeper_sector():
+        let c = to_screen(cam, middle)
+        let a = angle * 57.29578
+        let h = half * 57.29578
+        DrawRing(rv(c), 0.0, 6000.0, (a + h) as f32, (a + 360.0 - h) as f32, 64, rgba(40, 0, 20, 0.45))
+        for k in [-h, h]:
+            let rad = (a + k) / 57.29578
+            line(c, add(c, V2 { x: cos(rad) * 6000.0, y: sin(rad) * 6000.0 }), 2.0, red(0.5))
     // The derelict: a hollow hull, its objective's progress around it.
     if g.wreck_live and not g.wreck_done:
         let pos = to_screen(cam, g.wreck)
@@ -1454,6 +1463,7 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
                     0 => "ITS BACK IS ITS WEAKNESS"
                     1 => "STRIKE WHILE IT IS STUNNED"
                     3 => "THREAD THE GAPS"
+                    4 => "STAY IN THE LIGHT"
                     _ => "BREAK THE DRONES TO OPEN THE CORE"
                 hud_centered(g, hint, 360, 14, white(alpha * 0.8))
             }
@@ -1495,6 +1505,25 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
     let face = e.facing
     let side = perpendicular(face)
     match e.boss:
+        4 => {
+            // Keeper: a heavy hub of rings, a keyhole at its sector's middle;
+            // the tell: the next sector's edges flicker a quarter turn on.
+            let desperate = e.age > DESPERATION
+            DrawPolyLinesEx(rv(pos), 12, (radius * 1.15) as f32, (clock * 8.0) as f32, 3.0, color)
+            DrawPolyLinesEx(rv(pos), 12, (radius * 0.75) as f32, (-clock * 12.0) as f32, 2.0, paint_alpha(color, 0.7))
+            ring(pos, radius * 0.35, white(0.8))
+            let a = e.angle
+            let key = add(pos, V2 { x: cos(a) * radius * 0.95, y: sin(a) * radius * 0.95 })
+            circle(key, 6.0, white(1.0))
+            line(pos, key, 2.0, white(0.6))
+            if e.state == 1:
+                let flick = 0.5 + 0.5 * sin(clock * 24.0)
+                let half = if desperate: KEEPER_SECTOR_DESPERATE else: KEEPER_SECTOR
+                for k in [-half, half]:
+                    let rad = a + 1.5708 + k
+                    line(pos, add(pos, V2 { x: cos(rad) * 6000.0, y: sin(rad) * 6000.0 }), 2.0, red(0.25 + 0.45 * flick))
+            if desperate: ring(pos, radius * 1.4 + 4.0 * sin(clock * 20.0), red(0.5))
+        }
         3 => {
             // Lattice: a turning frame of struts, a bright node at each
             // corner; the frame turns faster at desperation. Telegraphs: the
@@ -1582,6 +1611,11 @@ fn draw_boss(g: &Game, e: Enemy, cam: Camera, pos: V2, radius: f64, clock: f64, 
 pub fn draw_boss_icon(index: i32, center: V2, radius: f64, clock: f64):
     let color = paint(Kind.Boss.tint(), 1.0)
     match index:
+        4 => {
+            DrawPolyLinesEx(rv(center), 12, radius as f32, (clock * 8.0) as f32, 2.4, color)
+            ring(center, radius * 0.35, white(0.8))
+            DrawRing(rv(center), (radius * 0.5) as f32, (radius * 0.9) as f32, (clock * 20.0 - 55.0) as f32, (clock * 20.0 + 55.0) as f32, 24, paint_alpha(color, 0.35))
+        }
         3 => {
             DrawPolyLinesEx(rv(center), 6, radius as f32, (clock * 25.0) as f32, 2.0, color)
             DrawPolyLinesEx(rv(center), 6, (radius * 0.55) as f32, (-clock * 37.0) as f32, 1.4, paint_alpha(color, 0.7))
