@@ -261,7 +261,7 @@ pub const SLOW_FACTOR: f64 = 0.5
 // How far a herding beam carries what it crosses, each crossing.
 pub const HERD_PUSH: f64 = 22.0
 pub type Core { pos: V2 = V2 {}, value: i32 = 1, age: f64 = 0.0 }
-pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache }
+pub enum PickupKind { | Tractor | Clear | Freeze | Repair | Credits | Bundle | Cache | Jackpot(rung: Rung) }
 impl Copy for PickupKind
 impl Eq for PickupKind
 extend PickupKind:
@@ -274,6 +274,7 @@ extend PickupKind:
             .Credits => "CREDIT"
             .Bundle => "BUNDLE"
             .Cache => "CACHE"
+            .Jackpot(r) => r.name()
 pub type Pickup { pos: V2 = V2 {}, kind: PickupKind = .Credits, age: f64 = 0.0 }
 pub type Beacon { pos: V2 = V2 {}, alive: bool = true, respawn: f64 = 0.0 }
 pub type Mine { pos: V2 = V2 {}, radius: f64 = 90.0, damage: i32 = 3, chains: bool = false, age: f64 = 0.0 }
@@ -309,7 +310,7 @@ pub fn combo_tier(combo: i32) -> i32:
 impl Copy for PopupKind
 pub type Popup { pos: V2 = V2 {}, life: f64 = 0.0, total: f64 = 0.9, kind: PopupKind = .Xp(value: 0) }
 // One centered banner at a time: the loudest moments name themselves.
-pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossName(boss: i32) | FirstKill(boss: i32) | BossDown | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) | Derelict }
+pub enum BannerKind { | Merge(weapon: Weapon) | Boss | BossName(boss: i32) | FirstKill(boss: i32, rung: Rung) | BossDown(rung: Rung) | Event(formation: Formation) | NewBest | Null | Cleared | Reboot | Endless(cycle: i32) | Derelict }
 impl Copy for BannerKind
 pub type Banner { kind: BannerKind = .Boss, life: f64 = 0.0, total: f64 = 2.0 }
 pub type Controls { motion: V2 = V2 {}, aim: V2 = V2 { x: 1.0, y: 0.0 } }
@@ -318,7 +319,20 @@ pub enum Phase { | Running | Boost | Over }
 impl Copy for Phase
 impl Eq for Phase
 
-pub enum BoostSource { | LevelUp | Cache }
+pub enum BoostSource { | LevelUp | Cache | Jackpot(rung: Rung) }
+
+// What a boss kill is worth, decided at the kill and named on the banner:
+// a ready merge, guaranteed; else a cache of what the build is missing;
+// else, with nothing left to find, a bounty.
+pub enum Rung { | MergeReady | Cache | Bounty }
+impl Copy for Rung
+impl Eq for Rung
+extend Rung:
+    pub fn name(self: &Self) -> str:
+        match self:
+            .MergeReady => "MERGE READY"
+            .Cache => "CACHE"
+            .Bounty => "BOUNTY"
 impl Copy for BoostSource
 impl Eq for BoostSource
 
@@ -371,7 +385,10 @@ pub type Game {
     combo: i32 = 0, best_combo: i32 = 0, combo_timer: f64 = 0.0,
     credits: i32 = 0, credit_energy: f64 = 0.0,
     rerolls: i32 = 0, skips: i32 = 0, banishes: i32 = 0, reboots: i32 = 0,
-    offers: [Offer; 4] = [Offer {}; 4], offer_count: i32 = 0,
+    offers: [Offer; 5] = [Offer {}; 5], offer_count: i32 = 0,
+    // A boss's jackpot collected and waiting for the boost; a bounty's
+    // promise that the next level offers five cards.
+    pending_jackpot: Option[Rung] = None, wide_boost: bool = false,
     boost_source: BoostSource = .LevelUp, pending_cache_items: i32 = 0, cache_reveal: f64 = 0.0,
     invulnerable: f64 = 0.0, muzzle: f64 = 0.0,
     trauma: f64 = 0.0, flash: f64 = 0.0, freeze: f64 = 0.0, kill_energy: f64 = 0.0,
@@ -1194,9 +1211,11 @@ extend Game:
                 // The reward: a full repair, credits, and for a first kill
                 // ever, a large one-time bonus and the record of it.
                 self.health = self.max_health
+                let rung = self.boss_rung()
                 if e.boss >= 0:
                     self.boss_kills[e.boss] += 1
-                    let bonus = 60 * (e.boss + 1)
+                    // A bounty doubles the credits.
+                    let bonus = 60 * (e.boss + 1) * (if rung == .Bounty: 2 else: 1)
                     self.credits += bonus
                     self.popup(add(e.pos, V2 { y: -40.0 }), .Credits(value: bonus))
                     let known = self.launch.bosses_known[e.boss]
@@ -1210,10 +1229,10 @@ extend Game:
                 self.flash = 0.8
                 self.trauma = 1.0
                 self.breather = self.rules.breather
-                self.drop_pickup(e.pos, PickupKind.Cache)
+                self.drop_pickup(e.pos, PickupKind.Jackpot(rung))
                 self.drop_pickup(add(e.pos, V2 { x: 90.0 }), PickupKind.Bundle)
-                if self.first_kill_event: self.show(.FirstKill(boss: e.boss), 3.0)
-                else: self.show(.BossDown, 2.0)
+                if self.first_kill_event: self.show(.FirstKill(boss: e.boss, rung), 3.0)
+                else: self.show(.BossDown(rung), 2.0)
                 // Every other enemy dies with it, cores and all.
                 var i = 0
                 while i < self.enemy_count:
@@ -1729,17 +1748,36 @@ extend Game:
         var pool = List.new()
         let all = self.build.candidates(self.level)
         let cache = self.boost_source == .Cache
-        for p in all:
-            let owned = match p:
-                .UpgradeWeapon(_) => true
-                .UpgradePassive(_) => true
-                .Merge(_) => true
-                _ => false
-            if not cache or owned: pool.push(p)
+        var jackpot = false
+        var merges_only = false
+        match self.boost_source:
+            .Jackpot(r) => {
+                jackpot = true
+                merges_only = r == .MergeReady
+            }
+            _ => ()
+        if merges_only:
+            for p in all:
+                if p.is_merge(): pool.push(p)
+        else if jackpot:
+            pool = self.jackpot_pool()
+        else:
+            for p in all:
+                let owned = match p:
+                    .UpgradeWeapon(_) => true
+                    .UpgradePassive(_) => true
+                    .Merge(_) => true
+                    _ => false
+                if not cache or owned: pool.push(p)
         // A cache with nothing owned left to upgrade falls back to any card.
         if pool.len() == 0:
             for p in all: pool.push(p)
-        let count = if self.mods.luck >= 0.3: 4 else: 3
+        // A bounty's promise: five cards at the next level, once.
+        var count = if self.mods.luck >= 0.3: 4 else: 3
+        if merges_only: count = if pool.len() > 5: 5 else: pool.len() as i32
+        else if self.boost_source == .LevelUp and self.wide_boost:
+            self.wide_boost = false
+            count = 5
         self.offer_count = 0
         // Every ready merge gets its own card, first: when an evolution and a
         // union share a component, the player chooses. Offering only the
@@ -1752,7 +1790,8 @@ extend Game:
         var weights = List.new()
         var total = 0.0
         for p in pool:
-            let w = self.offer_weight(p)
+            // In a jackpot the missing pieces lead the upgrades, three to one.
+            let w = if jackpot: (if self.build.is_piece(p): 3.0 else: 1.0) else: self.offer_weight(p)
             weights.push(w)
             total += w
         while self.offer_count < count and total > 0.0001:
@@ -1794,6 +1833,11 @@ extend Game:
             self.refresh_mods()
             if self.launch.ship == .Phase: self.invulnerable = self.mods.invuln_bonus
             self.open_boost(.LevelUp)
+            return
+        if let Some(rung) = self.pending_jackpot:
+            self.pending_jackpot = None
+            self.cache_reveal = 1.0
+            self.open_boost(.Jackpot(rung))
             return
         if self.pending_cache_items > 0:
             self.pending_cache_items -= 1
@@ -1839,6 +1883,40 @@ extend Game:
         self.banishes -= 1
         self.build.banish(self.offers[index].pick)
         self.roll_offers()
+
+    // Which rung a boss kill earns, read off the build at the kill.
+    pub fn boss_rung(self: &Self) -> Rung:
+        if self.launch.ship.can_merge() and self.build.ready_merges().len() > 0: return .MergeReady
+        if self.jackpot_pool().len() > 0: .Cache else: .Bounty
+
+    // What a jackpot cache draws from: upgrades to what the ship carries,
+    // and the pieces its recipes are missing.
+    fn jackpot_pool(self: &Self) -> List[Pick]:
+        var pool = List.new()
+        for p in self.build.candidates(self.level):
+            let keep = match p:
+                .UpgradeWeapon(_) => true
+                .UpgradePassive(_) => true
+                .Merge(_) => false
+                _ => self.build.is_piece(p)
+            if keep: pool.push(p)
+        pool
+
+    // A boss's jackpot, collected: a merge or a cache waits for the boost;
+    // a bounty is paid now, with the longest invulnerability the game gives
+    // (five seconds) and five cards at the next level.
+    pub fn open_jackpot(mut self: Self, rung: Rung):
+        self.cache_event = true
+        match rung:
+            .Bounty => {
+                self.invulnerable = 5.0
+                self.wide_boost = true
+                self.pulse(self.player, 220.0, .Gold)
+            }
+            _ => {
+                self.pending_jackpot = Some(rung)
+                if self.phase == .Running: self.resume()
+            }
 
     pub fn open_cache(mut self: Self):
         self.caches_opened += 1
@@ -2931,6 +3009,7 @@ extend Game:
                 self.popup(add(self.player, V2 { y: -20.0 }), .Credits(value: value))
             }
             .Cache => self.open_cache()
+            .Jackpot(rung) => self.open_jackpot(rung)
 
     pub fn tick(mut self: Self, input: Controls, dt: f64):
         self.effects(dt)

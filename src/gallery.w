@@ -120,8 +120,8 @@ fn main:
     // 4. Drops: cores, every pickup, a beacon.
     var drops = staged()
     drops.build.weapons[0].level = 0
-    let pickups = [PickupKind.Tractor, PickupKind.Clear, PickupKind.Freeze, PickupKind.Repair, PickupKind.Credits, PickupKind.Bundle, PickupKind.Cache]
-    for i in 0..7: drops.drop_pickup(add(drops.player, V2 { x: -390.0 + i as f64 * 130.0, y: -200.0 }), pickups[i])
+    let pickups = [PickupKind.Tractor, PickupKind.Clear, PickupKind.Freeze, PickupKind.Repair, PickupKind.Credits, PickupKind.Bundle, PickupKind.Cache, PickupKind.Jackpot(rung: .MergeReady)]
+    for i in 0..8: drops.drop_pickup(add(drops.player, V2 { x: -455.0 + i as f64 * 130.0, y: -200.0 }), pickups[i])
     for i in 0..24: drops.drop_core(add(drops.player, V2 { x: -300.0 + (i % 12) as f64 * 55.0, y: 140.0 + (i / 12) as f64 * 60.0 }), 1 + (i % 6) * 4)
     drops.beacons[0].pos = add(drops.player, V2 { x: 330.0, y: 40.0 })
     drops = step(drops, 0.3, right)

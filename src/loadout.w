@@ -483,7 +483,7 @@ pub fn weapon_stats(weapon: Weapon, merged_level: i32, mods: Mods) -> WeaponStat
             // Single-target damage against enemies that toughen from minute
             // two: steeper than the area weapons' curve, so aiming pays, and
             // no steeper, or the Claw runs away with the late game (targets.w).
-            s.damage = 3 + level
+            s.damage = 3 + level * 3 / 4
             s.count = 1 + step(level, 2, 3)
             s.speed = 940.0
             s.lifetime = 1.6
@@ -835,6 +835,28 @@ extend Build:
         if let Some(second) = r.second:
             if self.weapon_level(second) < MAX_WEAPON_LEVEL: return false
         self.passive_level(r.key) > 0
+
+    // A recipe piece the build is missing: the key of a weapon it carries,
+    // the second weapon of a union it has half of, or the weapon whose key
+    // it already holds.
+    pub fn is_piece(self: &Self, pick: Pick) -> bool:
+        for r in recipes():
+            if self.weapon_level(r.result) > 0: continue
+            let has_first = self.weapon_level(r.first) > 0
+            let has_key = self.passive_level(r.key) > 0
+            let has_second = match r.second:
+                Some(w) => self.weapon_level(w) > 0
+                None => true
+            match pick:
+                .NewPassive(p) => { if has_first and not has_key and p == r.key: return true }
+                .NewWeapon(w) => {
+                    if has_key and not has_first and w == r.first: return true
+                    if has_first and not has_second:
+                        if let Some(second) = r.second:
+                            if w == second: return true
+                }
+                _ => ()
+        false
 
     pub fn ready_merges(self: &Self) -> List[Weapon]:
         var out = List.new()

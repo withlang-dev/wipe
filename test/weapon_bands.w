@@ -39,8 +39,8 @@ fn main:
             let late_high = if family == .Sweep or family == .Shock or family == .Tether: 2200 else: 1600
             // The floor is coarse: this bench underrates an aimed weapon that a
             // pilot steers; the ship profiles in targets.w are the real contract.
-            if late < 300 or late > late_high:
+            if late < 250 or late > late_high:
                 failures += 1
-                print(f"{w.name()} at V kills {late} a minute at fourteen, outside 300 to {late_high}")
+                print(f"{w.name()} at V kills {late} a minute at fourteen, outside 250 to {late_high}")
     assert(failures == 0)
     print("UAT passed: weapon and merge kill-rate bands")

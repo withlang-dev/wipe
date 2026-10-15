@@ -793,6 +793,7 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         let pos = to_screen(cam, p.pos)
         let color = match p.kind:
             .Cache => gold(1.0)
+            .Jackpot(_) => gold(1.0)
             .Credits => gold(1.0)
             .Bundle => gold(1.0)
             .Repair => lime(1.0)
@@ -806,6 +807,16 @@ fn render_world(g: &Game, cam: Camera, clock: f64) -> Unit:
         ring(at, 22.0 + 2.0 * sin(clock * 3.0), paint_alpha(color, 0.22))
         circle(at, 18.0, ink(0.6))
         match p.kind:
+            .Jackpot(_) => {
+                // A boss's jackpot: the cache's box, larger, with a second
+                // ring of sparks.
+                DrawPolyLinesEx(rv(at), 4, 24.0, 45.0, 9.0, paint_alpha(color, 0.2))
+                DrawPolyLinesEx(rv(at), 4, 24.0, 45.0, 3.0, color)
+                DrawPolyLinesEx(rv(at), 4, 12.0, (clock * 120.0) as f32, 1.8, white(1.0))
+                for k in 0..8:
+                    let a = clock * 1.5 + k as f64 * 0.7854
+                    line(add(at, V2 { x: cos(a) * 30.0, y: sin(a) * 30.0 }), add(at, V2 { x: cos(a) * 40.0, y: sin(a) * 40.0 }), 1.6, gold(0.6))
+            }
             .Cache => {
                 DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 7.0, paint_alpha(color, 0.2))
                 DrawPolyLinesEx(rv(at), 4, 18.0, 45.0, 2.6, color)
@@ -1285,6 +1296,7 @@ fn edge_indicator(g: &Game, cam: Camera, target: V2, color: Color, size: f64, cl
 fn pickup_color(kind: PickupKind) -> Color:
     match kind:
         .Cache => gold(1.0)
+        .Jackpot(_) => gold(1.0)
         .Credits => gold(1.0)
         .Bundle => gold(1.0)
         .Repair => lime(1.0)
@@ -1444,12 +1456,16 @@ fn render_hud(g: &Game, hud: &Hud, clock: f64) -> Unit:
                     _ => "BREAK THE DRONES TO OPEN THE CORE"
                 hud_centered(g, hint, 360, 14, white(alpha * 0.8))
             }
-            .FirstKill(b) => {
+            .FirstKill(b, r) => {
                 hud_centered(g, "FIRST KILL", 270, 18, gold(alpha))
                 hud_centered(g, BOSS_NAMES[b].clone(), 292, 48, gold(alpha))
                 hud_centered(g, "ACHIEVEMENT UNLOCKED   BONUS CREDITS", 350, 14, white(alpha * 0.8))
+                hud_centered(g, r.name(), 372, 16, gold(alpha))
             }
-            .BossDown => hud_centered(g, "BOSS DOWN", 300, 44, gold(alpha))
+            .BossDown(r) => {
+                hud_centered(g, "BOSS DOWN", 300, 44, gold(alpha))
+                hud_centered(g, r.name(), 350, 16, white(alpha * 0.8))
+            }
             .Event(f) => {
                 let name = match f:
                     .Sweep => "SWEEP"
@@ -1743,7 +1759,9 @@ fn render_boost(g: &Game, cursor: i32, clock: f64, prompts: &Prompts):
     let title = match g.boost_source:
         .LevelUp => f"LEVEL {g.level - g.pending_levels}"
         .Cache => "CACHE"
-    centered(title, 96, 30, if g.boost_source == .Cache: gold(1.0) else: lime(1.0))
+        .Jackpot(r) => r.name()
+        .Jackpot(r) => r.name()
+    centered(title, 96, 30, if g.boost_source == .LevelUp: lime(1.0) else: gold(1.0))
     let slots = f"WEAPONS {g.build.weapon_count()}/{g.build.weapon_slots}     PASSIVES {g.build.passive_count()}/{PASSIVE_SLOTS}"
     centered(slots, 132, 12, white(0.6))
     if g.cache_reveal > 0.0:

@@ -756,6 +756,7 @@ extend App:
         let when = match self.game.boost_source:
             .LevelUp => f"L{self.game.level - self.game.pending_levels}"
             .Cache => "cache"
+            .Jackpot(r) => r.name()
         let entry = f"{when}:{offered}>{choice}"
         self.picks = if self.picks.len() == 0: entry else: self.picks ++ " " ++ entry
 

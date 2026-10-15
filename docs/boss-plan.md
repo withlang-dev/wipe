@@ -109,7 +109,7 @@ Decided at the kill, named on the banner, and worth more than the elites' cache:
 |---|---|---|
 | **MERGE READY** | any recipe is ready (a weapon at V and its key held) | the merge offer, guaranteed, as the boost card |
 | **CACHE** | no merge ready | a cache of three cards drawn from owned upgrades and missing recipe pieces (the key passive of any weapon at V, the weapon of any held key) |
-| **BOUNTY** | the build is full and nothing is missing | credits (the current bonus, doubled) and a run buff: ten seconds of invulnerability and the next level's cards at five choices |
+| **BOUNTY** | the build is full and nothing is missing | credits (the current bonus, doubled) and a run buff: five seconds of invulnerability (the game's cap) and the next level's cards at five choices |
 
 The full repair and the first-kill account bonus stay. The Null's reward is
 unchanged (the clear).
